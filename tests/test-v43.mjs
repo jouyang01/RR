@@ -1,0 +1,357 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const errors = [];
+page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+page.on("pageerror", e => errors.push(String(e)));
+await page.goto(new URL("../index.html", import.meta.url).href);
+await page.waitForTimeout(500);
+let pass = 0, fail = 0;
+const check = (n, c, x) => { console.log(n + ":", c ? "PASS" : "FAIL", x ?? ""); c ? pass++ : fail++; };
+const reset = () => page.evaluate(() => loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState()))))));
+
+// ==================== Part 3 — the housing reducers ====================
+await reset();
+const house = await page.evaluate(() => {
+  const sh = BUILDINGS.find(b => b.id === "shelter"), lh = BUILDINGS.find(b => b.id === "longhouse");
+  const at = ups => { S.upgrades = ups; return { s: +buildingRatio(sh).toFixed(4), l: +buildingRatio(lh).toFixed(4) }; };
+  const o = {
+    none: at({}),
+    ironwood: at({ ironwoodShelters: 1 }),
+    petricite: at({ ironwoodShelters: 1, petriciteFrames: 1 }),
+    hexcrete: at({ ironwoodShelters: 1, petriciteFrames: 1, hexcreteFrames: 1 }),
+    all4: at({ ironwoodShelters: 1, petriciteFrames: 1, hexcreteFrames: 1, voidwrightFrames: 1 }),
+    lhOne: at({ stonecutGuild: 1 }),
+    lhTwo: at({ stonecutGuild: 1, hexboundJoinery: 1 })
+  };
+  // Shelter #40, reduced and unreduced
+  S.upgrades = { ironwoodShelters: 1, petriciteFrames: 1, hexcreteFrames: 1, voidwrightFrames: 1 };
+  S.buildings = { shelter: 39 };
+  o.shelter40 = Math.round(buildingCost(sh).timber);
+  S.upgrades = {};
+  o.shelter40Raw = buildingCost(sh).timber;
+  S.buildings = {}; S.upgrades = {};
+  // the two new Shelter reducers and the new Longhouse one exist with the specced tech and cost
+  const u = id => UPGRADES.find(x => x.id === id);
+  o.hexcreteFrames = u("hexcreteFrames") && { tech: u("hexcreteFrames").tech, cost: u("hexcreteFrames").cost };
+  o.voidwrightFrames = u("voidwrightFrames") && { tech: u("voidwrightFrames").tech, cost: u("voidwrightFrames").cost };
+  o.hexboundJoinery = u("hexboundJoinery") && { tech: u("hexboundJoinery").tech };
+  return o;
+});
+check("the Shelter ratio ladder now moves in four steps, not two",
+  house.none.s === 2.2 && house.ironwood.s < house.none.s && house.petricite.s < house.ironwood.s &&
+  house.hexcrete.s < house.petricite.s && house.all4.s < house.hexcrete.s,
+  `${house.none.s} → ${house.ironwood.s} → ${house.petricite.s} → ${house.hexcrete.s} → ${house.all4.s}`);
+check("...and never reaches 1.0, through the DR primitive", house.all4.s > 1.0);
+check("Hexcrete Frames lands at Deep Works with the specced cost",
+  house.hexcreteFrames && house.hexcreteFrames.tech === "deepWorks" &&
+  house.hexcreteFrames.cost.hexcrete === 60 && house.hexcreteFrames.cost.scaffold === 120,
+  JSON.stringify(house.hexcreteFrames));
+check("Voidwright Frames lands at Icathia with the specced cost",
+  house.voidwrightFrames && house.voidwrightFrames.tech === "icathia" &&
+  house.voidwrightFrames.cost.voidglass === 12 && house.voidwrightFrames.cost.chronoshard === 6,
+  JSON.stringify(house.voidwrightFrames));
+// SUPERSEDED v0.45 Part 3. Kittens has no logHousePriceRatio and no mansionPriceRatio
+// anywhere in its source — only the hut, at a punitive 2.5 base, is ever discounted.
+// Both Longhouse reducers are deleted and re-pointed at the Storehouse (1.75 base).
+// Hexbound Joinery still exists and still reduces a ratio; it is just no longer this one.
+check("the Longhouse takes no reducer at all, as Kittens' logHouse takes none",
+  house.hexboundJoinery && house.none.l === house.lhOne.l && house.lhOne.l === house.lhTwo.l,
+  `${house.none.l} → ${house.lhOne.l} → ${house.lhTwo.l}`);
+// SUPERSEDED v0.45 Part 3. The ladder is re-derived to Kittens' own end-of-everything
+// hut floor of 1.3516 (RR: 1.355) instead of RR's old 1.15, so Shelter #40 is meant to
+// be EXPENSIVE — that is the point of the change. Kittens' floor exists to bring an
+// unusable ratio into the usable band, not to make housing cheap. The invariant worth
+// keeping is that the reducers still collapse a number that is otherwise absurd.
+check("Shelter #40 still collapses by orders of magnitude, to a floor that bites",
+  house.shelter40Raw / house.shelter40 > 1e6 && house.shelter40 > 5000,
+  `${house.shelter40} timber reduced vs ${house.shelter40Raw.toExponential(2)} unreduced`);
+
+// ==================== Part 1.3 — Renown on the storage curve ====================
+const renown = await page.evaluate(() => {
+  S.buildings = { hallOfHeroes: 20, trainingGround: 10 };
+  S.techs = { trade: 1, drakeLore: 1, voidStudies: 1 };
+  S.jobs = {}; S.pop = 0; S.wanderers = []; S.policies = {}; S.wtechs = {}; S.drakes = {};
+  S.champs = {}; S.leader = null; S.upgrades = {};
+  const bare = computeCaps().renown;
+  S.upgrades = { expandedStores: 1, ironboundStores: 1, hexRunedStores: 1, chemtechSilos: 1 };
+  const chemtech = computeCaps().renown;
+  S.upgrades.voidwardStores = 1;
+  const icathia = computeCaps().renown;
+  // vigor must stay exempt
+  const vBare = (() => { S.upgrades = {}; return computeCaps().vigor; })();
+  S.upgrades = { expandedStores: 1, ironboundStores: 1, hexRunedStores: 1, chemtechSilos: 1, voidwardStores: 1 };
+  const vMasonry = computeCaps().vigor;
+  S.buildings = {}; S.upgrades = {}; S.techs = {};
+  return { bare: Math.round(bare), chemtech: Math.round(chemtech), icathia: Math.round(icathia),
+           vigorExempt: Math.abs(vBare - vMasonry) < 1e-9 };
+});
+// v0.44 Part 2.2 supersedes the magnitude: Renown takes the SQUARE ROOT of Masonry.
+// The v0.43 measurement was that the full line reached 23,208 before Sparks and simply
+// outran the ladder, so the currency never gated anything. √Masonry keeps the ceiling
+// rising with the era without matching it one-for-one.
+check("Renown scales with the SQUARE ROOT of the Masonry line",
+  Math.abs(renown.chemtech / renown.bare - Math.sqrt(1.75 * 1.8 * 2 * 2)) < 0.02 &&
+  Math.abs(renown.icathia / renown.bare - Math.sqrt(1.75 * 1.8 * 2 * 2 * 1.75)) < 0.02,
+  `${renown.bare} bare → ${renown.chemtech} at Chemtech Silos → ${renown.icathia} at Voidward`);
+check("the Chemtech-era ceiling covers the tenth champion's 9,611 Renown", renown.chemtech > 9611, String(renown.chemtech));
+check("Vigor stays exempt — it is a transient flow, not a store", renown.vigorExempt);
+
+// ==================== Part 1.2 — the recruitment ladder ====================
+const recruit = await page.evaluate(() => {
+  S.champs = {}; S.upgrades = {}; S.buildings = {};
+  const ids = CHAMPS.map(c => c.id);
+  const ladder = [], cumulative = [];
+  let cum = 0;
+  for (let n = 0; n < 10; n++) {
+    const c = recruitCost(ids[n]);
+    ladder.push(c.renown); cum += c.renown; cumulative.push(cum);
+    S.champs[ids[n]] = { r: true, lvl: 0, xp: 0 };
+  }
+  // the signature material must NOT scale
+  S.champs = {};
+  const first = recruitCost("leona");
+  for (let n = 0; n < 9; n++) S.champs[ids[n]] = { r: true };
+  const tenth = recruitCost("leona");
+  const sigStable = Object.keys(first).filter(k => k !== "renown")
+    .every(k => first[k] === tenth[k]);
+  S.champs = {};
+  return { ladder, cumulative: cum, base: RECRUIT_BASE, ratio: RECRUIT_RATIO,
+           sigStable, firstSig: first, tenthSig: tenth };
+});
+// v0.44 Part 2.1 supersedes 1.6: the ladder is gentler at 1.5 BECAUSE the rungs no
+// longer do the gating alone — rungs 8-10 also demand Hexgear, Hextech Cores and
+// Hexcrete, which cannot exist before Era 3. See test-v44 for the gate itself.
+check("recruitment is a geometric ladder at 1.5, with the top gated on content",
+  recruit.base === 250 && recruit.ratio === 1.5, `${recruit.base} × ${recruit.ratio}^n`);
+check("the ten rungs match the spec's table exactly",
+  JSON.stringify(recruit.ladder) === JSON.stringify([250, 375, 563, 844, 1266, 1898, 2848, 4271, 6407, 9611]),
+  JSON.stringify(recruit.ladder));
+check("cumulative Renown to ten champions is 28,333", recruit.cumulative === 28333, String(recruit.cumulative));
+check("the signature material does NOT scale — only Renown carries the ladder",
+  recruit.sigStable, `${JSON.stringify(recruit.firstSig)} → ${JSON.stringify(recruit.tenthSig)}`);
+
+// ==================== Parts 1.4 / 1.5 — experience ====================
+const xp = await page.evaluate(() => {
+  const o = { leaderRate: CHAMP_XP_LEADER, benchRate: CHAMP_XP_BENCH };
+  o.thresholds = []; for (let l = 1; l <= 10; l++) o.thresholds.push(xpTotalFor(l));
+  S.champs = { jarvan: { r: true, lvl: 0, xp: 0 } }; S.leader = "jarvan";
+  S.buildings = {}; S.upgrades = {}; S.policies = {}; S.wanderers = [];
+  o.leadBare = +champXpRate("jarvan").toFixed(4);
+  S.buildings = { trainingGround: 1e7, hallOfHeroes: 1e7 };
+  o.leadCeiling = +champXpRate("jarvan").toFixed(4);
+  S.leader = null;
+  o.benchCeiling = +champXpRate("jarvan").toFixed(4);
+  // XP accrues, is cumulative, and is NEVER spent
+  S.buildings = {}; S.leader = "jarvan";
+  S.champs.jarvan.xp = 0;
+  tickChampXp(1000);
+  o.accrued = +S.champs.jarvan.xp.toFixed(2);
+  // bank past a threshold, then level — the overflow must survive
+  S.champs.jarvan.xp = xpTotalFor(3) + 500;
+  S.res.renown = 1e9; S.res.tome = 1e9; S.res.hexcore = 1e9;
+  const before = S.champs.jarvan.xp;
+  trainChamp("jarvan");
+  o.levelledOnce = champLevel("jarvan") === 1;
+  o.xpNotSpent = Math.abs(S.champs.jarvan.xp - before) < 1e-9;
+  // ...and can level repeatedly off the same bank
+  trainChamp("jarvan"); trainChamp("jarvan");
+  o.levelledThrice = champLevel("jarvan") === 3;
+  o.blockedAtFour = !canTrain("jarvan");   // xp banked was only enough for 3
+  // materials alone are not sufficient
+  S.champs.zilean = { r: true, lvl: 0, xp: 0 };
+  o.materialsAloneInsufficient = !canTrain("zilean");
+  S.champs = {}; S.leader = null; S.buildings = {};
+  ["renown", "tome", "hexcore"].forEach(r => S.res[r] = 0);
+  return o;
+});
+check("XP accrues at 0.15/s leading and 0.01/s benched", xp.leaderRate === 0.15 && xp.benchRate === 0.01);
+check("the two champion buildings finally do something for champions",
+  xp.leadBare === 0.15 && xp.leadCeiling > 0.29 && xp.leadCeiling <= 0.30 && xp.benchCeiling > 0.019,
+  `lead ${xp.leadBare} → ${xp.leadCeiling}, bench → ${xp.benchCeiling}`);
+check("the level thresholds match the spec's table", xp.thresholds[0] === 120 && Math.abs(xp.thresholds[9] - 69255) < 100,
+  `lvl1 ${xp.thresholds[0]}, lvl10 cumulative ${xp.thresholds[9]}`);
+check("XP is a lifetime cumulative total and is NEVER spent", xp.accrued === 150 && xp.xpNotSpent);
+check("banked overflow lets a champion level several times in a row",
+  xp.levelledOnce && xp.levelledThrice && xp.blockedAtFour);
+check("materials alone no longer level a champion — the XP gate is real", xp.materialsAloneInsufficient);
+
+// ==================== Part 1.6 — the card says so ====================
+const ui = await page.evaluate(() => {
+  loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
+  S.techs = { callToArms: 1, logistics: 1 };
+  S.champs = { jarvan: { r: true, lvl: 0, xp: 5000 } };   // banked well past level 1
+  S.leader = "jarvan";
+  S.res.renown = 0; S.res.tome = 0;
+  S.activeTab = "champions"; uiDirty = true; renderAll();
+  const h = document.getElementById("tab-content").innerHTML;
+  return {
+    // v0.49 (Jerry, champion edit 2): the label lost its "XP " prefix — the card is
+    // ~125px wide once the TRAIN and star chips take their float, and the prefix pushed
+    // the name onto a second line. Same property: progress against the next threshold.
+    showsXp: /data-champxp="\w+">[\d.KM]+\/[\d.KM]+</.test(h),
+    // v0.49 (Jerry, champion edit 2): the per-second rate and the leading/benched text
+    // are deliberately gone from the card — the card was three lines deep. XP now rides
+    // beside the name and ticks live, which is what this assertion checks instead.
+    showsRate: /data-champxp=/.test(h) && /class="champ-xp"/.test(h),
+    showsReadyLine: /Ready to train/.test(h),
+    namesWhatIsMissing: /more renown/i.test(h) || /more tomes/i.test(h),
+    // v0.49 (Jerry, champion edit 1): the class and the recruit index are both removed.
+    // Neither was actionable and both cost a line. Asserted ABSENT now.
+    showsRecruitIndex: !/champion #/.test(h) && !/\bAssassin\b|\bSupport\b/.test(h)
+  };
+});
+check("the card shows XP against the next threshold", ui.showsXp);
+check("...beside the name, on a node the live layer updates every tick", ui.showsRate);
+check("...and an explicit ready-to-train line naming what is still missing",
+  ui.showsReadyLine && ui.namesWhatIsMissing);
+check("the recruit card no longer lists the class or the rung", ui.showsRecruitIndex);
+
+// ==================== Part 0 + Jerry's directive 4 ====================
+const drift = await page.evaluate(() => {
+  const descs = SCHOLAR_LINE.map(([id, mult]) => ({ id, mult, desc: UPGRADES.find(u => u.id === id).desc }));
+  const mismatched = descs.filter(d => d.desc.indexOf("×" + d.mult) === -1).map(d => d.id);
+  // and the multipliers computeCaps actually applies
+  // v0.44 Part 2.5.2: knowledge left the line, so "the multiplier the code actually
+  // applies" is measured on culture — SCHOLAR_CAPS is the single source for both the
+  // prose and the maths, which is what makes this invariant hold through the move.
+  S.buildings = { archive: 40, bardsHearth: 5 }; S.techs = {}; S.upgrades = {}; S.res.tome = 0;
+  S.jobs = {}; S.pop = 0; S.wanderers = []; S.policies = {}; S.champs = {}; S.wtechs = {}; S.drakes = {}; S.leader = null;
+  const base = computeCaps().culture;
+  const applied = SCHOLAR_LINE.map(([id, mult]) => {
+    S.upgrades = {}; S.upgrades[id] = true;
+    return { id, mult, actual: +(computeCaps().culture / base).toFixed(4) };
+  });
+  S.upgrades = {}; S.buildings = {};
+  const wrong = applied.filter(a => Math.abs(a.actual - a.mult) > 1e-6).map(a => a.id);
+  // duplicate passives
+  const keys = CHAMPS.map(c => c.passive.key + ":" + c.passive.base);
+  return { mismatched, wrong, dupes: keys.filter((x, i) => keys.indexOf(x) !== i),
+           swain: CHAMPS.find(c => c.id === "swain").passive,
+           jarvan: CHAMPS.find(c => c.id === "jarvan").passive,
+           generated: /scholarDesc\(/.test(UPGRADES.find(u => u.id === "greatIndex").desc) === false &&
+                      typeof scholarDesc === "function" };
+});
+check("every Scholarship description states the multiplier the code actually applies",
+  drift.mismatched.length === 0 && drift.wrong.length === 0,
+  `desc mismatch: ${drift.mismatched.join(",") || "none"}; applied mismatch: ${drift.wrong.join(",") || "none"}`);
+check("...because the descriptions are GENERATED from the constants, not restated", drift.generated);
+check("no two champions share a passive any more (Jarvan and Swain both ran village +8%)",
+  drift.dupes.length === 0, drift.dupes.join(", "));
+check("Swain's passive now matches his Raven Ledger identity",
+  drift.swain.key === "knowledge" && drift.jarvan.key === "village",
+  `Swain ${drift.swain.key} +${drift.swain.base}%, Jarvan ${drift.jarvan.key} +${drift.jarvan.base}%`);
+
+// and Swain's new passive must actually reach production
+const swainWorks = await page.evaluate(() => {
+  S.buildings = {}; S.jobs = { loremaster: 10 }; S.pop = 10; S.wanderers = []; S.upgrades = {};
+  S.policies = {}; S.wtechs = {}; S.drakes = {}; S.leader = null; S.techs = { almanac: 1 };
+  if (typeof invalidateCensus === "function") invalidateCensus();
+  S.champs = {};
+  const before = computeRates().knowledge;
+  S.champs = { swain: { r: true, lvl: 0, xp: 0 } };
+  const after = computeRates().knowledge;
+  S.champs = {}; S.jobs = {}; S.pop = 0;
+  return after > before;
+});
+check("...and it actually reaches knowledge production", swainWorks);
+
+// ==================== regressions ====================
+await reset();
+const reg = await page.evaluate(() => {
+  const o = {};
+  o.ascentPure = !/cost|cooldown|Until/i.test(ascendTargon.toString());
+  S.res.devotion = 500; S.worship = 0; ascendTargon(); ascendTargon();
+  o.ascentBanks = S.worship === 500 && S.res.devotion === 0;
+  o.coreFns = ["tick", "computeRates", "computeCaps", "morale", "ascendTargon", "renderAll", "renderTop"]
+    .every(f => typeof window[f] === "function");
+  S.buildings = {}; BUILDINGS.forEach(b => S.buildings[b.id] = 3);
+  S.techs = {}; TECHS.forEach(t => S.techs[t.id] = true);
+  S.upgrades = {}; UPGRADES.forEach(u => S.upgrades[u.id] = true);
+  S.wtechs = {}; WTECHS.forEach(w => S.wtechs[w.id] = true);
+  S.champs = {}; CHAMPS.forEach(d => S.champs[d.id] = { r: true, lvl: 10, xp: 1e6 });
+  S.pop = 130; S.jobs = { farmer: 20, loremaster: 20, miner: 20, woodcutter: 20, acolyte: 20 };
+  if (typeof invalidateCensus === "function") invalidateCensus();
+  const caps = computeCaps(), rts = computeRates();
+  o.noNaNCaps = Object.values(caps).every(v => isFinite(v));
+  o.noNaNRates = Object.values(rts).every(v => isFinite(v));
+  o.badCaps = Object.entries(caps).filter(([, v]) => !isFinite(v)).map(([k]) => k).join(",");
+  o.badRates = Object.entries(rts).filter(([, v]) => !isFinite(v)).map(([k]) => k).join(",");
+  o.moraleFinite = isFinite(morale());
+  o.craftYieldLimit = CRAFT_YIELD_LIMIT === 2.2;
+  o.morelloClamped = /Math\.min\(\s*150 \* Math\.floor\(S\.res\.morellonomicon/.test(computeCaps.toString());
+  o.tradeV1 = FACTIONS.filter(f => {
+    const y = (f.primaryYield || []).concat(f.slots.map(s => s.res));
+    return Object.keys(f.cost).some(c => y.indexOf(c) !== -1);
+  }).map(f => f.id);
+  const all = FACTIONS.reduce((a, f) => a.concat(f.slots.map(s => s.res)), []);
+  o.tradeV2 = new Set(all).size === 15;
+  // SUPERSEDED v0.46 Part 6: stripe re-derived 20,000 -> 1,884 from a four-seed W₁.
+  o.stripe = /unlimitedDR\(S\.worship \|\| 0, 1000\)/.test(worshipBonus.toString());
+  const k = TECHS.filter(t => t.cost.knowledge).map(t => t.cost.knowledge).sort((a, b) => a - b);
+  const steps = []; for (let i = 1; i < k.length; i++) steps.push(k[i] / k[i - 1]);
+  // SUPERSEDED v0.46 Part 5: the re-skew restores Kittens' x3.33 calendar->agriculture step.
+  o.noStepOver3 = steps.every(x => x <= 3.35);
+  return o;
+});
+check("regression: Ascent is still free, cooldownless and bonusless", reg.ascentPure && reg.ascentBanks);
+check("regression: core function names unchanged", reg.coreFns);
+check("regression: no NaN caps with everything owned and every champion at 10", reg.noNaNCaps, reg.badCaps);
+check("regression: no NaN rates with everything owned", reg.noNaNRates, reg.badRates);
+check("regression: morale finite at 130 wanderers", reg.moraleFinite);
+check("regression: v0.42's craft ceiling and clamped compendium survive", reg.craftYieldLimit && reg.morelloClamped);
+check("regression: the trade invariants survive", reg.tradeV1.length === 0 && reg.tradeV2);
+check("regression: the measured Convergence stripe survives", reg.stripe);
+check("regression: no tech step above Kittens' own largest (×3.33)", reg.noStepOver3);
+
+const loop = await page.evaluate(() => {
+  const avgFrom = fn => {
+    const m = fn.toString().match(/\((\d+)\s*\+\s*Math\.floor\(Math\.random\(\)\s*\*\s*(\d+)\)\)/);
+    return m ? (+m[1] + (+m[1] + (+m[2] - 1))) / 2 : null;
+  };
+  const dem = FACTIONS.find(f => f.id === "demacia"), pil = FACTIONS.find(f => f.id === "piltover");
+  S.buildings = { tradeDock: 1e7, workshop: 1e7, hexgateBuilding: 1e7 };
+  S.caravans = { demacia: 1e7, piltover: 1e7 };
+  S.upgrades = { riverstoneTools: true, progressDayParade: true }; S.policies = {}; S.wanderers = []; S.champs = {};
+  POLICY_GROUPS.forEach(g => g.options.forEach(o => { if (/trade/i.test(o.id)) S.policies[g.id] = o.id; }));
+  CHAMPS.forEach(d => { S.champs[d.id] = { r: true, lvl: 10, xp: 1e6 }; });
+  S.leader = "twitch";
+  const maxM = tradeYieldMult("demacia");
+  const G = (avgFrom(dem.run) / dem.cost.timber) * (avgFrom(pil.run) / pil.cost.steel) *
+            (transmuteYield() / TRANSMUTE_COST) * maxM * maxM;
+  S.buildings = {}; S.caravans = {}; S.upgrades = {}; S.policies = {}; S.champs = {}; S.leader = null;
+  return { maxM: +maxM.toFixed(3), G: +G.toFixed(3) };
+});
+check("regression: the trade circuit still loses timber at the maximum stack",
+  loop.G < 0.8, `G = ${loop.G} at max M = ${loop.maxM}`);
+
+await reset();
+const rt = await page.evaluate(() => {
+  S.champs = { jarvan: { r: true, lvl: 4, xp: 12345 } };
+  S.upgrades.hexcreteFrames = true;
+  loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(S)))));
+  return S.champs.jarvan.xp === 12345 && S.champs.jarvan.lvl === 4 && S.upgrades.hexcreteFrames === true;
+});
+check("regression: saves round-trip champion XP and the new upgrades", rt);
+
+await reset();
+for (const tab of ["settlement", "crafting", "village", "lore", "wilds", "trade", "targon", "champions"]) {
+  await page.evaluate(t => {
+    S.techs = {}; TECHS.forEach(x => S.techs[x.id] = true);
+    S.upgrades = {}; UPGRADES.forEach(u => S.upgrades[u.id] = true);
+    S.wtechs = {}; WTECHS.forEach(w => S.wtechs[w.id] = true);
+    S.buildings = {}; BUILDINGS.forEach(b => S.buildings[b.id] = 2);
+    S.champs = {}; CHAMPS.forEach(d => S.champs[d.id] = { r: true, lvl: 5, xp: 40000 });
+    S.leader = CHAMPS[0].id;
+    S.caravans = {}; FACTIONS.forEach(f => { S.caravans[f.id] = 16; S.factionsFound[f.id] = true; });
+    S.pop = 20; syncRoster(); S.worship = 5000;
+    for (const r in RES) S.seenMax[r] = 999;
+    S.buildings.archive = Math.max(1, S.buildings.archive || 0); S.buildings.shelter = Math.max(1, S.buildings.shelter || 0); S.upgrades.keepingTheRolls = true; S.activeTab = t; uiDirty = true; renderAll();
+  }, tab);
+  await page.waitForTimeout(40);
+}
+check("all 8 tabs render with a fully levelled roster, no console errors", errors.length === 0, errors.slice(0, 3).join(" | "));
+
+console.log(`\n${pass} passed, ${fail} failed`);
+await browser.close();
+process.exit(fail ? 1 : 0);
