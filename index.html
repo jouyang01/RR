@@ -262,14 +262,23 @@ var SEASONS = [
 // which is why the x10 below touches provisions costs and caps and NOTHING ELSE: after it,
 // every resource in the game is at the source's scale.
 //
-// CONSUMPTION = 4, NOT 4.25, AND THE DISAGREEMENT IS ON THE RECORD (project practice, and
-// STANDING-RULINGS §16 asks for exactly this). The source is 4.250/s. Jerry's directive 7.2
-// says 4, and directives override the spec (HANDOFF §1), so 4 ships. The cost: the
-// farmer:eater ratio moves 1.17647 -> 1.250, a 6.2% RELAXATION of food pressure in a
-// directive whose stated goal is more pressure. 4.25 would have preserved the exact ratio the
-// game already had. Measured consequences in BUILD REPORT v0.55 §3.
+// CONSUMPTION IS 4.25 AGAIN — v0.56 Part 2, on Jerry's directive 2: "Consumption should
+// follow kitten's line." This closes a disagreement that ran a full round: v0.55's analyzer
+// asked for 4.25, Jerry's v0.55 directive said 4, directives override, and the builder shipped
+// 4 while recording that it was a 6.2% RELAXATION of food pressure inside a directive whose
+// stated purpose was more pressure. Jerry has now ruled the other way and the number goes to
+// the source's own figure.
+//
+//   js/village.js  catnipPerKitten: -0.85 /tick x 5 ticks/s = 4.250/s
+//   js/village.js  farmer modifiers { "catnip": 1 } /tick x 5 = 5.000/s
+//   ratio 4.25 / 5.00 = 0.850 -> 1.17647 farmers per eater. EXACT PARITY.
+//
+// This is not academic. Measured on the v0.55 build, the settlement already ran a food deficit
+// at two of four milestones and lived off stock: at Sparks gross 93.877/s - eat 100.378/s =
+// net -6.501/s, and at Hexcore gross 55.603/s - eat 117.440/s = net -61.837/s in Deepwinter.
+// A 6.25% rise in consumption against an economy already at a deficit is not a 6.25% effect.
 // ============================================================
-var CONSUMPTION = 4, OFFLINE_CAP_HOURS = 12;
+var CONSUMPTION = 4.25, OFFLINE_CAP_HOURS = 12;
 // The multiplier applied to every provisions COST and CAP in the same slice as the rate
 // change above. Without it, multiplying production and consumption by ten while every
 // provisions price stays fixed would make every provisions price one-tenth as expensive in

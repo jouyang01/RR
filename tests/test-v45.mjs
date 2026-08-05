@@ -343,14 +343,17 @@ check("miner 0.25 and jungler 0.30 unchanged — already at exact parity",
 //   (b) Jerry's directive then set CONSUMPTION to a flat 4, not 4.25. Directives override the
 //       spec, so 4 ships — but it is a 6.2% RELAXATION (farmer:eater 1.17647 -> 1.250) inside
 //       a change whose stated purpose was more food pressure. Reported in build report §7.
-// This assertion now pins the SHIPPED ratio of 0.80 and names the parity value it is not.
-// Superseded by: v0.55 Part 3.1 + Jerry's CONSUMPTION directive.
-check("consumption is 4/s against a 5/s farmer — ratio 0.80 (Kittens' catnipPerKitten ratio is 0.85 → 4.25)",
-  rates.consumption === 4 && Math.abs(rates.consumption / rates.farmer - 0.80) < 1e-9,
-  `${rates.consumption} vs farmer ${rates.farmer}`);
+// v0.56 Part 2 RE-POINT, and this is the disagreement CLOSING rather than another re-point:
+// Jerry's v0.56 directive 2 is "Consumption should follow kitten's line", which reverses his
+// v0.55 directive. The value returns to the source's own 4.250/s (`catnipPerKitten: -0.85`
+// per tick x 5 ticks/s) and the farmer:eater ratio returns to 1.17647 EXACTLY.
+// Superseded by: v0.56 Part 2.
+check("consumption is Kittens' own 4.25/s against a 5/s farmer — ratio 0.850, exact parity",
+  rates.consumption === 4.25 && Math.abs(rates.consumption / rates.farmer - 0.85) < 1e-9,
+  `${rates.consumption} vs farmer ${rates.farmer}; ${(rates.farmer / rates.consumption).toFixed(5)} farmers per eater vs source 1.17647`);
 check("the provisions rescale is a declared constant, not scattered literals",
   rates.scale === 10, `PROVISIONS_SCALE ${rates.scale}`);
-check("True Ice Cellars lands on 3.2 (0.32 × 10)", rates.cellars === 3.2, String(rates.cellars));
+check("True Ice Cellars lands on 3.4 (20% off 4.25)", rates.cellars === 3.4, String(rates.cellars));
 
 // ============================================================================
 // Part 6 — branches, not rungs
