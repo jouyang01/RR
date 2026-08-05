@@ -11,8 +11,8 @@ do not re-litigate) and the latest `docs/HANDOFF-v0.NN.md` (the map of the shipp
 |---|---|
 | Last shipped build | **v0.55**, tagged `v0.55` |
 | Last consumed spec | `docs/specs/rr-analyzer-v055-spec.md` (produced v0.55, THE PARITY ROUND) |
-| Current spec, awaiting a builder | **none — the cycle is at the analyzer** |
-| Live suites | **24 suites, 1,167 assertions, 0 failures** — re-run and confirmed 2026-08-05 |
+| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.56** |
+| Live suites | **24 suites — analyzer measures 1,166 passed, 1 failed** (`test-v32`, 4/4 runs; see below) |
 | Parity ledger | **188 rows — PARITY 50, EASIER 12, HARDER 2, UNVERIFIED 124** |
 | Era 3 | **660.6 game-years** (target 1,400–2,300). Parts 3–6 bought +213; Part 7 gave back −193.6. |
 
@@ -69,6 +69,67 @@ save/load only). RR's is `w.jx[w.j] += dt` — **1 xp per second worked, Challen
 hours of single-job work**. The rank *thresholds* are already close to source in shape and
 exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
 interim labelled UNVERIFIED — do not invent a citation.
+
+## v0.56 — the analyzer's verification pass
+
+**Everything BUILD REPORT v0.55 claims reproduces to the digit** on a fresh clone. Pacing
+(1,613.5 s wall): Rites y75.3 · Sparks y177.1 · Icathia y837.7 · Era 3 **660.6** · 130 wanderers
+**y1013** · peak pop 220 · morale band 67%, min 88 · Convergence 3.87% · camp ×5.8179 · median XP
+bank 176,750, top 1,335,491 · crystals at cap 94.2%. Code probe: `VERSION v0.55`,
+`PROVISIONS_SCALE 10`, `CONSUMPTION 4`, farmer 5.000, Farmstead 0.625 seasonal, Granary
+`provisions 100 + timber 10` @1.15 `eatCut 0.005` on `logistics`, `poroPasture` 1.75,
+`hunterLodge` absent, `petricite` 65,000 + 65 Morellonomica, `irrigation` on `smelting`,
+`XP_PER_SECOND 2`, `strictDR` 9.09/16.67/33.33/50/66.67/83.33/90.91%, camp ×5.9286 at Σ5.10,
+ladder 37/9/1.1111/1.2632/3.333, audits 0/0, ledger 188 rows / 50 / 12 / 2 / 124. All exact.
+
+### The one claim that does not reproduce — and it is not a flake
+
+BUILD REPORT §9 records `test-v32` as *"flaked once under contention… passed clean on an idle
+re-run… Not a defect."* **It fails 4 out of 4 runs here, on an idle box, with a varying value:
+4.980 / 4.980 / 4.960 / 4.980 against an expected 5.000.**
+
+**Root cause, instrumented to the line.** The `disc` block clears `S.upgrades`, `S.jobs` and
+`S.buildings` — **not `S.wanderers`** — then takes `base = campYieldMult()`. At that point the
+page holds **10 wanderers, one a Trailblazer**, so `traitBonus("trailblazer") = 0.005`,
+`base = 1.005`, and `5.005 / 1.005 = 4.980`. Two Trailblazers gives 4.960. With an empty roster
+the same probe returns **base 1.000, campLine exactly 5.000**. The trait roll is random, so the
+assertion passes only when the roster happens to hold zero Trailblazers — **HANDOFF §8.6's
+"re-run on an idle box" works by luck and has masked this for three rounds.**
+
+### Jerry's directive 1 explained rather than re-implemented
+
+*"Farmer's are not affected by seasonality."* **Seasonal farmers shipped and the code is
+correct** (`index.html:3515`, asserted at all four seasons). The one way a player sees otherwise
+is **Leona**: her lead floors `farmMult` at `Math.max(1, …)` (`:3410`), which does not soften
+Deepwinter — it **deletes** it, and the forecast UI hard-codes `winterFarm = 1` for her at
+`:5767`. **And v0.55 silently widened it**: extending `farmMult` to the job path means Leona now
+cancels the season for jobs too. v0.56 Part 3 bounds her to a 50% relief (winter ×0.25 → ×0.625)
+instead of nullification.
+
+### The skill increment: found, with its cap
+
+`js/village.js:2645–2651` carries the learning block —
+`kitten.skills[kitten.job] = Math.min(kitten.skills[kitten.job] + skillXP, skillsCap)`, with
+*"Engineers who don't craft don't learn"* — and **`:2622` is `var skillsCap = 20001;`**.
+**Kittens caps job skill; RR has no cap at all.** The scalar `skillXP` is still unresolved and
+no number was invented. The search method that worked is recorded in the spec's Part 1.4:
+grep.app's API with the repo filter URL-encoded.
+
+**But the cap is not the fix.** `rankOf()` already stops at Challenger, so banks above 11,500
+change no bonus. The measurement says the *rate* is the lever: **40 of 65 trade-ranks are already
+Challenger at Sparks (62%), 132 of 191 at Icathia**, top bank 116× the threshold. v0.56 ships
+`XP_PER_SECOND` 2 → **0.5** and `XP_CAP` **25,556** (Kittens' 20,001 ÷ 9,000 top tier × RR's
+11,500), for two different reasons.
+
+### Two more findings
+
+- **The drake rework is unmeasured.** The run kills at most 2 drakes of any type in 2,500 years,
+  and at 0–2 kills the old `limitedDR` was linear anyway — the range where `strictDR` differs has
+  never been observed in a run. Not a reason to revert; a reason to stop quoting it as a pacing
+  item.
+- **`1 farmers` at every milestone**, with net food **−6.501/s at Sparks** and **−61.837/s at
+  Hexcore**. The settlement banks instead of farming. Same shape as "1 tinkerer" — an instrument
+  statement before a game statement, and §16 says do not price around it.
 
 ## v0.55 SHIPPED — what the builder found, and what the next analysis owes
 
