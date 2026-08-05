@@ -3,6 +3,11 @@
 Standing status for the Analyzer cycle. Read alongside `STANDING-RULINGS.md` (closed rulings,
 do not re-litigate) and the latest `docs/HANDOFF-v0.NN.md` (the map of the shipped build).
 
+**Always-read tier**, at the start of every session before any other work: `rr-current-state.md`
+(in the claude.ai project), `current-build-spec.md` at the repo root, and
+`BUILDER_PROTOCOL.md` at the repo root (the two-tier verification cadence — cheap single-seed
+check per spec part, full multi-seed suite once at the end, never the full suite per part).
+
 ---
 
 ## Where the cycle is

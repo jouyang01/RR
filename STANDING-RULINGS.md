@@ -8,6 +8,10 @@ construction — read the ruling, cite it, and move on.
 Each entry states the ruling, the round that closed it, and the source document the
 wording comes from. Nothing here is reopened except by a new explicit ruling from Jerry.
 
+**This file is not the always-read tier.** That tier is `rr-current-state.md` (in the
+claude.ai project), `current-build-spec.md`, and `BUILDER_PROTOCOL.md` — read all three at
+the start of every session. This file is read before flagging anything as a violation.
+
 ---
 
 ## 1. Ascent is free, instant, uncapped, bonus-free — permanently

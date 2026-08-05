@@ -60,11 +60,14 @@ docs/                   The written record.
   gameplay-notes.md                              Raw playtest observations, untriaged.
 
 STANDING-RULINGS.md     Closed rulings. Read this before flagging anything as a violation.
+BUILDER_PROTOCOL.md     How a builder verifies a multi-part spec. Always-read tier.
+current-build-spec.md   The spec the current round is being built from. Always-read tier.
 README.md               This file.
 ```
 
-There is deliberately **no `current-build-spec.md`** in this tree. The first Analyzer cycle
-writes it after verifying v0.52.
+**The always-read tier.** Three documents are read at the start of every session, before any
+other work: `rr-current-state.md` (in the claude.ai project), `current-build-spec.md`, and
+`BUILDER_PROTOCOL.md`. `STANDING-RULINGS.md` is read before flagging anything as a violation.
 
 ---
 
@@ -107,7 +110,9 @@ spec item where the two disagree, and the build report records which items were 
 **3 — Builder.** A session that implements every item in the spec, runs the suites and the
 headless simulator, and writes a BUILD REPORT back — the round's full argument, with the
 measurements that justify each change, the assertions that were re-pointed and why, and the
-pass conditions that failed.
+pass conditions that failed. **Verification cadence is governed by
+[`BUILDER_PROTOCOL.md`](BUILDER_PROTOCOL.md)** — cheap single-seed check per part, full
+multi-seed suite once at the end, never the full suite per part.
 
 **4 — Jerry reviews the build.** The build ships, gets tagged, and the report and handoff go
 into `docs/`. The next Analyzer cycle starts from the tagged build.
