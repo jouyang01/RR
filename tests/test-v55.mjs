@@ -157,21 +157,33 @@ check("6 — the farmer is Kittens' own 5.000 provisions/s",
   food.farmer === 5 && /5 provisions\/s/.test(food.farmerDesc), String(food.farmer));
 check("6 — the Farmstead is Kittens' `field` at 0.625/s (catnipPerTickBase 0.125 × 5)",
   food.farmstead === 0.625 && food.farmsteadSeasonal, String(food.farmstead));
-// The spec asked for 4.25 (0.85 × 5, Kittens' catnipPerKitten ratio). Jerry's directive said 4.
-// Directives override, so 4 ships — and the ratio it produces is stated, as the condition
-// requires: 4/5 = 0.800 against the source's 0.850. That is a 6.2% RELAXATION of the farmer:
-// eater ratio (1.17647 -> 1.25000) inside a directive whose purpose was more food pressure.
-check("6 — CONSUMPTION is Jerry's 4, and the ratio it produces is 0.800 (source 0.850 → 4.25)",
-  food.consumption === 4 && Math.abs(food.ratio - 0.8) < 1e-9,
+// v0.55 asked for 4.25, Jerry's v0.55 directive said 4, directives override, and 4 shipped
+// with the 6.2% relaxation recorded. v0.56 Part 2 CLOSES that disagreement on Jerry's
+// directive 2 ("Consumption should follow kitten's line") and the value returns to source.
+// This is the one v0.55 assertion that was written expecting to be re-pointed.
+// Superseded by: v0.56 Part 2.
+check("6 — CONSUMPTION is Kittens' own 4.25, and the ratio is 0.850 — exact parity",
+  food.consumption === 4.25 && Math.abs(food.ratio - 0.85) < 1e-9,
   `${food.consumption}/${food.farmer} = ${food.ratio}; farmers per eater ${(1 / food.ratio).toFixed(5)} vs source 1.17647`);
 check("7 — the sweep is a declared constant, not scattered literals", food.scale === 10, `PROVISIONS_SCALE ${food.scale}`);
 // Every provisions quantity in the shipped file, enumerated. The sweep is asserted by the
 // SHAPE of the enumeration — nothing is left on the old scale — rather than by a spot check.
+// v0.56 RE-POINT: the two entries that are CAPS on food STORES — storehouse and harbor — are
+// no longer at 10x their v0.54 value, because Jerry's v0.56 provisions-cap directive repriced
+// them onto Kittens' own barn (catnipMax 5,000) and harbour (2,500) figures. The v0.55 x10
+// sweep is not undone: it is what made those two source figures transplantable in the first
+// place, by putting RR's food on Kittens' unit. What this assertion guards — that nothing was
+// LEFT BEHIND on the old tenth-scale — is unchanged and still holds for every other site.
+// Superseded by: v0.56 Part 5 + Jerry's provisions-cap directive.
 const OLD_SCALE_SITES = [
-  ["longhouse", 120], ["bardsHearth", 40], ["trainingGround", 50], ["storehouse", 750],
-  ["harbor", 1000], ["caravanserai", 300], ["pastureRotation", 800]
+  ["longhouse", 120], ["bardsHearth", 40], ["trainingGround", 50],
+  ["caravanserai", 300], ["pastureRotation", 800]
 ];
+const REPRICED_v56 = { storehouse: 5000, harbor: 2500 };
 const capsMap = Object.fromEntries(food.buildingCaps);
+check("7 — the two food stores are at Kittens' own barn/harbour figures, not the ×10 carry",
+  capsMap.storehouse === REPRICED_v56.storehouse && capsMap.harbor === REPRICED_v56.harbor,
+  `storehouse ${capsMap.storehouse}/5000, harbor ${capsMap.harbor}/2500`);
 check("7 — every provisions CAP moved ×10; not one is left on the old scale",
   OLD_SCALE_SITES.every(([id, old]) => capsMap[id] === undefined || capsMap[id] === old * 10),
   OLD_SCALE_SITES.map(([id, old]) => `${id} ${old}→${capsMap[id]}`).join(", "));
@@ -441,12 +453,18 @@ const xp = await page.evaluate(() => {
   o.hoursAfter = o.challengerAt ? +(o.challengerAt / (3600 * o.rate)).toFixed(2) : null;
   return o;
 });
-check("16 — the accrual rate is a named constant at 2/s, not a bare `dt`",
-  xp.rate === 2 && /var XP_PER_SECOND = 2;/.test(CODE) &&
-  /w\.jx\[w\.j\] = \(w\.jx\[w\.j\] \|\| 0\) \+ dt \* XP_PER_SECOND;/.test(CODE) &&
+// v0.56 Part 1 RE-POINT: the rate moves 2 -> 0.5 on Jerry's directive 3 ("Wanderer EXP gain
+// should be SLOWER than before"), which is slower than v0.55's 2 AND than v0.54's 1. The
+// value is read from the constant rather than pinned, because what v0.55 Part 7 was actually
+// about is that the rate IS a named constant with one place to reprice it -- pinning the
+// literal here would make this the third assertion in the project designed to fail on the
+// next release. Superseded by: v0.56 Part 1(a).
+check("16 — the accrual rate is a named constant, and it is slower than v0.54's 1/s",
+  xp.rate === 0.5 && /var XP_PER_SECOND = 0\.5;/.test(CODE) &&
+  /w\.jx\[w\.j\] = Math\.min\(\(w\.jx\[w\.j\] \|\| 0\) \+ dt \* XP_PER_SECOND, XP_CAP\);/.test(CODE) &&
   /w\.xp = \(w\.xp \|\| 0\) \+ dt \* XP_PER_SECOND;/.test(CODE), `XP_PER_SECOND ${xp.rate}`);
-check("16 — 20 virtual seconds of work banks 40 points into the worked trade",
-  Math.abs(xp.bankedIn20s - 40) < 1.5, `${xp.bankedIn20s} in 20 s`);
+check("16 — 20 virtual seconds of work banks 20 × the rate into the worked trade",
+  Math.abs(xp.bankedIn20s - 20 * xp.rate) < 1.5, `${xp.bankedIn20s} in 20 s at ${xp.rate}/s`);
 // The Kittens skill increment could NOT be located: `js/village.js` carries the rank table but
 // not the per-tick accrual, `js/game.js` and `js/core.js` both 404 from raw.githubusercontent,
 // the blob view and jsdelivr, and the wiki does not state a figure. Per the spec's own
@@ -462,18 +480,32 @@ check("16 — time-to-Challenger is reported before and after", xp.challengerAt 
 await reset();
 const undo = await page.evaluate(() => {
   const o = {};
+  // v0.56 Part 6 FIXTURE SWEEP: `syncRoster()` rolls a RANDOM trait per wanderer, and the
+  // Trailblazer is the eighth member of campYieldMult() (v0.55 Part 4), so the fur yield this
+  // block compares across four separate setups depended on how many Trailblazers each roll
+  // happened to produce. The first setup ran before Math.random was pinned and the later ones
+  // after it, so `wrongKind === best` was comparing two different rosters and passing by luck.
+  // Found by tools/fixture-sweep.mjs. The block is about the undo penalty, not about camp
+  // yield, so the roster's trait contribution is zeroed outright.
   const setup = () => {
     loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
     S.techs = { logistics: 1 }; S.pop = 5; S.wanderers = []; syncRoster();
+    S.wanderers.forEach(w => { w.t = "none"; });
     for (const r in S.res) S.res[r] = 0;
     S.res.vigor = 100000; S.res.furs = 0; S.upgrades = {}; S.champs = {}; S.policies = {};
-    S.buildings = {}; _traitCounts = null;
+    S.buildings = {}; S.drakes = {}; S.wtechs = {}; S.leader = null; _traitCounts = null;
   };
-  const hunt = () => { const b = S.res.furs; runExpedition("wolves"); return +(S.res.furs - b).toFixed(2); };
+  // v0.56 Part 6 FIXTURE SWEEP: camps bank CHARGES that regenerate against simNow(), and an
+  // empowered hunt pays CHARGE_BONUS. So the four hunts this block compares were only
+  // comparable while wall time did not move between them -- on a slower box, or with 300 ms of
+  // extra harness latency, the third hunt drew a regenerated charge and paid 63 against the
+  // first hunt's 57. The block is about the undo penalty; the charge state is reset before
+  // every hunt so all four are drawn under identical conditions.
+  const hunt = () => { S.campSlots = {}; const b = S.res.furs; runExpedition("wolves"); return +(S.res.furs - b).toFixed(2); };
   // the marker lives OUTSIDE S, which is the one thing that could silently do nothing:
   // doUndo() replaces S wholesale, so a flag inside S would be erased by the very act that sets it.
-  setup();
-  Math.random = () => 0.9999999;            // the best possible roll, every time
+  Math.random = () => 0.9999999;            // the best possible roll, every time -- pinned
+  setup();                                  // BEFORE the first setup, so all four match
   o.best = hunt();
   doUndo();
   o.afterUndo = hunt();                     // must be the FLOOR of the range, not the best
@@ -527,8 +559,13 @@ check("19 — CAMP_YIELD_LIMIT is still 6 and the comfort ceiling still 1.0",
   unchanged.campLimit === 6 && unchanged.luxLimit === 1.0);
 check("19 — auditCostGraph() and auditRawGraph() are both still zero",
   unchanged.cost === 0 && unchanged.raw === 0, `${unchanged.cost} / ${unchanged.raw}`);
-check("20 — VERSION is v0.55 and the footer is rendered from it",
-  unchanged.version === "v0.55" &&
+// v0.56 ship RE-POINT, and this is the THIRD time this project has made the same mistake:
+// a round's own suite may pin its literal version, but the moment the NEXT round ships that
+// pin becomes a check designed to fail. v0.53 did it, v0.54 fixed it, v0.54 did it again,
+// v0.55 fixed it — and v0.55's own suite then did it a third time. The shape is what this
+// assertion is for; the value is pinned in test-v56. Superseded by: v0.56 ship discipline.
+check("20 — VERSION is well-formed and the footer is rendered from it",
+  /^v\d+\.\d+$/.test(unchanged.version) &&
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1),
   unchanged.version);
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));

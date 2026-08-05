@@ -2309,7 +2309,57 @@ function policyGlobalBonus() {
 // alone because the spec says to keep the thresholds and because changing both would make
 // the rate change unmeasurable. It belongs in the ledger as parity debt.
 // ============================================================================
-var XP_PER_SECOND = 2;
+// ============================================================================
+// v0.56 PART 1 — THE RATE COMES DOWN, AND THE SOURCE'S CAP ARRIVES.
+//
+// Jerry, v0.56 directive 3: "Wanderer EXP gain should be SLOWER than before. If you can find
+// the Kittens' job exp rate, use that ratio, but if not, make it slower."
+//
+// v0.55 shipped 2/s as an UNVERIFIED interim and it cost -193.6 game-years of Era 3 -- the
+// round's largest single accelerant, filed as flavour. This is the follow-through.
+//
+// (a) THE RATE. 2 -> 0.5. Unambiguously slower than v0.55's 2 AND than v0.54's 1, so the
+//     directive is satisfied on either reading of "before". Sized from v0.55's own measured
+//     elasticity: 1 -> 2 cost 193.6 game-years, almost all of it on the late edge.
+//
+//       time to Challenger in ONE trade:  11,500 xp / 2 per s   = 1.60 real hours  (v0.55)
+//                                         11,500 xp / 0.5 per s = 6.39 real hours  (v0.56)
+//
+//     STILL UNVERIFIED. The scalar `skillXP` could not be located: it is a local computed
+//     between js/village.js:2623 and :2644 and no grep.app query shape returns its
+//     assignment. No number was invented -- 0.5 moves for a DIRECTIVE, not for a citation,
+//     and the parity ledger says so.
+//
+// (b) THE CAP, and this one IS sourced. js/village.js:2621-2622 and :2645-2651, verbatim:
+//
+//       var neuralNetworks = game.workshop.get("neuralNetworks").researched;
+//       var skillsCap = 20001;
+//       ...
+//       if (kitten.job != "engineer" || kitten.engineerSpeciality != null) {
+//           if (kitten.skills[kitten.job] < skillsCap){
+//               kitten.skills[kitten.job] = Math.min(kitten.skills[kitten.job] + skillXP, skillsCap);
+//           }
+//
+//     KITTENS CAPS JOB SKILL. RR had no cap at all, and it showed: the measured top bank at
+//     Icathia was 1,335,491 against a Challenger threshold of 11,500 -- 116x the top rank, in
+//     a number that changes no bonus above 11,500 because rankOf() already stops there.
+//
+//     Rank-matched by RATIO, which is the only way to port a cap between two different
+//     ladders: Kittens caps at 20,001 against a top tier beginning at 9,000, a ratio of
+//     2.22233. RR's Challenger is 11,500, so XP_CAP = round(11,500 x 20,001 / 9,000) = 25,556.
+//
+//     NOTE WHAT THE CAP DOES NOT DO. It is NOT the fix for the ranking system's dynamic range
+//     being spent in Era 2 -- the RATE is that lever. The cap is parity, and it is shipped as
+//     parity: it stops an unbounded number from growing, which matters for saves, for the
+//     Census sort and for anything a later round might want to build on `w.xp`.
+//
+// One sourced observation carried from v0.55 and still NOT acted on: RR asks 11,500 xp for
+// the same 0.1875 top bonus Kittens grants at 9,000 -- 27.8% more experience for the same
+// tier. Left alone because the spec says keep RANKS, and because moving the ladder and the
+// rate together would make neither measurable. It is parity debt and it is in the ledger.
+// ============================================================================
+var XP_PER_SECOND = 0.5;
+var XP_CAP = Math.round(11500 * 20001 / 9000);   // 25,556 — Kittens' 20,001 against its 9,000 top tier
 var RANKS = [
   { id: "bronze",      name: "Bronze",      xp: 0,     bonus: 0 },
   { id: "silver",      name: "Silver",      xp: 100,   bonus: 0.01 },
@@ -4337,7 +4387,13 @@ function step(dt, ticks) {
       if (!w.jx) w.jx = {};
       var top = RANKS[RANKS.length - 1].xp;
       var wasTop = (w.jx[w.j] || 0) >= top;
-      w.jx[w.j] = (w.jx[w.j] || 0) + dt * XP_PER_SECOND;
+      // v0.56 Part 1(b): clamped exactly as the source clamps it --
+      //   kitten.skills[kitten.job] = Math.min(kitten.skills[kitten.job] + skillXP, skillsCap)
+      // The per-trade bank is what rank reads, so that is what carries the cap. `w.xp` is the
+      // LIFETIME total across every trade and is deliberately NOT capped: Kittens' cap is
+      // per-skill, and RR's lifetime total is a different quantity that only the Census sorts
+      // on. Capping it too would silently merge two things the source keeps apart.
+      w.jx[w.j] = Math.min((w.jx[w.j] || 0) + dt * XP_PER_SECOND, XP_CAP);
       w.xp = (w.xp || 0) + dt * XP_PER_SECOND;
       if (!wasTop && w.jx[w.j] >= top) {
         var jn = JOBS.find(function (x) { return x.id === w.j; });
@@ -5123,9 +5179,15 @@ function loadFromString(str) {
   // who was idle at save time keeps `xp` as their lifetime total and starts every trade at
   // Bronze, which is the same thing the new rule would have said about them all along.
   (fresh.wanderers || []).forEach(function (w) {
-    if (w.jx) return;
-    w.jx = {};
-    if (w.j && w.xp > 0) w.jx[w.j] = w.xp;
+    if (!w.jx) {
+      w.jx = {};
+      if (w.j && w.xp > 0) w.jx[w.j] = w.xp;
+    }
+    // v0.56 Part 1(b): a v0.55 save can hold banks in the millions -- 1,335,491 was measured
+    // at Icathia -- because RR had no cap until now. They are clamped to XP_CAP on load. No
+    // rank changes: rankOf() already stopped at Challenger's 11,500, so every clamped bank was
+    // buying nothing. This is the migration, and it is why the cap is safe to add mid-project.
+    for (var jk in w.jx) if (w.jx[jk] > XP_CAP) w.jx[jk] = XP_CAP;
   });
   // v0.53 → v0.54, directive 16: Hex-Capacitors is renamed Resonance Coils and its effect
   // is reshaped. A player who owned it keeps it — the id carries across and the flag stays
