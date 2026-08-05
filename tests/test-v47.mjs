@@ -254,7 +254,16 @@ const off = await page.evaluate(() => {
   // Hold the RNG constant so this measures the REPLAY, not two different event streams.
   const realRand = Math.random; Math.random = function () { return 0.999999; };
   const N = Math.round(3600 * 1000 / TICK_MS);          // one game-hour
-  setup(); for (let i = 0; i < N; i++) tick();
+  // v0.54 RE-POINT: tick() reconciles against the wall clock now (the backgrounded-tab fix),
+  // so a tight loop against the real clock advances essentially no game time. Virtualise the
+  // clock and step it by TICK_MS per fire — which is what a 200 ms setInterval does, and a
+  // strictly more faithful live arm than the old loop.
+  setup();
+  const realDateNow = Date.now; let vnow = realDateNow();
+  Date.now = () => vnow;
+  liveLastMs = null; liveCarryMs = 0;
+  for (let i = 0; i < N; i++) { tick(); vnow += TICK_MS; }
+  Date.now = realDateNow; liveLastMs = null; liveCarryMs = 0;
   const live = { res: JSON.parse(JSON.stringify(S.res)), pop: S.pop, tick: S.tick };
   setup(); const rep = runCatchUp(Math.round(3600 * 1000 / DAY_MS), Date.now() - 3600 * 1000);
   const cu = { res: JSON.parse(JSON.stringify(S.res)), pop: S.pop, tick: S.tick };
@@ -291,7 +300,13 @@ const off = await page.evaluate(() => {
     worstPct: +(worst * 100).toFixed(4), wallMs: rep.wallMs,
     arrivalsHappen, seasonsTurn, starvationHappens, xpAccrues, capsHold,
     noDateNowInStep: !/Date\.now\(\)/.test(stepSrc),
-    sharesStep: /step\(TICK_MS \/ 1000, 1\)/.test(tick.toString()) && /step\(stepSeconds, CATCHUP_TICKS\)/.test(runCatchUp.toString()),
+    // v0.54 RE-POINT: tick() still calls step(TICK_MS / 1000, 1) — it now does so once per
+    // whole tick of REAL elapsed time rather than once per interval fire, and hands anything
+    // longer than LIVE_LOOP_MAX_TICKS to runCatchUp(). Both facts are asserted, because the
+    // claim this check exists to make is "there is ONE production path", and the new large-gap
+    // branch would be a second one if it did not route through the same replay.
+    sharesStep: /step\(TICK_MS \/ 1000, 1\)/.test(tick.toString()) && /step\(stepSeconds, CATCHUP_TICKS\)/.test(runCatchUp.toString()) &&
+                /runCatchUp\(days, /.test(tick.toString()),
     capHours: OFFLINE_CAP_HOURS, capYears: +OFFLINE_CAP_YEARS.toFixed(1), capDays: OFFLINE_CAP_DAYS,
     probConv: typeof probOver === "function" && Math.abs(probOver(0.1, 10) - (1 - Math.pow(0.9, 10))) < 1e-12
   };

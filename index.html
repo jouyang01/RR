@@ -3494,7 +3494,73 @@ var uiDirty = true;
 // without that conversion fires them 10x too rarely, which would be a worse bug than the
 // one this fixes.
 function probOver(pTick, ticks) { return ticks <= 1 ? pTick : 1 - Math.pow(1 - pTick, ticks); }
-function tick() { step(TICK_MS / 1000, 1); }
+
+// ============================================================
+// v0.54 — THE LIVE LOOP RECONCILES AGAINST THE WALL CLOCK.
+//
+// THE DEFECT (offline audit, defect 1). `tick()` was `step(TICK_MS / 1000, 1)` — a FIXED
+// 0.2 s, always, on the assumption that setInterval fired on time. Every browser throttles
+// setInterval in a background tab, typically to 1 Hz and harder after a few minutes.
+// MEASURED: ticks delivered at 1/second for 10 real seconds advanced 2,000 ms of game time
+// — TWENTY PER CENT of the real rate. applyOfflineProgress() could not rescue it, because
+// that only runs from loadFromString() and a backgrounded tab never reloads.
+//
+// The consequence was a perverse incentive: a player who CLOSED the tab got full credit up
+// to the 12-hour cap, and a player who left it open in a background window got a fifth of
+// that and was never told. Closing the game was the optimal play.
+//
+// THE FIX. Hold the real time of the last processed tick, and each fire convert the true
+// elapsed wall time into whole ticks, carrying the sub-tick remainder so nothing is lost to
+// rounding either way. Three regimes, and the first is the common one:
+//
+//   1 tick   — exactly the old call. A foreground tab is bit-identical to v0.53.
+//   2..25    — a short loop of live steps. Rendering and narration stay live; a stutter or
+//              a slow frame is repaid immediately.
+//   >25      — the PROVEN replay path, runCatchUp(), the same one the closed-tab route has
+//              used since v0.47 and which the audit measured as bit-identical to live play
+//              over a game-hour. simNow(), probOver() and step()'s multi-tick while loops
+//              have all been exercising exactly this since then.
+//
+// Clamped to the SAME OFFLINE_CAP_HOURS the closed-tab path uses, so the two routes cannot
+// disagree about how much time away is worth. A backwards clock jump (NTP, sleep/resume,
+// a user changing the system time) yields one ordinary tick rather than a negative dt.
+// ============================================================
+var LIVE_LOOP_MAX_TICKS = 25;              // 5 s of game time before the replay path takes over
+var liveLastMs = null;                     // realNow() of the last processed tick
+var liveCarryMs = 0;                       // sub-tick remainder, so rounding never loses time
+function tick() {
+  var now = realNow();
+  if (liveLastMs === null) liveLastMs = now - TICK_MS;   // first fire: exactly one tick due
+  var elapsed = now - liveLastMs;
+  liveLastMs = now;
+  if (!(elapsed > 0)) elapsed = TICK_MS;                 // clock went backwards; do not rewind the game
+  var capMs = OFFLINE_CAP_HOURS * 3600 * 1000;
+  var hitCap = elapsed > capMs;
+  if (hitCap) elapsed = capMs;
+  liveCarryMs += elapsed;
+  var ticks = Math.floor(liveCarryMs / TICK_MS);
+  liveCarryMs -= ticks * TICK_MS;
+  if (ticks <= 0) return;                                // early fire: the carry keeps the time
+  if (ticks === 1) { step(TICK_MS / 1000, 1); return; }  // the v0.53 path, unchanged
+  if (ticks <= LIVE_LOOP_MAX_TICKS) {
+    for (var i = 0; i < ticks; i++) step(TICK_MS / 1000, 1);
+    return;
+  }
+  // A real absence with the tab still open. Replay it the way the closed-tab path does, and
+  // TELL THE PLAYER — the old behaviour was to silently drop it.
+  var days = ticks / TICKS_PER_DAY;
+  var r = runCatchUp(days, now - ticks * TICK_MS);
+  reportCatchUp(r, hitCap, "The tab was in the background");
+  uiDirty = true;
+}
+// Some browsers do not merely throttle a hidden tab, they stop the interval entirely. The
+// reconciliation above cannot run if it is never called, so foregrounding triggers it once
+// directly. Cheap: if no time is owed, tick() returns after one ordinary step.
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) tick();
+  });
+}
 
 function step(dt, ticks) {
   var live = (ticks === 1);
@@ -4540,7 +4606,22 @@ function runCatchUp(days, fromMs) {
 
 // Replay in chunks, handing control back to the browser between them, so a player
 // returning after a week sees the game responding rather than a frozen tab.
+//
+// v0.54 (offline audit, defect 2). THIS FUNCTION WAS DEAD CODE. It was written in v0.47,
+// complete and correct, and never called from anywhere — applyOfflineProgress() called the
+// blocking runCatchUp(), and #catchup-banner sat in the DOM at line 214 and was never
+// shown. The v0.47 build report states the feature "ships chunked at ~500 game-days per
+// frame with a progress indicator"; that is not what shipped, and the claim was carried
+// unchallenged through the v0.52 handoff. MEASURED: a full 12-hour catch-up blocks the main
+// thread for 2,775 ms — 2.8 seconds of a frozen, blank-looking tab on the exact load where
+// a player is most likely to think something broke.
+//
+// It is wired up now, with one addition: BELOW `CHUNK_MIN_DAYS` it runs as a single
+// blocking pass and calls back synchronously. Chunking a 200 ms replay would buy nothing
+// and would make a synchronous boot path asynchronous for no reason.
+var CHUNK_MIN_DAYS = 2000;                 // ~1.1 real hours away, ~250 ms of wall
 function runCatchUpChunked(days, fromMs, onDone) {
+  if (days <= CHUNK_MIN_DAYS) { onDone(runCatchUp(days, fromMs)); return; }
   var perChunk = Math.max(1, Math.round(500 * TICKS_PER_DAY / CATCHUP_TICKS));
   var done = 0, acc = null, banner = document.getElementById("catchup-banner");
   if (banner) banner.style.display = "block";
@@ -4565,23 +4646,36 @@ function mergeCatchUp(a, b) {
     wallMs: a.wallMs + b.wallMs };
 }
 
-function applyOfflineProgress() {
-  if (!S.lastSaved) return;
-  var elapsedMs = realNow() - S.lastSaved;
-  var days = Math.floor(elapsedMs / DAY_MS);
-  if (days < 3) return;                                  // Kittens' own UI-lag guard
-  var capped = Math.min(days, OFFLINE_CAP_DAYS);
-  var hitCap = capped < days;
-  var r = runCatchUp(capped, S.lastSaved);
+// v0.54: the chronicle line is shared by BOTH catch-up routes — the closed tab and the
+// backgrounded one. They credit the same time through the same replay, so they should say
+// so in the same words; only the opening clause differs.
+function reportCatchUp(r, hitCap, prefix) {
   var top = Object.keys(r.gained).sort(function (a, b) { return r.gained[b] - r.gained[a]; }).slice(0, 4);
-  addLog("While you were away: " + r.years.toFixed(1) + " game-years passed" +
+  addLog(prefix + ": " + r.years.toFixed(1) + " game-years passed" +
     (r.seasons ? ", " + r.seasons + " season" + (r.seasons === 1 ? "" : "s") + " turned" : "") +
     (r.arrivals ? ", " + r.arrivals + " wanderer" + (r.arrivals === 1 ? "" : "s") + " arrived" : "") +
     (r.starved ? ", " + r.starved + " were lost to hunger" : "") +
     (top.length ? ". Gained " + top.map(function (k) { return fmt(r.gained[k]) + " " + RES[k].name.toLowerCase(); }).join(", ") : "") +
     "." + (hitCap ? " (You were away longer than the " + OFFLINE_CAP_HOURS + "-hour limit, so " +
       OFFLINE_CAP_HOURS + " hours were credited.)" : ""), "event");
-  uiDirty = true;
+}
+// `onDone` is optional and exists because the replay is now asynchronous above
+// CHUNK_MIN_DAYS. Boot does not pass one; anything that needs to observe the finished state
+// (a test, or a future UI that wants to act on the summary) does.
+function applyOfflineProgress(onDone) {
+  var finish = function (r) { if (onDone) onDone(r); };
+  if (!S.lastSaved) return finish(null);
+  var elapsedMs = realNow() - S.lastSaved;
+  var days = Math.floor(elapsedMs / DAY_MS);
+  if (days < 3) return finish(null);                     // Kittens' own UI-lag guard
+  var capped = Math.min(days, OFFLINE_CAP_DAYS);
+  var hitCap = capped < days;
+  runCatchUpChunked(capped, S.lastSaved, function (r) {
+    reportCatchUp(r, hitCap, "While you were away");
+    uiDirty = true;
+    renderAll(); renderLog();
+    finish(r);
+  });
 }
 function tryAutoload() {
   try {
