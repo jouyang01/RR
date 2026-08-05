@@ -277,12 +277,17 @@ const fac = await page.evaluate(() => {
   }
   o.allFound = factionsFoundCount() === FACTIONS.length;
   o.rounds = guard;
-  // cost escalates with each civilisation met
+  // v0.54 directive 3 RE-POINT: the cost is FLAT 500 vigor and does NOT escalate. The old
+  // costFn ran 200 x 1.6^(n-1) vigor PLUS 300 x 1.7^(n-1) provisions, so the fifth
+  // civilisation cost 1,311 vigor and 2,505 provisions — a wall in front of content the
+  // Trade tab had already told the player about. The assertion is inverted rather than
+  // deleted: a future round that re-adds an escalator has to come back here and say so.
   S.factionsFound = { demacia: true };
   const c1 = expCost(EXPEDITIONS.find(e => e.id === "scouting"));
   S.factionsFound = { demacia: 1, freljord: 1, bilgewater: 1, piltover: 1 };
   const c4 = expCost(EXPEDITIONS.find(e => e.id === "scouting"));
-  o.escalates = c4.vigor > c1.vigor * 3;
+  o.flat = c1.vigor === c4.vigor && !c1.provisions && !c4.provisions;
+  o.tab = EXPEDITIONS.find(e => e.id === "scouting").tab;
   o.c1 = c1; o.c4 = c4;
   S.factionsFound = { piltover: true, freljord: true, bilgewater: true, demacia: true, noxus: true };
   S.campSlots = {}; S.buildings = {};
@@ -291,7 +296,8 @@ const fac = await page.evaluate(() => {
 check("only the starter route is known at the start (v0.41: Demacia, not Piltover)", fac.startKnown.length === 1 && fac.startKnown[0] === "demacia", fac.startKnown.join(","));
 check("trading with an undiscovered faction is refused", fac.tradeBlocked);
 check("scouting parties eventually find everyone", fac.allFound, `${fac.rounds} attempts`);
-check("scouting cost escalates per civilisation", fac.escalates, JSON.stringify([fac.c1, fac.c4]));
+check("v0.54 directive 3 — scouting is a FLAT 500 vigor, no escalator, no provisions, and it lives in the Trade tab",
+  fac.flat && fac.c1.vigor === 500 && fac.tab === "trade", JSON.stringify([fac.c1, fac.c4, fac.tab]));
 
 // ============ TRADE PAYOUTS ============
 const pay = await page.evaluate(() => {

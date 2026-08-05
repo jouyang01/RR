@@ -377,8 +377,13 @@ check("J6 — ...and its COST is untouched at 175 furs (Kittens parity; only the
 // SHIP DISCIPLINE — the version, which STANDING-RULINGS §10 says must agree with the tag
 // ============================================================================
 const ver = await page.evaluate(() => (typeof VERSION !== "undefined" ? VERSION : null));
-check("ship — a VERSION constant exists and reads v0.53 (STANDING-RULINGS §10 required one; there was none)",
-  ver === "v0.53", String(ver));
+// v0.54 RE-POINT: this assertion pinned the literal "v0.53", which made it a check that
+// fails on every subsequent round by design — the thing it exists to prove is that a
+// VERSION constant EXISTS and that the footer is rendered from it, not what this round's
+// number happens to be. It now asserts the SHAPE and defers the value to the round's own
+// suite (test-v54 pins v0.54). Superseded by: v0.54 ship discipline.
+check("ship — a VERSION constant exists and is well-formed (STANDING-RULINGS §10 required one; there was none)",
+  typeof ver === "string" && /^v\d+\.\d+$/.test(ver), String(ver));
 check("ship — the footer is RENDERED from VERSION, so the two can never disagree again",
   /footer-note[^]{0,400}VERSION/.test(CODE) || /getElementById\("version-note"\)/.test(CODE));
 

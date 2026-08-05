@@ -76,11 +76,16 @@ check("Scholarship IV+V are ×1.89 on culture, and nothing on knowledge or mater
   Math.abs(p1a.knowledgeX - 1) < 1e-6 && Math.abs(p1a.cultureX - 1.89) < 0.01 && Math.abs(p1a.timberX - 1) < 1e-6,
   `k×${p1a.knowledgeX} c×${p1a.cultureX} timber×${p1a.timberX}`);
 // deliberate deviation, flagged to the analyzer
-const ladder = await page.evaluate(() => UPGRADES.filter(u => ["cataloguing", "crossReferencing", "greatIndex", "annotatedIndex", "livingLibrary"].includes(u.id)).map(u => u.tech));
+const LADDER_IDS = ["cataloguing", "crossReferencing", "greatIndex", "annotatedIndex", "livingLibrary"];
+const ladder = await page.evaluate(ids => ids.map(id => UPGRADES.find(u => u.id === id).tech), LADDER_IDS);
+// v0.54 directive 5: Scholarship I moved Songcraft -> Rites of Targon, where II already sat.
+// A tie is only legitimate if a `req` orders them, so the req is asserted beside the tier.
+const ladderReqs = await page.evaluate(ids => ids.map(id => UPGRADES.find(u => u.id === id).req || null), LADDER_IDS);
 // v0.41 §2.1(b) moves the Great Index one tier earlier still, sparks -> callToArms, so
 // pre-Sparks scholarMult is 5.6 rather than 2.8. Still monotonic.
-check("the Scholarship ladder is monotonic in tech order (Great Index now at Call to Arms)",
-  JSON.stringify(ladder) === JSON.stringify(["songcraft", "ritesOfTargon", "callToArms", "chemtech", "deepWorks"]), JSON.stringify(ladder));
+check("the Scholarship ladder is monotonic in tech order (v0.54 d5: I and II now TIE at Rites of Targon, ordered by req)",
+  JSON.stringify(ladder) === JSON.stringify(["ritesOfTargon", "ritesOfTargon", "callToArms", "chemtech", "deepWorks"]) &&
+  ladderReqs[1] === "cataloguing", JSON.stringify(ladder) + " reqs " + JSON.stringify(ladderReqs));
 // NOT changed this pass, on Jerry's explicit instruction
 const prices = await page.evaluate(() => {
   const t = id => TECHS.find(x => x.id === id).cost.knowledge;
@@ -123,7 +128,11 @@ check("Wolves, Gromp and Raptors pass the luxury flag; Krugs does not",
 // ============ Part 2.3 — the Wilds at a flat 100 Vigor ============
 const p23 = await page.evaluate(() => {
   const c = id => EXPEDITIONS.find(e => e.id === id).cost.vigor;
-  const y = id => EXPEDITIONS.find(e => e.id === id).yield;
+  // v0.54 directive 4 RE-POINT: an expedition's `yield` may now be a FUNCTION of state, so
+  // the Gromp line can stop advertising the stray poro to a player who has not researched
+  // Abyssal Cartography. Read it through the game's own expYield(), which is what both
+  // tooltip call sites use.
+  const y = id => expYield(EXPEDITIONS.find(e => e.id === id)).join(" · ");
   // average yield straight out of the run() source, at multiplier 1
   const avg = { wolves: (12 + 19) / 2, gromp: (10 + 23) / 2, raptors: (12 + 18) / 2 };
   const src = id => EXPEDITIONS.find(e => e.id === id).run.toString();
@@ -137,7 +146,9 @@ const p23 = await page.evaluate(() => {
     wolvesRange: /12 \+ Math\.floor\(Math\.random\(\) \* 8\)/.test(src("wolves")),
     grompRange: /10 \+ Math\.floor\(Math\.random\(\) \* 14\)/.test(src("gromp")),
     raptorRange: /12 \+ Math\.floor\(Math\.random\(\) \* 7\)/.test(src("raptors")),
-    strings: { wolves: y("wolves"), gromp: y("gromp"), raptors: y("raptors") }
+    strings: { wolves: y("wolves"), gromp: y("gromp"), raptors: y("raptors") },
+    grompWithAbyss: (function () { var had = S.techs.abyss; S.techs.abyss = true;
+                                   var v = y("gromp"); S.techs.abyss = had; return v; })()
   };
 });
 check("all three luxury camps cost exactly 100 Vigor, Krugs stays at 150",
@@ -150,6 +161,9 @@ check("per-unit vigor cost stays inside the 6.0–6.7 parity band",
 check("the three yield strings were updated to match",
   /12–19 furs/.test(p23.strings.wolves) && /10–23 mushrooms/.test(p23.strings.gromp) && /12–18/.test(p23.strings.raptors),
   JSON.stringify(p23.strings));
+check("v0.54 directive 4 — the Gromp line names the stray poro ONLY once Abyssal Cartography is in",
+  !/stray poro/.test(p23.strings.gromp) && /stray poro/.test(p23.grompWithAbyss),
+  `without: ${p23.strings.gromp}  |  with: ${p23.grompWithAbyss}`);
 check("a starting Vigor bar (100) now buys exactly one hunt", p23.costs.wolves === 100);
 
 // ============ Parts 2.1 + 2.2 — the morale rewrite ============

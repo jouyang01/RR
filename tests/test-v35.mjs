@@ -71,10 +71,21 @@ const ranks = await page.evaluate(() => {
   o.bonuses = RANKS.map(r => r.bonus);
   o.monotonic = RANKS.every((r, i) => i === 0 || (r.xp > RANKS[i - 1].xp && r.bonus > RANKS[i - 1].bonus));
   o.endpointPreserved = RANKS[RANKS.length - 1].bonus === 0.1875;   // Kittens' real top-tier value
-  const at = xp => rankOf({ xp }).id;
+  // v0.54 directive 8 RE-POINT: rank is per TRADE. rankOf/rankProgress read w.jx[job], so a
+  // probe has to name the job it is asking about. The thresholds and the curve are unchanged
+  // — only which number they are read from moved.
+  const at = xp => rankOf({ j: "farmer", jx: { farmer: xp } }).id;
   o.boundaries = [at(0), at(99), at(100), at(11499), at(11500), at(1e9)];
-  o.progressMid = Math.abs(rankProgress({ xp: 225 }) - 0.5) < 0.01;  // halfway Silver→Gold
-  o.progressTop = rankProgress({ xp: 1e9 }) === 1;
+  const prog = xp => rankProgress({ j: "farmer", jx: { farmer: xp } });
+  o.progressMid = Math.abs(prog(225) - 0.5) < 0.01;                  // halfway Silver→Gold
+  o.progressTop = prog(1e9) === 1;
+  // ...and the point of the directive: the SAME wanderer holds different ranks in different
+  // trades, and only the one they are working counts.
+  const w2 = { nm: "X", j: "miner", jx: { miner: 11500, jungler: 50 }, t: "none" };
+  o.perJob = rankOf(w2, "miner").id === "challenger" && rankOf(w2, "jungler").id === "bronze" &&
+             rankOf(w2).id === "challenger";                          // defaults to their trade
+  o.movingResets = (function () { var m = { nm: "Y", j: "jungler", jx: { miner: 11500 }, t: "none" };
+                                  return rankOf(m).id === "bronze"; })();
   return o;
 });
 check("nine League-rank tiers, Bronze → Challenger", ranks.nine === 9 && ranks.topIsChallenger && ranks.names[0] === "Bronze", ranks.names.join(" → "));
@@ -82,6 +93,10 @@ check("thresholds and bonuses both climb monotonically", ranks.monotonic, JSON.s
 check("top tier preserves Kittens' real 18.75% endpoint", ranks.endpointPreserved);
 check("rank boundaries resolve correctly", JSON.stringify(ranks.boundaries) === JSON.stringify(["bronze", "bronze", "silver", "grandmaster", "challenger", "challenger"]), JSON.stringify(ranks.boundaries));
 check("XP progress bar fills between ranks and caps at the top", ranks.progressMid && ranks.progressTop);
+check("v0.54 directive 8 — one wanderer, a different rank in each trade, and only the worked one counts",
+  ranks.perJob, JSON.stringify(ranks.perJob));
+check("v0.54 directive 8 — moving a Challenger to a new trade starts them at Bronze in it",
+  ranks.movingResets);
 
 // ============ XP accrual and its production effect ============
 const xp = await page.evaluate(() => {
@@ -89,14 +104,25 @@ const xp = await page.evaluate(() => {
   S.pop = 4; S.jobs = {}; S.wanderers = []; syncRoster();
   assignJob("farmer", 1); assignJob("farmer", 1);
   const before = S.wanderers.map(w => w.xp || 0);
-  for (let i = 0; i < 50; i++) tick();          // 50 ticks = 10s
-  const after = S.wanderers.map(w => w.xp || 0);
-  o.workersGain = S.wanderers.filter(w => w.j).every((w, i) => w.xp > 0);
-  o.idleDoNot = S.wanderers.filter(w => !w.j).every(w => (w.xp || 0) === 0);
-  o.rate = Math.abs(S.wanderers.filter(w => w.j)[0].xp - 10) < 1.5;   // ~1 XP/s
+  // v0.54 RE-POINT: tick() now reconciles against the wall clock (the backgrounded-tab fix),
+  // so driving it in a tight loop against the real clock advances no game time at all. The
+  // clock is virtualised and stepped by TICK_MS per fire, which is what a 200 ms interval
+  // does — a strictly more faithful live arm than the old loop, which only worked because
+  // tick() ignored the clock.
+  const realDateNow = Date.now; let vnow = realDateNow();
+  Date.now = () => vnow;
+  liveLastMs = null; liveCarryMs = 0;
+  for (let i = 0; i < 50; i++) { tick(); vnow += TICK_MS; }   // 50 ticks = 10s
+  Date.now = realDateNow; liveLastMs = null; liveCarryMs = 0;
+  // v0.54 directive 8 RE-POINT: experience banks into w.jx[job]. w.xp survives as the
+  // lifetime total across trades and is asserted alongside, because the Census sorts on it.
+  o.workersGain = S.wanderers.filter(w => w.j).every(w => (w.jx[w.j] || 0) > 0 && w.xp > 0);
+  o.idleDoNot = S.wanderers.filter(w => !w.j).every(w => (w.xp || 0) === 0 &&
+    Object.keys(w.jx || {}).length === 0);
+  o.rate = Math.abs(S.wanderers.filter(w => w.j)[0].jx[S.wanderers.filter(w => w.j)[0].j] - 10) < 1.5;   // ~1 XP/s
   // a ranked worker produces more
   S.pop = 2; S.jobs = { farmer: 2 }; S.wanderers = [
-    { nm: "A", j: "farmer", xp: 0, t: "none" }, { nm: "B", j: "farmer", xp: 0, t: "none" }];
+    { nm: "A", j: "farmer", xp: 0, jx: {}, t: "none" }, { nm: "B", j: "farmer", xp: 0, jx: {}, t: "none" }];
   invalidateCensus();
   S.buildings = {}; S.upgrades = {}; S.policies = {}; S.champs = {}; S.drakes = {}; S.wtechs = {};
   // read the Farmer line straight out of the breakdown, so consumption can't skew it
@@ -106,13 +132,13 @@ const xp = await page.evaluate(() => {
     return { prod: f, bd: bd };
   };
   const bronze = farmerProd();
-  S.wanderers.forEach(w => { w.xp = 11500; });
+  S.wanderers.forEach(w => { w.xp = 11500; w.jx = { farmer: 11500 }; });
   const challenger = farmerProd();
   o.skillLifts = challenger.prod > bronze.prod;
   o.skillExact = Math.abs(challenger.prod / bronze.prod - 1.1875) < 0.0001;
   o.breakdownMentionsSkill = (challenger.bd._bd || []).some(e => /skill \+19%/.test(e.label));
   // mixed ranks average, they do not sum
-  S.wanderers[1].xp = 0;
+  S.wanderers[1].xp = 0; S.wanderers[1].jx = { farmer: 0 };
   o.averages = Math.abs(farmerProd().prod / bronze.prod - 1.09375) < 0.0001;
   S.pop = 0; S.jobs = {}; S.wanderers = []; syncRoster();
   return o;

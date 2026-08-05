@@ -61,8 +61,8 @@ check("the Observatory costs Scaffold, exactly as Kittens' observatory does",
   s21.obsCost.ore === 750 && s21.obsCost.knowledge === 1000 && s21.obsCost.stoneSlab === 35 &&
   s21.obsCost.scaffold === 50 && s21.obsCost.beam === undefined, JSON.stringify(s21.obsCost));
 check("its effect and ratio are untouched", s21.obsBoost === 0.25 && Math.abs(s21.obsRatio - 1.10) < 1e-9);
-check("The Great Index moves to Call to Arms, and the ladder stays monotonic",
-  JSON.stringify(s21.ladder) === JSON.stringify(["songcraft", "ritesOfTargon", "callToArms", "chemtech", "deepWorks"]),
+check("The Great Index moves to Call to Arms, and the ladder stays monotonic (v0.54 d5: I joins II at Rites of Targon, ordered by req)",
+  JSON.stringify(s21.ladder) === JSON.stringify(["ritesOfTargon", "ritesOfTargon", "callToArms", "chemtech", "deepWorks"]),
   JSON.stringify(s21.ladder));
 // v0.42 Part 2b supersedes the magnitude: the Scholarship line drops from x22.4 to
 // x3.99 because Kittens has NO multiplicative science-cap line at all, and x22.4 meant

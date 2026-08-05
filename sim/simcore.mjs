@@ -101,7 +101,7 @@ export async function runSim(page, years, seed = 1) {
       (S.wanderers || []).forEach(w => {
         if (!w.j) return;
         const e = jobSkill[w.j] || (jobSkill[w.j] = { sum: 0, n: 0 });
-        e.sum += 1 + rankOf(w).bonus; e.n++;
+        e.sum += 1 + rankOf(w, w.j).bonus; e.n++;   // v0.54 directive 8: rank is PER JOB
       });
       const skillMult = id => { const e = jobSkill[id]; return e && e.n ? e.sum / e.n : 1; };
       let monumentSum = 0;
@@ -621,7 +621,8 @@ export async function runSim(page, years, seed = 1) {
       });
       for (const f of FACTIONS) {
         if (!tradeOpen(f.id)) continue;
-        if (fatigueMult(f.id) < 0.6) continue;               // wait out weariness
+        // v0.54 directive 10: merchant fatigue is deleted, so there is no weariness to wait
+        // out and the bot no longer sits on a route it can afford.
         // v0.46 Part 3: trades now cost gold AND vigor, and tradeCost() applies the two
         // subtractive discounts. Reading f.cost here would let the bot attempt trades it
         // cannot pay for and under-count the gate's effect.

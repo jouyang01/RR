@@ -228,7 +228,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.53";
+var VERSION = "v0.54";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -414,7 +414,16 @@ var BUILDINGS = [
     crowdRelief: 0.0115 },
   { id: "poroPasture", name: "Poro Pasture", group: "Village",
     lore: "Built by poros, for poros, out of poros. Nobody asks how.", effect: "Poros, slowly. Their company makes a meal go further, so the settlement eats less.",
-    cost: { poros: 5 }, ratio: 1.15, prod: { poros: 0.001 },
+    // v0.54, DEV DIRECTIVE 13. Kittens' unicornPasture carries `unicornsPerTickBase: 0.001`
+    // (js/buildings.js, verified from source this round) and Kittens ticks 5/s, so the source
+    // rate is 0.005 PER SECOND. RR had 0.001/s — the per-TICK figure transliterated as if it
+    // were per-second, which is the same class of error v0.45 Part 4 fixed across every
+    // worker rate. Five times too slow, for four rounds.
+    //   TWO REMAINING DIVERGENCES, reported rather than silently changed: the source prices
+    //   the pasture at `unicorns 2` on priceRatio 1.75 where RR asks `poros 5` at 1.15, and
+    //   the source's catnipDemandRatio is -0.0015 against RR's eatCut 0.003. Directive 13 is
+    //   about production; those two are for the analyzer.
+    cost: { poros: 5 }, ratio: 1.15, prod: { poros: 0.005 },
     unlock: function (s) { return s.seenMax.poros >= 1; },
     eatCut: 0.003, eatCutLimit: 0.5 },
   // v0.52 Part 2.3: the Tavern is DELETED. Its overcrowding relief moved onto the Bard's
@@ -774,7 +783,12 @@ var JOBS = [
   { id: "arcanist",   name: "Arcanist",   desc: "+0.35 mana/s", prod: { mana: 0.35 }, unlock: function (s) { return count("manaWell") >= 3; } },
   { id: "jungler",    name: "Jungler",    desc: "+0.30 vigor/s, camp yields +5% each (many hands make the routes)", prod: { vigor: 0.30 }, tech: "logistics" },
   { id: "miner",      name: "Miner",      desc: "+0.25 ore/s, +0.008 gold/s", prod: { ore: 0.25, gold: 0.008 }, tech: "mining" },
-  { id: "tinkerer",   name: "Tinkerer",   desc: "+0.015 crystals/s", prod: { crystals: 0.015 }, unlock: function (s) { return count("refinery") >= 1; } },
+  // v0.54, DEV DIRECTIVE 15. Unlocked by Hextech Theory, not by owning a Refinery. The job
+  // produces crystals directly and does not depend on the building in any way; gating it on
+  // the building meant a player who researched the crystal tech and then spent their gold on
+  // something else had a crystal economy they could see and not staff. Every other job in
+  // this list is gated on a TECH.
+  { id: "tinkerer",   name: "Tinkerer",   desc: "+0.015 crystals/s", prod: { crystals: 0.015 }, unlock: function (s) { return !!s.techs.hextech; } },
   // v0.47 Part 2: `max:` REMOVED. Kittens has no structure that raises the priest count —
   // priests compete for population like every other job, and that competition is the only
   // thing keeping Kittens' faith income roughly flat across a playthrough.
@@ -977,7 +991,9 @@ var CHAMPS = [
     skill: "Zenith Blade — the sun does not miss" },
   { id: "twitch", name: "Twitch", cls: "Marksman", cost: { renown: 400, mushrooms: 90 },
     passive: { key: "caravan", base: 12, desc: "Contraband: caravan yields +12%" },
-    lead: "Spray and Pray — caravans ignore merchant fatigue entirely",
+    // v0.54 directive 11: fatigue is deleted, so "ignore merchant fatigue" was a lead that did
+    // nothing at all. Twitch's contraband now shows up as cargo rather than as an exemption.
+    lead: "Spray and Pray — every cargo slot on every route is +15% likelier to land",
     flavor: "Smells worse than the deal he's offering. The deal is good though.",
     skill: "Spray and Pray — somehow everything falls off the wagon into your ledger" },
   { id: "jarvan", name: "Jarvan IV", cls: "Fighter", cost: { renown: 380, steel: 300 },
@@ -987,7 +1003,8 @@ var CHAMPS = [
     skill: "Cataclysm — walls rise where he plants his standard" },
   { id: "caitlyn", name: "Caitlyn", cls: "Marksman", cost: { renown: 500, gold: 500 },
     passive: { key: "gold", base: 15, desc: "Sheriff's Eye: gold production +15%" },
-    lead: "Ace in the Hole — every caravan also earns +3 Renown, and merchant fatigue recovers twice as fast",
+    // v0.54 directive 11 — reworked; merchant fatigue no longer exists (directive 10).
+    lead: "Ace in the Hole — every caravan earns +5 Renown, every cargo slot opens five caravans early, and every slot is +10% likelier to land",
     flavor: "The paperwork is always in order. Always.",
     skill: "Ace in the Hole — one perfect shot, ledgers balanced" },
   { id: "swain", name: "Swain", cls: "Mage", cost: { renown: 380, culture: 700 },
@@ -1520,7 +1537,13 @@ var UPGRADES = [
   { id: "ironwoodShelters", name: "Ironwood Shelters", cost: { timber: 400, steel: 30 }, tech: "smelting",
     lore: "Ironwood does not rot, and does not argue about it.",
     effect: ratioEffect("shelter", "ironwoodShelters")},
-  { id: "trueIceCellars", name: "True Ice Cellars", cost: { gold: 200, crystals: 10 }, tech: "trade",
+  // v0.54, DEV DIRECTIVE 1. The crystals are GONE. `crystals` becomes a visible ROW at
+  // Expedition Logistics (500), but nothing PRODUCES one until Hextech Theory (2,200) and a
+  // Hextech Refinery on top of it — so a Trade-rank Discovery priced in them was payable
+  // only by the Jayce milestone handout, which is directive 2's problem and not a design.
+  // Gold 200 -> 300 so the Discovery still costs something real at its own rank; gold is
+  // what the Trade rung is denominated in and the player has a route to it.
+  { id: "trueIceCellars", name: "True Ice Cellars", cost: { gold: 300 }, tech: "trade",
     lore: "True Ice keeps a cellar honest through a Freljord summer.",
     effect: "Wanderers eat 20% less."},
   { id: "reinforcedStorehouses", name: "Reinforced Storehouses", cost: { gear: 10, timber: 300 }, tech: "smelting",
@@ -1559,10 +1582,17 @@ var UPGRADES = [
   { id: "arcanistsCircle", name: "Arcanist's Circle", cost: { mana: 250, culture: 150 }, tech: "songcraft",
     lore: "They meet at the turn of the year, agree on very little, and weave anyway.",
     effect: "Once a game-year, if mana is standing at its ceiling, a third of it is woven into timber automatically."},
-  { id: "cataloguing", name: "Cataloguing", cost: { parchment: 40, culture: 150 }, tech: "songcraft",
+  // v0.54, DEV DIRECTIVE 5: Rites of Targon, not Songcraft. Scholarship I sat on the same
+  // rung as the tech that first makes Culture a resource, so the whole storage-multiplier
+  // ladder opened before the player had a second Culture sink to weigh it against.
+  { id: "cataloguing", name: "Cataloguing", cost: { parchment: 40, culture: 150 }, tech: "ritesOfTargon",
     lore: "Every scroll gets a shelf, every shelf gets a ledger.",
     effect: scholarEffect("cataloguing", "I")},
-  { id: "crossReferencing", name: "Cross-Referencing", cost: { tome: 5, culture: 800, crystals: 25 }, tech: "ritesOfTargon",
+  // v0.54 directive 5 knock-on: Cataloguing moved onto Rites of Targon, which is where
+  // Cross-Referencing already sat — so without a `req` the player would be shown Scholarship
+  // I and II simultaneously. The ladder is sequential by requirement now rather than by
+  // tech price, which is what it always meant.
+  { id: "crossReferencing", name: "Cross-Referencing", cost: { tome: 5, culture: 800, crystals: 25 }, tech: "ritesOfTargon", req: "cataloguing",
     lore: "The ledgers start citing each other.",
     effect: scholarEffect("crossReferencing", "II")},
   { id: "greatIndex", name: "The Great Index", cost: { culture: 2000, crystals: 50 }, tech: "callToArms",
@@ -1635,9 +1665,16 @@ var UPGRADES = [
   { id: "masterworkTools", name: "Masterwork Tools", cost: { gear: 15, steel: 20 }, tech: "smelting",
     lore: "Ornn-forged, grudgingly.",
     effect: masterworkDesc()},
-  { id: "hexCapacitors", name: "Hex-Capacitors", cost: { crystals: 40, gold: 400 }, tech: "hextech",
-    lore: "Charge held is charge not chased.",
-    effect: "Crystal production +50%."},
+  // v0.54, DEV DIRECTIVE 16. Hex-Capacitors is RENAMED and RESHAPED. It was a flat +50% on
+  // crystal production alone, priced at 40 crystals on the very rung that first produces
+  // them. It is now Resonance Coils: +25% crystals AND +25% on every worked converter — the
+  // Forge, the Hextech Refinery, and the Zaun extractors' non-autoprod siblings — at 30
+  // crystals. Half the crystal figure, spread across two lines the same tech opens, so the
+  // Discovery reads as "the hextech idea makes the whole workshop hum" rather than as a
+  // single number on a single resource. Old saves carrying `hexCapacitors` are migrated.
+  { id: "resonanceCoils", name: "Resonance Coils", cost: { crystals: 30, gold: 400 }, tech: "hextech",
+    lore: "Tune one crystal and the whole workshop starts humming in the same key.",
+    effect: "Crystal production +25%, and every worked converter +25%."},
   { id: "celestialCharts", name: "Celestial Charts", cost: { crystals: 60, gold: 800 }, tech: "hextech",
     lore: "The stars were keeping time all along. Somebody wrote it down.",
     effect: "All production +10%."},
@@ -1655,7 +1692,7 @@ var UPGRADES = [
   { id: "mintedCoin", name: "The Minted Coin", cost: { gold: 400, ore: 300 }, tech: "trade",
     lore: "A coin is a promise you can bite.",
     effect: "All gold production +20%."},
-  { id: "fourPartHarmony", name: "Four-Part Harmony", cost: { culture: 250, parchment: 30 }, tech: "songcraft",
+  { id: "fourPartHarmony", name: "Four-Part Harmony", cost: { culture: 250, parchment: 20 }, tech: "songcraft",   // v0.54 directive 6: parchment 30 -> 20
     lore: "The descant was somebody's idea and nobody will admit whose.",
     effect: "Bard's Hearths produce +25% culture each."},
   { id: "jessedHawks", name: "Jessed Hawks", cost: { plumes: 120, timber: 400 }, tech: "logistics",
@@ -1701,13 +1738,19 @@ var UPGRADES = [
     effect: "All camp yields +50%."},
 
   // Scriptorium line — the furs -> parchment -> tome chain finally has upgrades of its own
-  { id: "scribesGuild", name: "Scribes' Guild", cost: { culture: 250, parchment: 40 }, tech: "songcraft",
+  { id: "scribesGuild", name: "Scribes' Guild", cost: { culture: 250, parchment: 30 }, tech: "songcraft",   // v0.54 directive 6: parchment 40 -> 30
     lore: "A hall where the ink is always wet.",
     effect: "Parchment craft yield +10%."},
   { id: "harvestRites", name: "Harvest Rites", cost: { mushrooms: 400, culture: 300, parchment: 10 }, tech: "songcraft",
     lore: "Drums, stew, and a reason.",
     effect: "Unlocks Hold a Festival."},
-  { id: "illuminators", name: "Illuminators", cost: { culture: 700, tome: 8 }, tech: "songcraft",
+  // v0.54, DEV DIRECTIVE 7. Illuminators multiplies the TOME craft yield, and it sat on
+  // Songcraft (1,300) — where a Tome costs 50 Parchment, 250 Mana and 1,500 Knowledge and
+  // the player has crafted approximately zero of them. It now arrives where Tomes first
+  // become a REQUIREMENT rather than a curiosity: Rites of Targon (12,000), and behind
+  // Cross-Referencing, which is the first Discovery in the game to charge Tomes (5 of them).
+  // A yield multiplier belongs after the first bill, not nine thousand knowledge before it.
+  { id: "illuminators", name: "Illuminators", cost: { culture: 700, tome: 8 }, tech: "ritesOfTargon", req: "crossReferencing",
     lore: "Gold leaf on every capital.",
     effect: "Tome craft yield +10%."},
   { id: "greatLibrary", name: "The Great Library", cost: { culture: 1800, tome: 20, knowledge: 40000 }, tech: "ritesOfTargon",
@@ -1923,17 +1966,45 @@ var RANKS = [
 ];
 var RANK_COLOR = { bronze: "#8C6239", silver: "#9FB2BF", gold: "#C89B3C", platinum: "#4E9A94",
   emerald: "#2FA36B", diamond: "#4FA8D8", master: "#9A5BC4", grandmaster: "#C0392B", challenger: "#E8D8A0" };
-function rankOf(w) {
-  var xp = (w && w.xp) || 0, r = RANKS[0];
+// ============================================================
+// v0.54, DEV DIRECTIVE 8 — RANK IS PER JOB.
+//
+// A Wanderer carried ONE `xp` number and therefore one rank, so a Challenger miner who was
+// moved to the Wilds arrived as a Challenger jungler on their first day. Experience is now
+// banked per job in `w.jx`: the same person can be a Bronze jungler and a Challenger miner,
+// and moving them means starting again at the new trade — which is what makes the choice of
+// who to move a decision rather than a formality.
+//
+// `w.xp` survives as the LIFETIME TOTAL across every trade, because the Census sorts on it
+// and "how long has this person worked here" is a real question with a different answer from
+// "how good are they at this". Old saves are migrated in loadFromString: a single-number
+// veteran keeps their whole bank, in the job they were holding when the save was written.
+// ============================================================
+function jobXp(w, job) {
+  if (!w) return 0;
+  if (!job) return 0;
+  return (w.jx && w.jx[job]) || 0;
+}
+// `job` defaults to the wanderer's CURRENT trade, which is what every display wants.
+function rankOf(w, job) {
+  var xp = jobXp(w, job === undefined ? (w && w.j) : job), r = RANKS[0];
   for (var i = 0; i < RANKS.length; i++) if (xp >= RANKS[i].xp) r = RANKS[i];
   return r;
 }
-function rankProgress(w) {                      // 0..1 toward the next rank
-  var xp = (w && w.xp) || 0, cur = rankOf(w);
+function rankProgress(w, job) {                 // 0..1 toward the next rank in that job
+  var j = job === undefined ? (w && w.j) : job;
+  var xp = jobXp(w, j), cur = rankOf(w, j);
   var i = RANKS.indexOf(cur);
   if (i >= RANKS.length - 1) return 1;
   var next = RANKS[i + 1];
   return Math.max(0, Math.min(1, (xp - cur.xp) / (next.xp - cur.xp)));
+}
+// Every trade this wanderer has ever practised, best first — the Census card's second line.
+function rankedJobs(w) {
+  var out = [];
+  for (var j in (w && w.jx) || {}) if (w.jx[j] > 0) out.push({ job: j, xp: w.jx[j], rank: rankOf(w, j) });
+  out.sort(function (a, b) { return b.xp - a.xp; });
+  return out;
 }
 
 // Traits are rolled once on arrival and never change. They apply ALWAYS —
@@ -1999,10 +2070,18 @@ function newWandererName() {
   }
   return n;   // a big enough settlement will repeat a name eventually, as they do
 }
-function newWanderer() { return { nm: newWandererName(), j: null, xp: 0, t: rollTrait() }; }
+function newWanderer() { return { nm: newWandererName(), j: null, xp: 0, jx: {}, t: rollTrait() }; }
 
 // The roster mirrors S.pop and S.jobs, which stay authoritative for all the
 // production maths — the Census records WHO, never HOW MANY.
+// v0.54 directive 17. Assigned wanderers are counted from S.jobs rather than from the
+// roster, because S.jobs is what assignJob writes and the roster is synced FROM it — reading
+// the roster would show a stale figure for one tick after an assignment.
+function idleWanderers() {
+  var assigned = 0;
+  JOBS.forEach(function (j) { assigned += S.jobs[j.id] || 0; });
+  return Math.max(0, S.pop - assigned);
+}
 function syncRoster() {
   if (!S.wanderers) S.wanderers = [];
   var r = S.wanderers;
@@ -2083,9 +2162,15 @@ var EXPEDITIONS = [
       gain("furs", f);
       addLog("The wolf pack scatters into the trees. +" + f + " furs.", "event");
     } },
+  // v0.54, DEV DIRECTIVE 4. The yield line advertised the stray poro to a player who
+  // cannot get one: the drop is `Math.random() < 0.05 && S.techs.abyss`, and Abyssal
+  // Cartography is 2,000 knowledge away from Expedition Logistics. `yield` becomes a
+  // function so it can describe what the run ACTUALLY does in the state it is read in —
+  // the same rule directive 2 of the v0.53 round applied to building tooltips.
   { id: "gromp", name: "Hunt Gromp", tech: "logistics", renown: 2,
     desc: "The great toad dozes among his mushrooms. He does not share willingly.",
-    yield: "10–23 mushrooms (scales weakly with camp yields) · rare stray poro",
+    yield: function (s) { return "10–23 mushrooms (scales weakly with camp yields)" +
+      (s.techs.abyss ? " · rare stray poro" : ""); },
     cost: { vigor: 100 },
     run: function () {
       var shrooms = Math.round((10 + Math.floor(Math.random() * 14)) * campYieldMult(true));
@@ -2169,18 +2254,26 @@ var EXPEDITIONS = [
     run: function () {
       var p = 1 + Math.floor(Math.random() * 3);
       gain("poros", p);
-      var msg = "You cross the Howling Abyss and return with " + p + " poro" + (p > 1 ? "s" : "") + ". Morale soars at the sight of them";
+      // v0.54, DEV DIRECTIVE 12. Poros stopped paying morale when the luxury/comfort system
+      // replaced the old flat happiness bonus; the line was still promising a morale swing
+      // that no code delivers. What a poro is actually worth is the Pasture's `eatCut` — a
+      // settlement with poros in it eats less — so that is what the line now says.
+      var msg = "You cross the Howling Abyss and return with " + p + " poro" + (p > 1 ? "s" : "") + ". The cooks report that a meal goes further with one under the table";
       if (Math.random() < 0.2) { gain("trueice", 1); msg += " — and a shard of True Ice, pried from the bridge itself"; }
       addLog(msg + ".", "event");
     } },
-  { id: "scouting", name: "Send a Scouting Party", tech: "trade", renown: 8, cooldown: 900,
+  // v0.54, DEV DIRECTIVE 3. This is a TRADE action, not a hunt: it finds trading partners,
+  // it is gated on Trade Routes, and the Trade tab's own copy already told the player to go
+  // and find it somewhere else. `tab: "trade"` moves the button; THE WILDS skips anything
+  // carrying it and Trade renders it with the same markup and the same handler, so there is
+  // one definition and one code path, not two.
+  // Cost is FLAT 500 vigor. The old escalating costFn ran 200 x 1.6^(n-1) vigor PLUS
+  // 300 x 1.7^(n-1) provisions, so the fifth civilisation cost 1,311 vigor and 2,505
+  // provisions — a wall in front of content the player has already been told exists.
+  { id: "scouting", name: "Send a Scouting Party", tech: "trade", renown: 8, cooldown: 900, tab: "trade",
     desc: "Somebody out there is still trading. Find them.",
     yield: "Reveals one undiscovered trading civilisation · a failed party still brings word",
-    costFn: function () {
-      var n = factionsFoundCount();  // escalates: the fifth civilisation is a real expedition
-      return { vigor: Math.round(200 * Math.pow(1.6, n - 1)), provisions: Math.round(300 * Math.pow(1.7, n - 1)) };
-    },
-    cost: { vigor: 200, provisions: 300 },
+    cost: { vigor: 500 },
     run: function () {
       var found = nextFactionToFind();
       if (!found) {
@@ -2374,17 +2467,26 @@ function tradeYieldMult(fid) {
 // +2% per caravan, LDR-bounded at +60%: fifteen caravans is +30%, thirty is +52%,
 // and it never runs away.
 function caravanYieldMult(fid) { return 1 + limitedDR(0.02 * caravanCount(fid), 0.60); }
-var FATIGUE_RECOVER_S = 90, FATIGUE_PENALTY = 0.08, FATIGUE_MAX = 12;
-function tradeFatigue(fid) {
-  var f = S.tradeFatigue && S.tradeFatigue[fid];
-  if (!f) return 0;
-  var recover = (simNow() - f.t) / (FATIGUE_RECOVER_S * 1000) * (leaderIs("caitlyn") ? 2 : 1);
-  return Math.max(0, f.n - recover);
-}
-function fatigueMult(fid) {
-  if (leaderIs("twitch")) return 1; // Contraband: the merchants never see the same rat twice
-  return Math.max(0.15, 1 - FATIGUE_PENALTY * Math.min(tradeFatigue(fid), FATIGUE_MAX));
-}
+// ============================================================
+// v0.54, DEV DIRECTIVE 10 — MERCHANT FATIGUE IS DELETED.
+//
+// It charged a running −8% per recent trade with the same civilisation, to a floor of ×0.15,
+// recovering over 90 seconds. Two objections and the second is the real one:
+//
+//  * It has NO Kittens counterpart. The source's trade has a season modifier, a race
+//    standing/embassy ladder and a failure chance — it has no per-partner cooldown penalty
+//    of any kind. This was an RR invention, and STANDING-RULINGS §2 records what this
+//    project does with RR-invented rules the source contradicts.
+//  * It punished the only interaction the Trade tab has. A player who found five
+//    civilisations and wanted to use them was taxed for doing so, and the counter-play was
+//    to stop playing for ninety seconds. Waiting is not a decision.
+//
+// `tradeFatigue`, `fatigueMult`, FATIGUE_RECOVER_S / FATIGUE_PENALTY / FATIGUE_MAX and the
+// "· weary −N%" line are all gone. `S.tradeFatigue` survives ONLY in freshState and in the
+// save-migration read at loadFromString, where it is used to infer which civilisations an
+// old save had met — deleting the key would lose that. Nothing writes it any more.
+// ============================================================
+
 // The reserve block is gone (undo solves the misclick problem better, and Kittens
 // lets you spend your last fur and simply shows the consequence). The number
 // survives with a different job: it is now only the comfort scale for morale.
@@ -2490,12 +2592,24 @@ function factionSlots(fid) {
   var f = FACTIONS.find(function (x) { return x.id === fid; });
   return (f && f.slots) || [];
 }
+// v0.54 directive 11. Two leader effects land here now that merchant fatigue is gone, and
+// both are additive percentage points on top of the caravan ladder rather than multipliers
+// on it — so they help most where the ladder helps least, at low caravan counts, and cannot
+// push a slot past certainty.
 function slotChance(fid, i) {
-  var over = Math.max(0, caravanCount(fid) - 5 * (i + 1));
-  return SLOT_CHANCE_FLOOR[i] + limitedDR(0.03 * over, SLOT_CHANCE_LIMIT[i]);
+  var over = Math.max(0, caravanCount(fid) - slotThreshold(fid, i));
+  var c = SLOT_CHANCE_FLOOR[i] + limitedDR(0.03 * over, SLOT_CHANCE_LIMIT[i]);
+  if (leaderIs("caitlyn")) c += 0.10;   // Ace in the Hole
+  if (leaderIs("twitch")) c += 0.15;    // Spray and Pray
+  return Math.min(1, c);
+}
+// The caravan count at which slot `i` opens. Five per tier — and Caitlyn's lead brings every
+// tier forward by one, which is the clause that replaced her deleted fatigue-recovery half.
+function slotThreshold(fid, i) {
+  return Math.max(0, 5 * (i + 1) - (leaderIs("caitlyn") ? 5 : 0));
 }
 function slotAmount(fid, i, base) {
-  return Math.round(base * (1 + 0.05 * Math.max(0, caravanCount(fid) - 5 * (i + 1))));
+  return Math.round(base * (1 + 0.05 * Math.max(0, caravanCount(fid) - slotThreshold(fid, i))));
 }
 // A slot is DORMANT until its material is craftable in ordinary play — not shown, not
 // rolled, not received. The caravan threshold is necessary, never sufficient.
@@ -2507,7 +2621,7 @@ function slotAvailable(fid, i) {
   return !!cr && !!(!cr.show || cr.show(S));   // strictly boolean: show() often returns a truthy number
 }
 function slotUnlocked(fid, i) {
-  return caravanCount(fid) >= 5 * (i + 1) && slotAvailable(fid, i) === true;
+  return caravanCount(fid) >= slotThreshold(fid, i) && slotAvailable(fid, i) === true;
 }
 function slotsOpen(fid) {
   var n = 0;
@@ -2543,8 +2657,7 @@ function tradeCaravan(fid) {
   if (!tradeOpen(fid)) return;
   if (!canAfford(tradeCost(f))) return;
   pay(tradeCost(f));
-  var fat = tradeFatigue(fid);
-  var mult = tradeYieldMult(fid) * fatigueMult(fid);
+  var mult = tradeYieldMult(fid);
   if (f.failChance && Math.random() < f.failChance()) f.fail();
   else {
     withYieldFilter(function () { f.run(mult); });   // v0.47 Part 4.6
@@ -2557,8 +2670,19 @@ function tradeCaravan(fid) {
       addLog("Bonus cargo on the " + f.name + " route: " + b.label + " (+" + amt + " " + RES[b.res].name.toLowerCase() + ").", "event");
     });
   }
-  S.tradeFatigue[fid] = { n: Math.min(FATIGUE_MAX, fat + 1), t: simNow() };
-  if (leaderIs("caitlyn")) gainRenown(3); // Ace in the Hole: clean ledgers travel
+  // v0.54, DEV DIRECTIVE 11. Caitlyn's lead was "+3 Renown per caravan, and merchant fatigue
+  // recovers twice as fast." Half of it stopped existing with directive 10, and the half that
+  // survived was the smaller half — 3 Renown against a leader slot that competes with Twitch
+  // (caravans ignore fatigue entirely, ALSO now meaningless), Bard (a free resource burst)
+  // and Jarvan (wanderers arrive twice as fast).
+  //
+  // The replacement keeps the character — Caitlyn is the one who reads the ledger properly —
+  // and replaces the deleted clause with the thing fatigue used to gate: CARGO. Her lead now
+  // opens every cargo slot on every route one caravan tier early and adds a flat +10 percentage
+  // points to each slot's chance. Renown goes 3 -> 5 so the line still pays on its own.
+  //
+  // Twitch's lead is re-pointed in the same round for the same reason; see CHAMPS.
+  if (leaderIs("caitlyn")) gainRenown(5); // Ace in the Hole: clean ledgers travel
   uiDirty = true;
 }
 
@@ -2600,7 +2724,13 @@ var CHAMPION_MILESTONES = [
   { pop: 5,  text: "Ivern coaxes the trees into sharing. The trees seem happy about it.", res: "provisions", amt: 60 },
   { pop: 8,  text: "A weary rune mage studies your wells, mutters approvingly, and leaves a gift.", res: "mana", amt: 100 },
   { pop: 12, text: "Miss Fortune docks nearby and pays generously for supplies. Do not ask where the gold came from.", res: "gold", amt: 200 },
-  { pop: 16, text: "Jayce inspects your foundry: “Not bad, for amateurs.” He leaves crystals behind.", res: "crystals", amt: 15 },
+  // v0.54, DEV DIRECTIVE 2. Jayce came at population 16 and handed over 15 Hextech
+  // Crystals — a resource with no producer until Hextech Theory (2,200) and no consumer at
+  // all once directive 1 took the crystals out of True Ice Cellars. He was the crystal
+  // economy's only faucet AND its reason for existing, several thousand knowledge early.
+  // He now needs a foundry to inspect: gated on `hextech`, which is the rung at which the
+  // Refinery, the crystal row and the Tinkerer all arrive together (directive 15).
+  { pop: 16, tech: "hextech", text: "Jayce inspects your foundry: “Not bad, for amateurs.” He leaves crystals behind.", res: "crystals", amt: 15 },
   { pop: 20, text: "Taric declares your settlement “truly outrageous” in its beauty. The gems approve.", res: "gold", amt: 300 }
 ];
 
@@ -3190,7 +3320,7 @@ function computeRates(bdRes) {
   if (S.upgrades.mintedCoin) boosts.gold += 0.20;               // v0.45 Part 6 — Coinage
   if (S.techs.cultivation) boosts.provisions += 0.10;       // v0.52 Part 2.1, out of resRatio
   if (S.upgrades.hexresonance) boosts.mana += 0.25;         // v0.50 Part 1.3, out of resRatio
-  if (S.upgrades.hexCapacitors) boosts.crystals += 0.5;
+  if (S.upgrades.resonanceCoils) boosts.crystals += 0.25;   // v0.54 directive 16, was hexCapacitors at 0.50
   if (S.upgrades.tributeReliquaries) boosts.crystals += 0.25;   // v0.45 Part 6 — The Baron's Tribute
   if (S.wtechs && S.wtechs.solariHymn) boosts.devotion += 0.25;
   if (S.wtechs && S.wtechs.ritesOfInsight) boosts.knowledge += 0.10;
@@ -3252,7 +3382,7 @@ function computeRates(bdRes) {
   (S.wanderers || []).forEach(function (w) {
     if (!w.j) return;
     var e = jobSkill[w.j] || (jobSkill[w.j] = { sum: 0, n: 0 });
-    e.sum += 1 + rankOf(w).bonus; e.n++;
+    e.sum += 1 + rankOf(w, w.j).bonus; e.n++;   // v0.54 directive 8: the rank IN THIS TRADE
   });
   function skillMult(id) { var e = jobSkill[id]; return e && e.n ? e.sum / e.n : 1; }
 
@@ -3293,7 +3423,9 @@ function computeRates(bdRes) {
     if (!ok) return;
     var convMult = b.autoprod
       ? autoprodMult()
-      : (simNow() < S.cinderUntil ? 1.5 : 1) * (S.upgrades.clockworkBellows ? 1.25 : 1) * (S.upgrades.bankedCoals ? 1.15 : 1) * (1 + affinityBonus("overseer") / 100);
+      : (simNow() < S.cinderUntil ? 1.5 : 1) * (S.upgrades.clockworkBellows ? 1.25 : 1) * (S.upgrades.bankedCoals ? 1.15 : 1) *
+        (S.upgrades.resonanceCoils ? 1.25 : 1) *                                     // v0.54 directive 16
+        (1 + affinityBonus("overseer") / 100);
     var manaCut = S.upgrades.greyScrubbers ? 0.75 : 1;
     for (var i2 in b.convert.input) {
       var inAmt = b.convert.input[i2] * n * (i2 === "mana" ? manaCut : 1);
@@ -3459,7 +3591,7 @@ function computeRates(bdRes) {
 // v0.47 Part 4A — THE SIMULATED CLOCK
 // ------------------------------------------------------------
 // Every wall-clock deadline in this file — insightUntil, cinderUntil, baronUntil,
-// festivalUntil, honeyUntil, the camp cooldown slots and tradeFatigue's recovery — used
+// festivalUntil, honeyUntil and the camp cooldown slots — used
 // Date.now() directly. Replayed against the real clock during catch-up, a buff that was
 // running when the player left evaluates as ALREADY EXPIRED for the whole gap, and a
 // festival at save time pays nothing. That is the single most likely way for this feature
@@ -3687,10 +3819,17 @@ function step(dt, ticks) {
     for (var wi = 0; wi < S.wanderers.length; wi++) {
       var w = S.wanderers[wi];
       if (!w.j) continue;
-      var wasTop = (w.xp || 0) >= RANKS[RANKS.length - 1].xp;
+      // v0.54 directive 8: experience banks against the trade being practised. `w.xp` stays
+      // as the lifetime total across all trades; `w.jx[job]` is what rank reads.
+      if (!w.jx) w.jx = {};
+      var top = RANKS[RANKS.length - 1].xp;
+      var wasTop = (w.jx[w.j] || 0) >= top;
+      w.jx[w.j] = (w.jx[w.j] || 0) + dt;
       w.xp = (w.xp || 0) + dt;
-      if (!wasTop && w.xp >= RANKS[RANKS.length - 1].xp) {
-        addLog(w.nm + " reaches CHALLENGER — there is nobody left in the settlement who can teach them anything.", "champion");
+      if (!wasTop && w.jx[w.j] >= top) {
+        var jn = JOBS.find(function (x) { return x.id === w.j; });
+        addLog(w.nm + " reaches CHALLENGER as a " + (jn ? jn.name : w.j) +
+          " — there is nobody left in the settlement who can teach them that trade.", "champion");
         uiDirty = true;
       }
     }
@@ -3941,6 +4080,10 @@ function fireTreat() {
 
 function checkMilestones() {
   CHAMPION_MILESTONES.forEach(function (m) {
+    // v0.54 directive 2: a milestone may also require a tech. Checked here rather than by
+    // moving the population threshold, because the threshold is the flavour — Jayce turns
+    // up when the settlement is worth inspecting AND there is something to inspect.
+    if (m.tech && !S.techs[m.tech]) return;
     if (S.pop >= m.pop && !S.milestonesDone[m.pop]) {
       S.milestonesDone[m.pop] = true;
       gain(m.res, m.amt);
@@ -4177,6 +4320,14 @@ function craftItem(id, times) {
   }
   if (done > 0) {
     if (c.id === "tome" && !S.firstTome) { S.firstTome = true; addLog("The first Tome is bound and shelved. The Archives feel less like storage and less like grief.", "event"); }
+    // v0.54, DEV DIRECTIVE 14. A craft was silent: the player clicked, numbers moved in the
+    // resource column, and nothing said what had been made or how much of it. `done` is the
+    // number of actions that actually completed — which is NOT `times`, because craftItem
+    // stops early at a storage ceiling or when the inputs run out, and that difference is
+    // exactly the thing worth telling someone about.
+    var made = done * craftYield(id);
+    addLog(c.name + " ×" + done + " — +" + fmt(made) + " " + RES[c.out].name.toLowerCase() +
+      (done < times ? " (stopped early: " + (caps[c.out] !== undefined && S.res[c.out] >= caps[c.out] - 1e-9 ? "storage full" : "ran out of materials") + ")" : ""), "event");
     uiDirty = true;
   }
 }
@@ -4261,6 +4412,13 @@ function assignJob(id, delta) {
 // shape). A player who wants furs right now can burst two clears instead of watching
 // a bar; sustained throughput doubles, which is the point.
 var CAMP_MAX_CHARGES = 2;
+// v0.54 directive 4: an expedition's `yield` line may be a FUNCTION of state, so it can
+// describe what the run actually does right now rather than what it might do eventually.
+// Both tooltip call sites go through here; a plain string still works untouched.
+function expYield(e) {
+  var y = typeof e.yield === "function" ? e.yield(S) : e.yield;
+  return y ? y.split(" · ") : [];
+}
 function expCost(e) {
   var base = e.costFn ? e.costFn() : e.cost;
   // Surveyed Approaches (v0.42): knowing the way is most of the walk.
@@ -4417,6 +4575,26 @@ function loadFromString(str) {
   for (var k in fresh) if (k in data) {
     if (typeof fresh[k] === "object" && fresh[k] !== null && !Array.isArray(fresh[k])) Object.assign(fresh[k], data[k]);
     else fresh[k] = data[k];
+  }
+  // v0.53 → v0.54, directive 8: a Wanderer's single `xp` becomes per-trade `jx`. A veteran
+  // keeps their whole bank, credited to the trade they were holding when the save was
+  // written — that is the only trade we have evidence they practised, and zeroing them all
+  // would take a Challenger miner back to Bronze for a change they did not make. A wanderer
+  // who was idle at save time keeps `xp` as their lifetime total and starts every trade at
+  // Bronze, which is the same thing the new rule would have said about them all along.
+  (fresh.wanderers || []).forEach(function (w) {
+    if (w.jx) return;
+    w.jx = {};
+    if (w.j && w.xp > 0) w.jx[w.j] = w.xp;
+  });
+  // v0.53 → v0.54, directive 16: Hex-Capacitors is renamed Resonance Coils and its effect
+  // is reshaped. A player who owned it keeps it — the id carries across and the flag stays
+  // true. They lose 25 points of crystal boost and gain 25% on every converter; that is the
+  // directive, and refunding the difference would mean refunding a Discovery that still
+  // exists under a different name.
+  if (fresh.upgrades.hexCapacitors) {
+    fresh.upgrades.resonanceCoils = true;
+    delete fresh.upgrades.hexCapacitors;
   }
   // v0.2 → v0.3: Lumber Camps became Lumber Mills
   if (fresh.buildings.lumberCamp) {
@@ -5129,7 +5307,12 @@ var TABS = [
   // renamed Workshop to match the thing it is.
   { id: "settlement", name: "Settlement", show: function () { return true; } },
   // v0.44 gameplay notes 2 & 4 — a tab appears when the thing it describes exists.
-  { id: "village", name: "Wanderers", show: function () { return count("shelter") > 0; } },
+  // v0.54, DEV DIRECTIVE 17: the Wanderers tab carries the IDLE count. An idle wanderer is
+  // the one state in this game that is pure loss — they eat and produce nothing — and the
+  // only way to notice was to open the tab and look. `badge` returns a string or "", and
+  // renderTabs appends it; any tab can grow one.
+  { id: "village", name: "Wanderers", show: function () { return count("shelter") > 0; },
+    badge: function () { var n = idleWanderers(); return n > 0 ? " (" + n + ")" : ""; } },
   { id: "lore", name: "Lore", show: function () { return count("archive") > 0; } },
   // v0.46 Part 5A.4 — Kittens gates its Workshop tab on OWNING the Workshop building,
   // i.e. on a real crafting capability existing. Transmute is a conversion, not a craft.
@@ -5145,7 +5328,8 @@ var TABS = [
 function renderTabs() {
   var bar = document.getElementById("tab-bar");
   bar.innerHTML = TABS.filter(function (t) { return t.show(); }).map(function (t) {
-    return '<button class="tab-btn' + (S.activeTab === t.id ? " active" : "") + '" data-tab="' + t.id + '">' + t.name + "</button>";
+    return '<button class="tab-btn' + (S.activeTab === t.id ? " active" : "") + '" data-tab="' + t.id + '">' +
+      t.name + (t.badge ? t.badge() : "") + "</button>";
   }).join("");
   bar.querySelectorAll("[data-tab]").forEach(function (btn) {
     // v0.48 ITEM 4. This handler has to be edited HERE: renderTabs() re-binds onclick
@@ -5434,7 +5618,7 @@ function renderVillage(el) {
     var winterFarm = leaderIs("leona") ? 1 : 0.25; // Zenith Blade shields the harvest
     var winterNet = provBd.provisions - farmAmt + (curMult > 0 ? farmAmt * (winterFarm / curMult) : 0);
     html += '<div style="font-size:11px;margin-bottom:10px">Deepwinter forecast (a cold snap can halve this again): <b style="color:' + (winterNet >= 0 ? "var(--green)" : "var(--red)") + '">' + (winterNet >= 0 ? "+" : "") + fmtRate(winterNet) + '/s provisions</b>' +
-      (winterNet >= 0 ? " — this settlement will hold through the cold." : " — stores will drain in winter. Stock granaries, or your farmers may be too few.") + "</div>";
+      (winterNet >= 0 ? " — this settlement will hold through the cold." : " — stores will drain in winter. Stock provisions, or your farmers may be too few.") + "</div>";
   }
   JOBS.forEach(function (j) {
     if (j.tech && !S.techs[j.tech] && !(S.jobs[j.id] > 0)) return;
@@ -5530,16 +5714,29 @@ function renderCensus() {
   var truncated = shown.length > CENSUS_PAGE;
   html += '<div style="max-height:340px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">';
   shown.slice(0, CENSUS_PAGE).forEach(function (w) {
-    var r = rankOf(w), t = traitDef(w.t), pct = Math.round(rankProgress(w) * 100);
+    // v0.54 directive 8: the headline rank is the rank IN THE TRADE THEY ARE DOING, and the
+    // other trades they have banked experience in are listed underneath. An idle wanderer
+    // has no current trade, so their card leads with the best rank they hold anywhere and
+    // says which trade it is in — otherwise moving someone to the bench would blank them.
+    var others = rankedJobs(w);
+    var lead = w.j ? { job: w.j, rank: rankOf(w, w.j) } : (others[0] || null);
+    var r = lead ? lead.rank : RANKS[0];
+    var pct = Math.round(rankProgress(w, lead ? lead.job : null) * 100);
+    var t = traitDef(w.t);
+    var rest = others.filter(function (o) { return !lead || o.job !== lead.job; }).slice(0, 3);
     html += '<div style="border:1px solid var(--border);border-radius:2px;padding:5px 7px;background:var(--panel)">' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:4px">' +
         '<span style="font-size:12px;color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + w.nm + "</span>" +
         '<span class="census-trait" data-trait="' + w.t + '" style="cursor:help;color:var(--teal);font-size:12px">' + t.icon + "</span></div>" +
       '<div style="font-size:10.5px;color:var(--text);margin-top:1px">' + censusJobName(w.j) +
         (r.bonus > 0 ? (w.j ? ' <span style="color:var(--green)">+' + (r.bonus * 100).toFixed(2).replace(/\.?0+$/, "") + "%</span>"
-                            : ' <span style="color:var(--text)" title="Rank bonuses only apply while working">(+' + (r.bonus * 100).toFixed(2).replace(/\.?0+$/, "") + "% when working)</span>") : "") + "</div>" +
-      '<div style="font-size:10.5px;margin-top:2px;color:' + RANK_COLOR[r.id] + '">' + r.name + (r.id === "challenger" ? " ✸" : "") + "</div>" +
+                            : ' <span style="color:var(--text)" title="Rank bonuses only apply while working, and only in the trade they were earned in">(+' + (r.bonus * 100).toFixed(2).replace(/\.?0+$/, "") + "% when working)</span>") : "") + "</div>" +
+      '<div style="font-size:10.5px;margin-top:2px;color:' + RANK_COLOR[r.id] + '">' + r.name +
+        (r.id === "challenger" ? " ✸" : "") +
+        (!w.j && lead ? ' <span style="color:var(--text)">as ' + censusJobName(lead.job) + "</span>" : "") + "</div>" +
       '<div style="height:3px;background:#1a2333;border-radius:2px;margin-top:3px"><div style="height:3px;width:' + pct + '%;background:' + RANK_COLOR[r.id] + ';border-radius:2px"></div></div>' +
+      (rest.length ? '<div class="census-others" style="font-size:9.5px;color:var(--text);margin-top:3px">' +
+        rest.map(function (o) { return '<span style="color:' + RANK_COLOR[o.rank.id] + '">' + o.rank.name + "</span> " + censusJobName(o.job); }).join(" · ") + "</div>" : "") +
       "</div>";
   });
   html += "</div>";
@@ -5672,7 +5869,7 @@ function renderWilds(el) {
   EXPEDITIONS.forEach(function (e) {
     var cdLeft = campCooldownLeft(e);
     if (e.tech && !S.techs[e.tech]) return;
-    if (e.id === "scouting" && factionsFoundCount() >= FACTIONS.length) return;
+    if (e.tab && e.tab !== "wilds") return;      // v0.54 directive 3: the Scouting Party lives in Trade
     var afford = canAfford(expCost(e)) && cdLeft <= 0;
     var cdStr = (e.cooldown || isChargeCamp(e)) ? '<span class="b-count" data-cdlabel="' + e.id + '">' + campChargeLabel(e) + "</span>" : "";
     html += '<button data-exp="' + e.id + '"' + (afford ? "" : " disabled") + '><span class="b-name">' + e.name + "</span>" + cdStr + '<span class="b-cost">' + costHtml(expCost(e)) + '</span><span class="b-desc">' + e.desc + "</span></button>";
@@ -5698,7 +5895,7 @@ function renderWilds(el) {
     btn.onmouseenter = function () { showTooltip(btn, { title: e.name, cost: expCost(e),
       // v0.49 (Jerry, tooltip edit 2): the yield string is authored with " · " between
       // the things a run brings back. Split on it so each lands on its own line.
-      yield: (e.yield ? e.yield.split(" · ") : []).concat(
+      yield: expYield(e).concat(
         S.techs.callToArms ? ["+" + (e.renown || 2) + " renown"] : []),
       flavor: e.desc }); };
     btn.onmouseleave = hideTooltip;
@@ -5707,16 +5904,35 @@ function renderWilds(el) {
 
 function renderTrade(el) {
   var mult = tradeYieldMult();
-  var html = '<div class="panel"><h2>Trade</h2><div style="font-size:11px;font-style:italic;margin-bottom:6px">Caravans are your embassies. They cost Culture and nothing else, raise that route\'s yield +2% each (to +60%), open its three cargo slots at 5 / 10 / 15, and steady the Noxian route. Each civilisation deepens ONE of your craft chains — pick the one you want. Trade Docks raise every yield (currently ×' + mult.toFixed(2) + '); merchants tire of repeat customers.</div>' +
-    (factionsFoundCount() < FACTIONS.length ? '<div style="font-size:11px;font-style:italic;margin-bottom:6px;color:var(--gold)">' + (FACTIONS.length - factionsFoundCount()) + ' civilisation' + (FACTIONS.length - factionsFoundCount() > 1 ? 's are' : ' is') + ' still out there somewhere. Send a scouting party from THE WILDS.</div>' : "");
+  var html = '<div class="panel"><h2>Trade</h2><div style="font-size:11px;font-style:italic;margin-bottom:6px">Caravans are your embassies. They cost Culture and nothing else, raise that route\'s yield +2% each (to +60%), open its three cargo slots at 5 / 10 / 15, and steady the Noxian route. Each civilisation deepens ONE of your craft chains — pick the one you want. Trade Docks raise every yield (currently ×' + mult.toFixed(2) + ').</div>';
+  // v0.54 directive 3: the Scouting Party is rendered HERE now, with the same markup and
+  // the same [data-exp] handler the Wilds uses. The old copy pointed the player at another
+  // tab for the button that opens this one.
+  var tradeExps = EXPEDITIONS.filter(function (e) {
+    if (e.tab !== "trade") return false;
+    if (e.tech && !S.techs[e.tech]) return false;
+    if (e.id === "scouting" && factionsFoundCount() >= FACTIONS.length) return false;
+    return true;
+  });
+  if (tradeExps.length) {
+    html += '<div style="font-size:11px;font-style:italic;margin-bottom:6px;color:var(--gold)">' +
+      (FACTIONS.length - factionsFoundCount()) + ' civilisation' + (FACTIONS.length - factionsFoundCount() > 1 ? 's are' : ' is') +
+      ' still out there somewhere.</div><div class="btn-grid">';
+    tradeExps.forEach(function (e) {
+      var cdLeft = campCooldownLeft(e);
+      var afford = canAfford(expCost(e)) && cdLeft <= 0;
+      html += '<button data-exp="' + e.id + '"' + (afford ? "" : " disabled") + '><span class="b-name">' + e.name + "</span>" +
+        '<span class="b-count" data-cdlabel="' + e.id + '">' + campChargeLabel(e) + "</span>" +
+        '<span class="b-cost">' + costHtml(expCost(e)) + '</span><span class="b-desc">' + e.desc + "</span></button>";
+    });
+    html += "</div>";
+  }
   FACTIONS.forEach(function (f) {
     if (!factionFound(f.id)) return;
     var cv = caravanCount(f.id);
     var afford = canAfford(tradeCost(f));
-    var fat = tradeFatigue(f.id);
     var standingStr = "Caravans: " + cv;
     if (f.failChance) standingStr += " · fail " + Math.round(f.failChance() * 100) + "%";
-    if (fat >= 1) standingStr += " · weary −" + Math.round((1 - fatigueMult(f.id)) * 100) + "%";
     // Dormant slots are hidden entirely — a material the player cannot craft is not
     // named. But the ROW COUNT is shown, so a player with 15 Noxus caravans and no
     // Chemtech Alloy learns the investment is not wasted without learning what it buys.
@@ -5728,8 +5944,8 @@ function renderTrade(el) {
         var sl = factionSlots(f.id)[si];
         shown.push(sl.label + " +" + slotAmount(f.id, si, sl.amt) + " " + RES[sl.res].name.toLowerCase() +
           " (" + Math.round(slotChance(f.id, si) * 100) + "%)");
-      } else if (caravanCount(f.id) < 5 * (si + 1)) {
-        shown.push("[" + (5 * (si + 1)) + " caravans]");
+      } else if (caravanCount(f.id) < slotThreshold(f.id, si)) {
+        shown.push("[" + slotThreshold(f.id, si) + " caravans]");
       }
     }
     var bonusStr = total + " route" + (total === 1 ? "" : "s") + " · " + open + " open" +
@@ -5746,6 +5962,16 @@ function renderTrade(el) {
   });
   html += "</div>";
   el.innerHTML = html;
+  // v0.54 directive 3: the same wiring the Wilds gives its expedition buttons.
+  el.querySelectorAll("[data-exp]").forEach(function (btn) {
+    var e = EXPEDITIONS.find(function (x) { return x.id === btn.getAttribute("data-exp"); });
+    btn.onclick = function () { runExpedition(e.id); };
+    btn.onmouseenter = function () { showTooltip(btn, { title: e.name, cost: expCost(e),
+      yield: expYield(e).concat(
+        S.techs.callToArms ? ["+" + (e.renown || 2) + " renown"] : []),
+      flavor: e.desc }); };
+    btn.onmouseleave = hideTooltip;
+  });
   el.querySelectorAll("[data-fac]").forEach(function (btn) {
     var f = FACTIONS.find(function (x) { return x.id === btn.getAttribute("data-fac"); });
     btn.onclick = function () { tradeCaravan(f.id); };
