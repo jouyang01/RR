@@ -297,10 +297,16 @@ it saves. Budget five slices at roughly two hours of wall clock.
    every n and is currently 0; a non-zero there is the signal.
 5. **Craft logging is per craft action** and lengthens a 2,500-year run measurably. Gate it on
    `catchUpActive === false` if the wall clock is ever needed back.
-6. **`test-v32` flakes under CPU contention** — now three occurrences across v0.53, v0.54 and
+6. **`test-v32` flakes under CPU contention** — ~~now three occurrences across v0.53, v0.54 and
    v0.55, every one while a long run was saturating the box, and it has passed on every idle
-   re-run. Suspected `waitForTimeout(500)` after `page.goto`. **Re-run on an idle box before
-   treating it as a defect.**
+   re-run. Suspected `waitForTimeout(500)` after `page.goto`. Re-run on an idle box before
+   treating it as a defect.~~
+   **CORRECTED IN v0.56 — THIS ENTRY WAS WRONG AND IT HID A REAL DEFECT FOR THREE ROUNDS.** The
+   failure is not contention and it reproduces on an idle box: the camp block took its baseline
+   with the live roster still in `S`, and since v0.55 Part 4 a stray Trailblazer moves
+   `campYieldMult()` by half a per cent (4.980 against 5.000; two Trailblazers give 4.960). The
+   trait roll is random, so "re-run on an idle box" worked **by luck**. Fixed in v0.56 Part 6;
+   see STANDING-RULINGS §21 and `tools/fixture-sweep.mjs`. Do not restore the old remedy.
 7. **The Poro Pasture's price curve is steep now.** At ratio 1.75 the 61st copy costs on the
    order of 10¹⁵. That is the source's own ratio and the intended shape — the bot stops at 18 —
    but any future code that assumes a buildable 60th Pasture will find it is not.

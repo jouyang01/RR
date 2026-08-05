@@ -9,12 +9,12 @@ do not re-litigate) and the latest `docs/HANDOFF-v0.NN.md` (the map of the shipp
 
 | | |
 |---|---|
-| Last shipped build | **v0.55**, tagged `v0.55` |
-| Last consumed spec | `docs/specs/rr-analyzer-v055-spec.md` (produced v0.55, THE PARITY ROUND) |
-| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.56** |
-| Live suites | **24 suites — analyzer measures 1,166 passed, 1 failed** (`test-v32`, 4/4 runs; see below) |
-| Parity ledger | **188 rows — PARITY 50, EASIER 12, HARDER 2, UNVERIFIED 124** |
-| Era 3 | **660.6 game-years** (target 1,400–2,300). Parts 3–6 bought +213; Part 7 gave back −193.6. |
+| Last shipped build | **v0.56**, tagged `v0.56` |
+| Last consumed spec | `docs/specs/rr-analyzer-v056-spec.md` |
+| Current spec, awaiting a builder | **none — the cycle is at the analyzer** |
+| Live suites | **25 suites, 1,219 assertions, 0 failures** — re-run and confirmed 2026-08-05 |
+| Parity ledger | **208 rows — PARITY 50, EASIER 32, HARDER 2, UNVERIFIED 127** |
+| Era 3 | **1,709.3 game-years, MEDIAN OF THREE SEEDS — inside the 1,400–2,300 target for the first time.** Spread 700.6 / 1,709.3 / 1,835.3 on the same build. |
 
 ## THE CHARTER — read this before any balance argument (STANDING-RULINGS §16, ruled by Jerry v0.55)
 
@@ -130,6 +130,81 @@ Challenger at Sparks (62%), 132 of 191 at Icathia**, top bank 116× the threshol
 - **`1 farmers` at every milestone**, with net food **−6.501/s at Sparks** and **−61.837/s at
   Hexcore**. The settlement banks instead of farming. Same shape as "1 tinkerer" — an instrument
   statement before a game statement, and §16 says do not price around it.
+
+## v0.56 SHIPPED — the storage round, and the instrument's error bars
+
+All six parts shipped plus Jerry's provisions-cap directive. Full argument in
+`docs/BUILD-REPORT-v0.56.md`; the map is `docs/HANDOFF-v0.56.md`.
+
+### READ THIS BEFORE QUOTING ANY MILESTONE YEAR
+
+**A single-seed Era-3 figure is not evidence.** Three seeds on the *same* shipped build gave
+**700.6 / 1,709.3 / 1,835.3** game-years — a **2.6× spread**. The five cumulative prefixes swung
+Era 3 by **+1,046, −1,007, +450, −448**, every one larger than the change in that slice could
+cause. The food economy now runs close enough to its own starvation threshold that a small
+change flips which side a settlement lands on and the run diverges for a millennium.
+
+**Every Era-3 comparison in BUILD REPORTS v0.44 through v0.55 is one draw from a distribution
+nobody had measured the width of.** They are not wrong; their error bars were never taken.
+**Building an N-seed ensemble into `sim/pacing.mjs` is now the project's highest-priority
+apparatus item**, and until it lands no two builds can be compared on Era-3 length.
+
+What is NOT chaotic and can still be compared on one run: cap-out fractions, morale band, peak
+population, delivered multipliers, and everything in `tests/`.
+
+### What shipped
+
+- **Part 5, the storage-scope restructure**, dated three times and now done. One multiplicative
+  chain across twelve resources (`masonryMult` ×22.05 nominal, ×12.6 realised — a Kittens'-Law
+  violation on top of a scope error) becomes the source's two additive accumulators at three
+  scopes: **narrow ×14.98 · broad ×2.80 · quarter ×2.0875 gated on Silos · none ×1.00**.
+  `CAP_SCOPE` is total by construction and asserted by enumeration. STANDING-RULINGS §19.
+- **Jerry's provisions-cap directive.** Storehouse 7,500 → **5,000** (Kittens' `barn.catnipMax`),
+  Harbor 10,000 → **2,500** (harbour), Warehouse none → **750 after Silos**. Provisions at cap
+  moves **1.5% → 25.8%** of ticks and held/cap at Sparks **56% → 91%**. §20.
+- **Part 1.** `XP_PER_SECOND` 2 → **0.5**; **`XP_CAP` 25,556**, sourced from
+  `js/village.js:2622 var skillsCap = 20001` rank-matched by ratio. RR had no cap and the
+  measured top bank was 1,335,491.
+- **Part 2.** `CONSUMPTION` 4 → **4.25**, closing the v0.55 disagreement on Jerry's directive.
+- **Part 3.** Leona's lead no longer FLOORS `farmMult` at 1 — it halves the shortfall.
+  Deepwinter ×0.25 → **×0.625**, Firstbloom ×1.5 unchanged.
+- **Part 6.** `test-v32` is **not a flake**; §21, and `tools/fixture-sweep.mjs` is the detector.
+- **Part 7.6.** Twenty champion and leader ledger rows.
+
+### The three spec defects the round had to rule on
+
+1. **The spec's pass table states ×14.84 / ×2.075; its prose states ×14.98 / ×2.0875.** The
+   table implies barn Σ 4.30 — the source's 4.35 minus `strenghtenBuild`'s 0.05 — while the same
+   table's warehouse Σ 1.80 *includes* that upgrade. §16 breaks the tie: the sourced 4.35 ships.
+2. **The spec's `LEONA_SEASON_RELIEF` snippet is wrong.** Unguarded, `m + (1 - m) * 0.5` pulls
+   Firstbloom's ×1.5 down to ×1.25, contradicting the spec's own pass condition. A `m < 1` guard
+   ships.
+3. **`XP_CAP`: the exact ratio is 25,556.833.** The spec states 25,556, which is the floor;
+   `Math.floor` ships.
+
+### What the next analysis owes, in priority order
+
+1. **Build the seed ensemble.** Nothing else on this list can be evaluated without it.
+2. **Give the bot a food policy.** It staffs **one farmer** at every milestone in every era at
+   every population from 36 to 220. It banks food instead of farming it, and now that the
+   ceiling binds that is the largest single source of the chaos above. **Fix the instrument; do
+   not price around it.**
+3. **Rule on target population.** 130 wanderers reads y750 / y1472 / y1535 against a y600
+   target — the one condition that got worse, and the direct intended consequence of a binding
+   food ceiling. Peak population is now 177–185, down from 220. Morale passed its band for the
+   first time *because* of that.
+4. **Pass condition 5 is mis-specified for three of its four resources.** shimmer, hexore and
+   coalgas are flow-limited, not ceiling-limited: raising the shimmer ceiling ×2.5 moved its
+   cap-out 3 points and cutting the hexore ceiling ×3.5 moved it 0. Restate as a
+   producer/consumer balance or drop them.
+5. **The instrument holds only 3 of 5 storage rungs** for most of a run, so the fully-stacked
+   table and the whole quarter tier are never exercised in a measured game.
+6. **`skillXP` remains the highest-value open lookup.** The rate is still UNVERIFIED; the cap
+   beside it is PARITY, and the two must not be conflated.
+7. **Crystals 95.9% and culture 97.3% cap-out** are the two worst readings in the game and
+   neither is on the Masonry line. Each needs a round.
+
+---
 
 ## v0.55 SHIPPED — what the builder found, and what the next analysis owes
 

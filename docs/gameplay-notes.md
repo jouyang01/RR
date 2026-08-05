@@ -132,3 +132,42 @@ This is not a bug tracker and not a spec. It is the input to one.
   fails outright. Marker lives outside `S` (which `doUndo()` replaces wholesale) and survives
   save/load. Asserted by forced-fail outcome: 57 furs → undo → 36 → 57.
 
+---
+
+## v0.56 — Jerry's three directives, and the storage round
+
+- ~~**"Farmer's are not affected by seasonality, adjust this."**~~ — **v0.56, Part 3, and the
+  premise needed correcting before the fix could be right.** Seasonal farmers shipped in v0.55
+  and the code was correct — `if (r === "provisions") jv *= farmMult;` was live and asserted at
+  all four seasons. What produced the symptom was **Leona's lead**, which floored `farmMult` at
+  1 and therefore deleted seasonality outright; and v0.55 had silently widened its blast radius
+  from buildings to buildings + jobs. She now HALVES the shortfall instead of removing it —
+  Deepwinter ×0.25 → **×0.625**, a cold snap ×0.5 → ×0.75, and Firstbloom ×1.5 unchanged. Both
+  the maths and the forecast tooltip read one function; the lead's prose is generated from the
+  constant. **STANDING-RULINGS §17 still stands: do not revert seasonal farmers.**
+- ~~**"Consumption should follow kitten's line."**~~ — **v0.56, Part 2.** 4 → **4.25**
+  (`catnipPerKitten: -0.85` × 5 ticks/s), farmer:eater ratio back to **1.17647 exactly**. This
+  closes the disagreement v0.55 opened: the analyzer asked for 4.25, Jerry's v0.55 directive
+  said 4, 4 shipped with the 6.2% relaxation recorded, and Jerry has now ruled the other way.
+- ~~**"Wanderer EXP gain should be SLOWER than before."**~~ — **v0.56, Part 1.** `XP_PER_SECOND`
+  2 → **0.5**, slower than v0.55's 2 and v0.54's 1. Time to Challenger 1.60 → **6.39 real
+  hours**. And the source's **skill cap is finally found and ported**: `js/village.js:2622`
+  `var skillsCap = 20001;` against a top tier at 9,000, rank-matched to RR's Challenger 11,500
+  → **XP_CAP 25,556**. RR had no cap at all and the measured top bank was **1,335,491**. The
+  RATE is still UNVERIFIED — `skillXP` itself could not be located — and the ledger says so.
+- ~~**"Ensure that the storage changes take place on this patch."**~~ — **v0.56, Part 5**, dated
+  three times and now shipped. One multiplicative chain across twelve resources becomes the
+  source's two additive accumulators at three scopes: **narrow ×14.98 · broad ×2.80 · quarter
+  ×2.0875 after Silos · none ×1.00**, with every capped resource in exactly one tier.
+- ~~**"The provision cap is too large and deepwinter is never a problem."**~~ — **v0.56**, and
+  measured: provisions sat at cap **1.5% of ticks** on the v0.55 build. The Storehouse held
+  7,500 against Kittens' barn 5,000, the Harbor 10,000 against the harbour's 2,500, and the
+  Warehouse held none at all against the source's 750. All three now hold the source's figures,
+  and provisions moves onto the quarter tier gated on Silos exactly as the source gates catnip.
+  **STANDING-RULINGS §20.**
+- ~~**`test-v32` "flakes under CPU contention".**~~ — **v0.56, Part 6. It does not.** The camp
+  block took its baseline with a live roster, and since v0.55 a stray Trailblazer moves
+  `campYieldMult()` by half a percent. Three rounds of failures were misattributed and the
+  documented remedy — re-run on an idle box — worked by luck. **§21**, and
+  `tools/fixture-sweep.mjs` is now the standing detector.
+

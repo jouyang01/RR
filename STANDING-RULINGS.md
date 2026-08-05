@@ -472,6 +472,97 @@ is asserted in `test-v55` against a synthetic ten-Lodge save.
 
 ---
 
+## 19. Storage has SCOPE, and it is a table — closed v0.56
+
+RR ran **one multiplicative chain** across twelve resources (`masonryMult` = 1.75 × 1.8 × 2 × 2
+× 1.75 = ×22.05 nominal, ×12.6 realised). That was wrong twice over: it is a Kittens'-Law
+violation (storage expansion is ONE category, and effects are additive within a category), and
+it had no scope at all where the source has three.
+
+`js/resources.js:866-885 addBarnWarehouseRatio` is the authority, and it is quoted verbatim in
+`index.html` beside `BARN_LINE`. Two additive accumulators, enumerated from `js/workshop.js`:
+
+- **`barnRatio` Σ 4.35** — stoneBarns 0.75 + reinforcedBarns 0.80 + titaniumBarns 1.00 +
+  alloyBarns 1.00 + concreteBarns 0.75 + strenghtenBuild 0.05
+- **`warehouseRatio` Σ 1.80** — reinforcedWarehouses 0.25 + titaniumWarehouses 0.50 +
+  alloyWarehouses 0.45 + concreteWarehouses 0.35 + storageBunkers 0.20 + strenghtenBuild 0.05
+
+delivering **narrow ×14.98 · broad ×2.80 · quarter ×2.0875 (gated on Silos) · none ×1.00**.
+
+**`CAP_SCOPE` is total by construction and `test-v56` asserts it by enumeration.** Every capped
+resource is in exactly one tier and no tier names a non-resource. Adding a resource without a
+tier fails the suite, which is the point — the previous arrangement let `knowledge` fall through
+to a ×22 line by omission (v0.45 Part 5) and nobody noticed for three versions.
+
+**Three tier assignments are RR-ORIGINAL design rulings, not parity claims, and they are stated
+as such in the source comment:** `mana` sits in Timber's narrow tier because v0.36 item 15 ruled
+"Mana is a material, at cap parity with Timber" and honouring a ruling means honouring both
+halves of it; `crystals` and `renown` sit in the broad tier because gold's role is the closest
+match either has. **`renown`'s v0.44 Part 2.2 `Math.sqrt(masonryMult)` is retired — there is no
+longer a product to take a root of.** It was measured before it was chosen: at the "none" tier
+the Chemtech-era Renown ceiling is 5,810 against the tenth champion's 9,611 cost, which puts the
+last rung of the champion ladder out of reach; at "broad" it is 14,815.
+
+**Do not re-introduce a multiplicative storage chain.** If a new storage upgrade arrives, it
+adds to `BARN_LINE` and/or `WAREHOUSE_LINE` and its shares are chosen so the sums stay at the
+source's 4.35 and 1.80 unless the source itself changes.
+
+---
+
+## 20. RR's food stores hold Kittens' figures — closed v0.56, on Jerry's directive
+
+> Jerry, v0.56: *"the provision cap is too large and deepwinter is never a problem."*
+
+Measured on the v0.55 build: **provisions sat at cap for 1.5% of all ticks** across a 2,500-year
+run — the ceiling was so far above the economy that a season could not reach it. Three sourced
+corrections, all now shipped:
+
+| building | RR before | source | RR now |
+|---|---|---|---|
+| Storehouse (= Kittens' barn) | 7,500 | `js/buildings.js:766` `catnipMax: 5000` | **5,000** |
+| Harbor (= harbour) | 10,000 | wiki *Catnip*, 2,500 each | **2,500** |
+| Warehouse (= warehouse) | **none** | 750 each, after Silos | **750, gated on `chemtechSilos`** |
+
+**The v0.47 note that defended provisions 750 is retired.** It said Kittens' catnip is one
+resource doing two jobs and RR splits it into provisions and mana, so `catnipMax 5000` had no
+single counterpart to transplant. **That was an argument about units, and v0.55 Part 3.1
+dissolved it** by rescaling provisions ×10 so RR's farmer produces 5.000/s exactly as Kittens'
+does. Once the units match, the figure transplants directly.
+
+The Warehouse's conditional cap uses a declared `capsIf: { upgrade, caps }` field read in
+`computeCaps()` and `effectLines()` — **one declaration, two readers.** Do not add a second
+conditional cap as an inline special case.
+
+---
+
+## 21. A test that captures a baseline from live state must reset the state it is baselining
+
+Closed v0.56 Part 6, and it is the third instance in two rounds.
+
+`test-v32`'s camp assertion cleared `S.upgrades`, `S.jobs` and `S.buildings` and then took
+`base = campYieldMult()` **with the live roster still in `S`**. Since v0.55 Part 4 the seventh
+member of that stack is `traitBonus("trailblazer")`, so a leftover Trailblazer made `base` 1.005
+and the assertion measured 4.980 against an expected 5.000. The trait roll is random, so it
+passed only when the roster happened to hold none.
+
+**HANDOFF v0.55 §8.6 recorded three such failures as CPU contention and prescribed "re-run on an
+idle box". That remedy worked BY LUCK and hid a real defect across three rounds.** The entry is
+corrected; the contention note is retired.
+
+The two prior instances: `test-offline-v54`'s "bit-identical" check, which passed for four
+rounds because its fixture was pinned to its storage cap for 72% of the run, and `test-v42`'s
+free-band check, which was true by construction at Σ 0.5.
+
+**`tools/fixture-sweep.mjs` is the standing detector.** It re-runs every suite on a deliberately
+dirty roster and reports assertions that fail only there. Run it after any change to a shared
+multiplier. It documents its own one known artefact — `loadFromString()` merges a save over
+`freshState()`, so poisoning `freshState()` re-dirties containers a block legitimately cleared —
+so that a reader does not "fix" a non-bug.
+
+---
+
+---
+
 ## Appendix — settled items an analyzer session should not re-open
 
 These are not separate rulings; they are the code-verified state as of v0.52, recorded so a
@@ -501,6 +592,10 @@ session does not re-flag them:
 - **Do not pin a literal version string in a suite.** `test-v53` did and became a check
   designed to fail every subsequent round. Assert the shape; pin the value in the round's own
   suite.
+- **`test-v32` does NOT flake under CPU contention.** The v0.53-v0.55 failures attributed to
+  contention were §21's fixture defect: the camp block took its baseline with a live roster and
+  a random Trailblazer moved it. Fixed v0.56; `test-v32` passed 10/10 including under load.
+  **Do not restore the "re-run on an idle box" remedy** — it hid this for three rounds.
 - **`test-v2` … `test-v31` are historical.** They were written against builds three to eight
   versions retired and **will fail against v0.52**. They live in `tests/historical/`, are shipped
   for archaeology, not for regression, and their failures are not defects. `test-v14` in
