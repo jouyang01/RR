@@ -46,8 +46,20 @@ const parity = await page.evaluate(() => {
   const setup = starving => {
     loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
     S.techs = { almanac:1, cultivation:1, woodcraft:1, mining:1, logistics:1, carpentry:1, trade:1, songcraft:1, smelting:1 };
-    S.buildings = { shelter: 12, farmstead: starving ? 20 : 90, lumberMill: 8, mine: 6, archive: 10,
-                    storehouse: 6, manaWell: 5, forge: 3, bardsHearth: 20 };
+    // v0.56 RE-PROVISIONED. This fixture was written when RR's food ceiling was ~12.6x the
+    // source's and consumption was 4/s; on the v0.56 build the "HEALTHY" settlement STARVED —
+    // measured: provisions at zero for 1,796 of 18,000 ticks, minimum 0. That is not a defect,
+    // it is the round working: Part 5 cuts the food ceiling to the source's own figures and
+    // Part 2 raises consumption to 4.25, so 90 Farmsteads and 6 Storehouses no longer carry 24
+    // wanderers through Deepwinter. A fixture that hits the FLOOR measures the max(0, ...)
+    // nonlinearity instead of the integrator, exactly as a fixture pinned to the CEILING did
+    // before v0.55 caught that.
+    //
+    // Re-sized by measurement so the healthy arm is genuinely healthy AND genuinely dynamic:
+    // 8 Storehouses / 110 Farmsteads gives zero floor ticks, 2,999 of 18,000 at the cap
+    // (16.7%, under the 25% vacuity guard) and a finish at 38,433 against a 42,000 ceiling.
+    S.buildings = { shelter: 12, farmstead: starving ? 20 : 110, lumberMill: 8, mine: 6, archive: 10,
+                    storehouse: starving ? 6 : 8, manaWell: 5, forge: 3, bardsHearth: 20 };
     S.pop = 20; S.wanderers = []; syncRoster();
     S.jobs = { farmer: 8, woodcutter: 4, miner: 4, loremaster: 4 };
     for (const r in S.res) S.res[r] = 0;
