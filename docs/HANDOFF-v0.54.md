@@ -231,7 +231,12 @@ one other. Two-core parallelism is real; three-way is not.
    completed `craftItem`, which in a 2,500-year run is a great many string builds. It did not
    change any result, but it lengthened the run measurably. If a future round needs the wall
    clock back, gate the log on `catchUpActive === false`.
-6. **There is still no in-game changelog.** `VERSION` exists as a constant, so there is
+6. **`test-v32` flakes under CPU contention** — it failed once in v0.53 and once in v0.54,
+   both times while a 2,500-year run was saturating both cores, and passed on every re-run in
+   both rounds. Suspected `waitForTimeout(500)` after `page.goto`. It has now happened twice,
+   which is the project's own threshold for writing something down: **if it fails, re-run it
+   with nothing else on the box before treating it as a defect.**
+7. **There is still no in-game changelog.** `VERSION` exists as a constant, so there is
    finally something to extend.
 
 ---

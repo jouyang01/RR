@@ -35,7 +35,11 @@ Measured after the fix: **100% of real rate.**
 2. **`test-v53`'s VERSION assertion pinned the literal string `"v0.53"`.** I wrote it last
    round, and it was a check designed to fail on every subsequent round. Re-pointed to assert
    the *shape* (a well-formed `vN.NN`), with the value pinned in each round's own suite.
-3. **I did not run a full pacing run before starting the directives**, so the v0.53 → v0.54
+3. **`test-v32` failed once again under three-way CPU load and passed on every re-run** —
+   the same flake I recorded in v0.53 §1.3. Two rounds running is the project's threshold for
+   writing it down properly, so it is now in HANDOFF §8.6 with the instruction to re-run it on
+   an idle box before treating it as a defect. I still have not diagnosed it.
+4. **I did not run a full pacing run before starting the directives**, so the v0.53 → v0.54
    pacing delta below is measured once at the end rather than sliced by workstream. With
    seventeen directives and two apparatus fixes in one round there is no clean attribution
    for any individual pacing movement, and I am not going to imply one.
