@@ -133,8 +133,13 @@ const fields = await page.evaluate(() => ({
   srcClean: [campYieldMult, autoprodMult, computeCaps, morale]
     .every(f => !/0\.0?1?15? \* count\("bardsHearth"\)|0\.15 \* count\("hunterLodge"\)|0\.25 \* count\("chembarrel"\)/.test(f.toString()))
 }));
-check("the eight per-copy constants are fields now, at exactly their old values",
-  fields.hunterLodge === 0.15 && fields.tradeDock === 0.02 && fields.hexgate === 0.12 &&
+// v0.55 Part 4 RE-POINT: the Hunter's Lodge is DELETED. Its `campBoost: 0.15` was the single
+// largest RR-original addition to the camp stack — Kittens has no per-building hunter ratio at
+// all — and Part 4 rebuilds `campYieldMult` on the source's seven members instead. So the set
+// is SEVEN fields now, not eight; the eighth is asserted absent rather than valued.
+// Superseded by: v0.55 Part 4.
+check("the surviving seven per-copy constants are fields, at exactly their old values",
+  fields.hunterLodge === 0 && fields.tradeDock === 0.02 && fields.hexgate === 0.12 &&
   fields.workshop === 0.06 && fields.chembarrel === 0.25 && fields.plant === 0.15 &&
   // v0.52 Part 2.3: the eighth field's value moves 0.05 -> 0.0115 AND changes owner. It is
   // the one of the eight that is not "same value, new home" and it is called out as such.
@@ -395,7 +400,7 @@ check("every tab still renders content with everything owned",
 // Production maths must be bit-identical to v0.47 for the eight rewired constants.
 await reset();
 const maths = await page.evaluate(() => {
-  S.buildings = { hunterLodge: 4, tradeDock: 3, hexgateBuilding: 2, workshop: 5, chembarrel: 6,
+  S.buildings = { tradeDock: 3, hexgateBuilding: 2, workshop: 5, chembarrel: 6,
                   hexdraulicPlant: 3, hextechFoundry: 4, poroPasture: 7, bardsHearth: 39,   // v0.52: 2 hearths + 9 taverns' worth (9 x 4.348)
                   storehouse: 2, observatory: 2 };
   S.pop = 40; S.upgrades = {};
@@ -403,11 +408,20 @@ const maths = await page.evaluate(() => {
     camp: campYieldMult(false), autoprod: autoprodMult(), craft: craftYield(),
     relief: morale(), caps: computeCaps().provisions, rates: computeRates().culture,
     // closed forms, computed here from the literals v0.47 used
-    campWant: 1 + limitedDR(0.05 * (S.jobs.jungler || 0) + 0.15 * 4 + champPassive("camp") / 100, CAMP_YIELD_LIMIT),
+    // v0.55 Part 4 RE-POINT: the closed form is the SOURCE's stack now. Neither the Jungler
+    // (0.05/worker) nor the Hunter's Lodge (0.15/copy) is a member any more — both were
+    // RR-original and both are removed, the Lodge with the building itself. What is left is
+    // champion passives + the five hunt Discoveries + Open Range + Trailblazers, so with no
+    // upgrades owned the closed form is exactly x1. Superseded by: v0.55 Part 4.
+    campWant: 1 + limitedDR(champPassive("camp") / 100 +
+      (S.upgrades.trappersCraft ? 1.0 : 0) + (S.upgrades.beastLore ? 2.0 : 0) +
+      (S.upgrades.masterOfTheHunt ? 1.0 : 0) + (S.upgrades.atlasGauntletsUp ? 0.5 : 0) +
+      (S.upgrades.jessedHawks ? 0.5 : 0) + (hasPolicy("openRange") ? 0.1 : 0) +
+      traitBonus("trailblazer"), CAMP_YIELD_LIMIT),
     autoWant: 1 + limitedDR(0.25 * 6, AUTOPROD_LIMIT)
   };
 });
-check("campYieldMult is unchanged by the literal → field move",
+check("campYieldMult still equals its closed form after the Part 4 rebuild",
   Math.abs(maths.camp - maths.campWant) < 1e-12, `${maths.camp} vs ${maths.campWant}`);
 check("autoprodMult is unchanged by the literal → field move",
   Math.abs(maths.autoprod - maths.autoWant) < 1e-12, `${maths.autoprod} vs ${maths.autoWant}`);

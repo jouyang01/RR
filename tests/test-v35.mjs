@@ -119,7 +119,11 @@ const xp = await page.evaluate(() => {
   o.workersGain = S.wanderers.filter(w => w.j).every(w => (w.jx[w.j] || 0) > 0 && w.xp > 0);
   o.idleDoNot = S.wanderers.filter(w => !w.j).every(w => (w.xp || 0) === 0 &&
     Object.keys(w.jx || {}).length === 0);
-  o.rate = Math.abs(S.wanderers.filter(w => w.j)[0].jx[S.wanderers.filter(w => w.j)[0].j] - 10) < 1.5;   // ~1 XP/s
+  // v0.55 Part 7 RE-POINT: the increment is XP_PER_SECOND, not a hard-coded 1. It is read
+  // from the game rather than restated, so a future change to the rate moves this assertion
+  // with it instead of breaking it. Superseded by: v0.55 Part 7.
+  o.rate = Math.abs(S.wanderers.filter(w => w.j)[0].jx[S.wanderers.filter(w => w.j)[0].j] - 10 * XP_PER_SECOND) < 1.5 * XP_PER_SECOND;
+  o.perSecond = XP_PER_SECOND;
   // a ranked worker produces more
   S.pop = 2; S.jobs = { farmer: 2 }; S.wanderers = [
     { nm: "A", j: "farmer", xp: 0, jx: {}, t: "none" }, { nm: "B", j: "farmer", xp: 0, jx: {}, t: "none" }];
@@ -143,7 +147,7 @@ const xp = await page.evaluate(() => {
   S.pop = 0; S.jobs = {}; S.wanderers = []; syncRoster();
   return o;
 });
-check("assigned Wanderers gain XP at ~1/s; idle ones do not", xp.workersGain && xp.idleDoNot && xp.rate);
+check("assigned Wanderers gain XP at XP_PER_SECOND; idle ones do not", xp.workersGain && xp.idleDoNot && xp.rate, `${xp.perSecond}/s`);
 check("a Challenger farmer out-produces a Bronze one by exactly 18.75%", xp.skillLifts && xp.skillExact);
 check("mixed ranks average rather than stack", xp.averages);
 check("resource breakdown surfaces the skill contribution", xp.breakdownMentionsSkill);

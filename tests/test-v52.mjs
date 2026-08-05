@@ -92,11 +92,23 @@ check("1.1 — the Arcane Reactor takes the second ×10: 400 / 800 / 600, everyt
   p1.reactor.hexcore === 400 && p1.reactor.hexcrete === 800 && p1.reactor.focusedHex === 600 &&
   p1.reactorRatio === 1.15 && p1.reactorGB === 0.05 && p1.reactorTech === "greyReclamation",
   JSON.stringify(p1.reactor));
-check("1.2 — the Irrigation Channel exists on `mining`, NOT Cultivation, at Kittens' 0.03/1.12",
-  p1.irr && p1.irr.tech === "mining" && p1.irr.boost.provisions === 0.03 &&
+// v0.55 Part 3 RE-POINT (rung): `mining` was correct against the RAW graph — ore arrives
+// there — but wrong against Kittens' LADDER. The aqueduct sits at Kittens' 1,500 rung, and
+// RR's Channel was three rungs early at 500. It moves to `smelting`, RR's own 1,500 rung and
+// the metallurgy rung, which is where an ore-priced building belongs (§16's role clause rules
+// out `masquerade`, the other 1,500). Cost, ratio and figure are all unmoved — this is a rung
+// correction, not a rebalance. Superseded by: v0.55 Part 3.2.
+check("1.2 — the Irrigation Channel is Kittens' aqueduct at Kittens' 1,500 rung: 0.03/1.12/ore 75",
+  p1.irr && p1.irr.tech === "smelting" && p1.irr.boost.provisions === 0.03 &&
   p1.irr.ratio === 1.12 && p1.irr.cost.ore === 75, JSON.stringify(p1.irr));
-check("1.2 — ...and the Farmstead is a plain field again: prod, no boost",
-  p1.farmstead.boost === undefined && p1.farmstead.prod.provisions === 0.14 &&
+// v0.55 Part 3.3 RE-POINT (value): the Farmstead is still a plain field with no boost — that
+// half of v0.52 Part 1.2 stands. What moves is the RATE. Kittens' `field` is
+// catnipPerTickBase 0.125 = 0.625/s; RR shipped 0.14/s, which is 2.24x Kittens' rate at RR's
+// own tenth-scale. The starter food building was the single largest un-flagged EASIER item in
+// the food economy. Part 3.1 rescales provisions x10 and Part 3.3 sets the field to the
+// source's own 0.625. Superseded by: v0.55 Parts 3.1 + 3.3.
+check("1.2/3.3 — the Farmstead is a plain field, now at Kittens' own 0.625/s",
+  p1.farmstead.boost === undefined && p1.farmstead.prod.provisions === 0.625 &&
   p1.farmstead.ratio === 1.12 && p1.farmstead.seasonal === true, JSON.stringify(p1.farmstead));
 check("1.2 — ...and putting ore on `mining` keeps auditRawGraph at ZERO",
   p1.rawViolations.length === 0 && p1.costViolations.length === 0,

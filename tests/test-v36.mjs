@@ -194,7 +194,11 @@ const i8910 = await page.evaluate(() => {
 check("Wanderer's Welcome: arrival clause gone, +10% housing, LDR-capped", i8910.wwNoArrival && i8910.wwRatio > 1.08 && i8910.wwRatio <= 1.10 && i8910.wwLdrCapped, i8910.wwDesc);
 check("Vigilant Watch is now continuous: −15% expedition vigor", /15% less Vigor/i.test(i8910.vwDesc) && Math.abs(i8910.vigorWatch - 0.85) < 1e-9);
 check("the discount reaches the real expedition cost", i8910.expCostDiscounted === Math.round(i8910.expCostBase * 0.85), `${i8910.expCostBase} → ${i8910.expCostDiscounted}`);
-check("Open Range: +12% camp yields but +10% vigor cost — same axis, real trade", Math.abs(i8910.campRange - 1.12) < 0.005 && Math.abs(i8910.vigorRange - 1.10) < 1e-9);
+// v0.55 Part 4 RE-POINT: the camp half is rank-matched to Kittens' `rationing` (0.1), so
+// 0.12 -> 0.10. The vigor half is untouched and so is the point of the assertion — the policy
+// pays and charges on the SAME axis. Superseded by: v0.55 Part 4.
+check("Open Range: +10% camp yields but +10% vigor cost — same axis, real trade",
+  Math.abs(i8910.campRange - 1.10) < 0.005 && Math.abs(i8910.vigorRange - 1.10) < 1e-9);
 check("Solari Discipline lost its second benefit (no morale clause)", i8910.solariNoMorale && i8910.moraleDelta === 0);
 check("Lunari Vigil gained +25% devotion cap to match", Math.abs(i8910.lunariCap - 1.25) < 0.005, i8910.lunariCap.toFixed(3));
 

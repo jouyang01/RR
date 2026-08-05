@@ -240,8 +240,12 @@ const i5 = await page.evaluate(() => {
     noSqrt: !/Math\.sqrt\(S\.pop\)/.test(computeRates.toString()),
     // v0.40 Part 2.3 flattened all three luxury camps to 100 vigor and raised Wolves and
     // Gromp to hold the ~6.3 vigor-per-unit parity line. Raptors were already at 100.
-    wolvesRange: /12 \+ Math\.floor\(Math\.random\(\) \* 8\)/.test(w),
-    raptorRange: /12 \+ Math\.floor\(Math\.random\(\) \* 7\)/.test(r)
+    // v0.55 Part 8 RE-POINT: every roll inside an expedition now goes through `rerollAmt`,
+    // which returns the FLOOR under the undo penalty and Math.random() otherwise. The RANGES
+    // are what this assertion is about and they are unchanged; only the roll source moved.
+    // Superseded by: v0.55 Part 8.
+    wolvesRange: /12 \+ Math\.floor\(rerollAmt\("hunt"\) \* 8\)/.test(w),
+    raptorRange: /12 \+ Math\.floor\(rerollAmt\("hunt"\) \* 7\)/.test(r)
   };
 });
 check("demand is linear in population again (identical ratio at 30 / 60 / 300)",

@@ -158,7 +158,11 @@ const TABLE = {
   almanac: 30, cultivation: 100, woodcraft: 300, mining: 500, logistics: 500,
   scriptorium: 900, carpentry: 1000, trade: 1200, songcraft: 1300, smelting: 1500,
   masquerade: 1500, abyss: 2000, yordle: 2000, hextech: 2200, drakeLore: 3600,
-  petricite: 9500, voidStudies: 12000, ritesOfTargon: 12000, callToArms: 15000, sparks: 20000,
+  // v0.55 Part 2.1 RE-POINT: Petricite 9,500 -> 65,000 (+ 65 Morellonomica) — repriced
+  // beside the Chem-Baron Accords, where the material line it gates actually opens.
+  // This table is a no-regression mirror of test-v47's, and moves with it.
+  // Superseded by: v0.55 Part 2.1.
+  petricite: 65000, voidStudies: 12000, ritesOfTargon: 12000, callToArms: 15000, sparks: 20000,
   championsRegimen: 28000, deepCartography: 35000,
   // v0.52 Part 2.4: refinedMetallurgy (42000) deleted with the Bloomery; ladder is 37.
   kindling: 50000, hexdraulics: 50000, sumpEcology: 55000, progressDay: 60000,

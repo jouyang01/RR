@@ -88,17 +88,84 @@ const parity = await page.evaluate(() => {
     }
     return { drift, abs, live, off };
   };
-  return { healthy: arm(false), starving: arm(true), ticksLive: TICKS };
+  // v0.55: the saturation probe the old assertion needed and did not have.
+  seedRandom(); setup(false);
+  const capV = computeCaps().provisions;
+  const realDateNow2 = Date.now; let v2 = realDateNow2(); Date.now = () => v2;
+  let capPinned = 0;
+  for (let i = 0; i < TICKS; i++) { tick(); v2 += TICK_MS;
+    if (S.res.provisions >= capV - 1e-6) capPinned++; }
+  Date.now = realDateNow2; liveLastMs = null; liveCarryMs = 0;
+  const h = arm(false);
+  h.capPinnedTicks = capPinned; h.cap = capV; h.ticks = TICKS;
+  return { healthy: h, starving: arm(true), ticksLive: TICKS, consumption: CONSUMPTION };
 });
 const worstOf = d => Object.entries(d).filter(([k]) => k !== "tick")
   .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))[0];
 const wH = worstOf(parity.healthy.drift), wS = worstOf(parity.starving.drift);
-check("HEALTHY settlement: one real hour offline is BIT-IDENTICAL to 18,000 live ticks",
-  Object.entries(parity.healthy.drift).every(([, d]) => d === 0),
+// ============================================================================
+// v0.55 Part 3 RE-POINT — and this one is a CORRECTION OF THE TEST, not of the game.
+//
+// "BIT-IDENTICAL" passed at v0.54 for a reason the assertion never stated: the fixture was
+// SATURATED. Measured on the v0.54 slice, this healthy settlement sat pinned to its 4,700
+// provisions cap for 13,010 of the 18,000 ticks and FINISHED pinned there. A hard clamp at
+// the cap destroys every trace of integration difference — both arms were being compared at
+// min(x, 4700), so the check was reading the clamp, not the integrator. Exact zero was a
+// property of the fixture, not a property of catch-up.
+//
+// v0.55 Part 3 rescales provisions x10 and makes the FARMERS seasonal, which turns the same
+// fixture dynamic: 999 ticks at the cap instead of 13,010, finishing at 27,364 against a
+// 47,000 cap. The residual it exposes is 1.59 provisions in 27,364 — 0.0058% — and it is the
+// expected artefact of a nonlinear clamp sampled at two granularities (live integrates in
+// 1-tick steps, catch-up in 5-tick steps, and `min(x, cap)` is not linear).
+//
+// So the assertion is restated as the tolerance it always meant, and a COMPANION check is
+// added that the fixture is genuinely dynamic — so this can never silently go vacuous again.
+// Superseded by: v0.55 Part 3.1 + 3.3.
+check("HEALTHY settlement: one real hour offline matches 18,000 live ticks to within 0.02%",
+  Object.entries(parity.healthy.drift).every(([, d]) => Math.abs(d) < 0.02),
   wH ? `worst: ${wH[0]} ${wH[1]}%` : "nothing moved — SETUP BROKEN");
-check("STARVING settlement: still within 0.5% on every resource",
-  Object.entries(parity.starving.drift).every(([k, d]) => k === "pop" || Math.abs(d) < 0.5),
-  wS ? `worst: ${wS[0]} ${wS[1]}%  |  pop ${JSON.stringify(parity.starving.abs.pop)}` : "");
+check("...and the fixture is DYNAMIC, not pinned to its cap — which is what made the old exact-zero vacuous",
+  parity.healthy.capPinnedTicks < parity.healthy.ticks * 0.25 &&
+  parity.healthy.live.provisions < parity.healthy.cap * 0.95,
+  `${parity.healthy.capPinnedTicks}/${parity.healthy.ticks} ticks at the cap, ending at ` +
+  `${Math.round(parity.healthy.live.provisions)} of ${parity.healthy.cap}`);
+// v0.55 Part 3 RE-POINT: a PERCENTAGE on a starving settlement's provisions is a ratio against
+// a denominator that is deliberately driven to ~zero — live ends at 2.1 provisions, so a
+// 24-provision residual reads as 1150% and means nothing. Every OTHER resource is still held
+// to 0.5%; provisions is held to an absolute epsilon of one second of settlement consumption,
+// which is the smallest quantity the two step granularities could possibly disagree about.
+// Note that pop parity, which is what a starving player actually feels, IMPROVED this round:
+// v0.54 measured -7.69% and excluded it; v0.55 measures 0 and it is asserted exactly.
+//
+// The provisions epsilon is derived, not picked: step()'s starvation loop fires on a
+// 10-second timer, so the two arms can be up to one full starvation interval apart on WHEN a
+// death lands, and a single wanderer's presence over that interval is worth
+// 10 x CONSUMPTION = 40 provisions of stock. Measured: 24.15.
+//
+// The band on the other resources widens 0.5% -> 1.0% for the SAME reason, and it is a real
+// (small) loss of fidelity that is being accepted knowingly. This fixture kills 17 of 20
+// wanderers; each death is detectable up to one 10-second starvation interval apart between
+// the two step granularities, and every resource that drifts here — ore (miner), knowledge
+// (loremaster), renown (0.005/s per head) — is population-linear, so 17 deaths x 10 s of
+// possible offset over a 3,600 s run is a 4.7% theoretical ceiling. Measured worst: 0.61%.
+// This is a genuine trade against v0.54, and it goes the right way: v0.54's starving arm
+// drifted -7.69% on POP itself (and had to exclude pop from the assertion to pass) while the
+// rate-driven resources read clean; v0.55 gets pop EXACT and pays for it in sub-1% integrals.
+// Agreeing on the discrete event and disagreeing slightly on the continuous integral is the
+// better failure mode — a returning player counts wanderers, not decimal places of ore.
+// Superseded by: v0.55 Part 3.1.
+const starveEps = 10 * parity.consumption;
+check("STARVING settlement: within 1% on every resource, provisions within one starvation interval",
+  Object.entries(parity.starving.drift).every(([k, d]) =>
+    k === "pop" || k === "provisions" || Math.abs(d) < 1.0) &&
+  Math.abs(parity.starving.live.provisions - parity.starving.off.provisions) <= starveEps,
+  wS ? `worst non-provisions: ${wS[0]} ${wS[1]}%  |  provisions ` +
+       `${parity.starving.live.provisions.toFixed(2)} vs ${parity.starving.off.provisions.toFixed(2)} ` +
+       `(eps ${starveEps.toFixed(1)})` : "");
+check("...and a starving settlement loses exactly the same population either way",
+  parity.starving.live.pop === parity.starving.off.pop,
+  JSON.stringify(parity.starving.abs.pop));
 check("...and the tick counter advances by exactly the same amount in both",
   parity.healthy.live.tick === parity.healthy.off.tick &&
   parity.starving.live.tick === parity.starving.off.tick,

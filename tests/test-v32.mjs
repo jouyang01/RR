@@ -102,7 +102,10 @@ const fx = await page.evaluate(() => {
 });
 check("Wanderer's Welcome: +10% housing ceiling, no arrival clause", fx.maxPopRatio > 1.08 && fx.maxPopRatio <= 1.10 && fx.noArrivalClause, fx.maxPopRatio.toFixed(3));
 check("Sanctuary Wardens: worker output +6%", Math.abs(fx.worker - 1.06) < 0.005, fx.worker.toFixed(3));
-check("Open Range: camp yields +12%", Math.abs(fx.camp - 1.12) < 0.005, fx.camp.toFixed(3));
+// v0.55 Part 4 RE-POINT: Open Range is rank-matched to Kittens' `rationing` (0.1) in the
+// seven-member hunterRatio census, so 0.12 -> 0.10. Superseded by: v0.55 Part 4.
+check("Open Range: camp yields +10% (v0.55 Part 4: rank-matched to Kittens' rationing 0.1)",
+  Math.abs(fx.camp - 1.10) < 0.005, fx.camp.toFixed(3));
 check("Vigilant Watch: expeditions cost 15% less vigor; Open Range costs 10% more", fx.vigorBase === 1 && Math.abs(fx.vigorWatch - 0.85) < 1e-9 && Math.abs(fx.vigorRange - 1.10) < 1e-9, `${fx.vigorWatch}/${fx.vigorRange}`);
 check("Frontier Charter: caravans +10%", Math.abs(fx.trade - 1.10) < 0.005, fx.trade.toFixed(3));
 check("Isolationist Ledger +15% / Oral Tradition +6% culture", Math.abs(fx.cultureIso - 1.15) < 0.01 && Math.abs(fx.cultureOral - 1.06) < 0.01, `${fx.cultureIso.toFixed(3)}/${fx.cultureOral.toFixed(3)}`);
@@ -197,7 +200,13 @@ const disc = await page.evaluate(() => {
   S.upgrades = {}; S.res.tome = 0;
   return o;
 });
-check("camp-yield line: additive ×2.00 at all three (Kittens Law 2)", Math.abs(disc.campLine - 2.0) < 0.01, disc.campLine.toFixed(3));
+// v0.55 Part 4 RE-POINT: the three camp Discoveries are re-ranked to the SOURCE's own
+// figures — trappersCraft 1.0 (bolas), beastLore 2.0 (huntingArmor), masterOfTheHunt 1.0
+// (steelArmor + alloyArmor) — so the line they add is 4.00, not 1.00. The property under
+// test is that they are ADDITIVE (Kittens Law 2), and it still holds: 1 + 1.0 + 2.0 + 1.0 = 5.00
+// delivered through limitedDR, not (1.25 x 1.25 x 1.5). Superseded by: v0.55 Part 4.
+check("camp-yield line: additive at all three, at Kittens' own figures (Kittens Law 2)",
+  Math.abs(disc.campLine - 5.0) < 0.01, disc.campLine.toFixed(3));
 // v0.42 Part 4 supersedes the magnitudes: RR's scribal stack ran to x9.375 against
 // Kittens' ~x3.2 craft ratio, and because craft yield DIVIDES effective recipe cost it
 // compounded per tier — a Tome's nominal 8,750 furs was really 99.6. The two upgrades
@@ -411,7 +420,12 @@ const ore = await page.evaluate(() => {
   });
   return { oreB, total: BUILDINGS.length, inBand: ratios.filter(r => r >= 1.0 && r <= 3.0).length, ratios };
 });
-check("ore is now in about half the buildings (was 9/35)", ore.oreB >= 17, `${ore.oreB}/${ore.total}`);
+// v0.55 RE-POINT: the count moved because the BUILDING SET moved, not because ore did —
+// v0.55 Part 4 deleted the Hunter's Lodge (which cost ore) and Part 3.4 added the Granary
+// (which does not, because Kittens' pasture is `catnip 100 + wood 10`). The claim is a SHARE,
+// so it is asserted as a share. Superseded by: v0.55 Parts 3.4 and 4.
+check("ore is in about a third of the buildings (share, not a count — the set moves every round)",
+  ore.oreB / ore.total >= 0.30, `${ore.oreB}/${ore.total} = ${(100 * ore.oreB / ore.total).toFixed(0)}%`);
 check("ore/timber ratios: most in the 1.0-3.0 band, none above 3.0",
   ore.inBand / ore.ratios.length >= 0.85 && ore.ratios.every(r => r <= 3.0), JSON.stringify(ore.ratios));
 

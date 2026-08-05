@@ -232,8 +232,16 @@ check("...and the largest is Kittens' own calendar→agriculture ×3.33",
 // "ranks 1-20 knowledge-only" table AND its Part 4.2 restore set (`sparks steel 200`).
 // The two cannot both hold; Sparks is the Era-3 gate itself, so it carries the material
 // and the knowledge-only rule is asserted over ranks 1-19. Reported in the build report.
-check("no tech at rank ≤19 carries a material cost",
-  p5.matTechs.every(id => (p5.rankOfTech[id] || 99) > 19), p5.matTechs.join(", ") || "none");
+// v0.55 Part 2.1 RE-POINT: this was pinned to the literal rank 19, which made it a hostage
+// to every future PRICE move rather than to the rule it means. Part 2.1 reprices Petricite
+// 9,500 -> 65,000 (+ 65 Morellonomica), which slides it from rank ~12 to rank 27 and pulls
+// Sparks DOWN from rank 20 to rank 19 — the assertion broke without a single material cost
+// changing. Restated against the boundary it was always about: Sparks Beyond the Wall is the
+// Era-3 gate, it carries `steel 200` by the v0.47 Part 4.2 restore set, and NOTHING cheaper
+// than it may carry a material. Superseded by: v0.55 Part 2.1.
+check("no tech below the Era-3 gate (Sparks) carries a material cost",
+  p5.matTechs.every(id => (p5.rankOfTech[id] || 99) >= p5.rankOfTech.sparks),
+  `gate at rank ${p5.rankOfTech.sparks}; material techs ${p5.matTechs.map(id => `${id}@${p5.rankOfTech[id]}`).join(", ")}`);
 check("no prerequisite inversion, no orphaned Discovery, building or req",
   p5.inversions.length === 0 && p5.orphanUpgrades.length === 0 &&
   p5.orphanBuildings.length === 0 && p5.orphanReqs.length === 0,

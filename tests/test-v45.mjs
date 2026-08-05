@@ -324,7 +324,8 @@ const rates = await page.evaluate(() => {
     loremaster: j("loremaster").prod.knowledge, loremasterDesc: j("loremaster").desc,
     acolyte: j("acolyte").prod.devotion, acolyteDesc: j("acolyte").desc,
     miner: j("miner").prod.ore, jungler: j("jungler").prod.vigor, farmer: j("farmer").prod.provisions,
-    consumption: CONSUMPTION, cellars: +(CONSUMPTION * 0.8).toFixed(4)
+    consumption: CONSUMPTION, cellars: +(CONSUMPTION * 0.8).toFixed(4),
+    scale: typeof PROVISIONS_SCALE !== "undefined" ? PROVISIONS_SCALE : null
   };
 });
 check("woodcutter 0.30 → 0.09 timber/s (Kittens wood 0.018/tick)",
@@ -335,10 +336,21 @@ check("acolyte 0.012 → 0.0075 devotion/s (Kittens faith 0.0015/tick)",
   rates.acolyte === 0.0075 && /0\.0075/.test(rates.acolyteDesc), String(rates.acolyte));
 check("miner 0.25 and jungler 0.30 unchanged — already at exact parity",
   rates.miner === 0.25 && rates.jungler === 0.30, `${rates.miner} / ${rates.jungler}`);
-check("consumption 0.35 → 0.425/s = 85% of one farmer, Kittens' catnipPerKitten ratio",
-  rates.consumption === 0.425 && Math.abs(rates.consumption / rates.farmer - 0.85) < 1e-9,
+// v0.55 Part 3 RE-POINT — TWO superseding changes stack here, and they must be read apart:
+//   (a) Part 3.1 rescales the whole provisions economy x10 (PROVISIONS_SCALE), because RR's
+//       food ledger was the only resource running at one-tenth of Kittens'. Farmer 0.5 -> 5,
+//       consumption 0.425 -> 4.25 would have been the pure rescale, ratio unchanged at 0.85.
+//   (b) Jerry's directive then set CONSUMPTION to a flat 4, not 4.25. Directives override the
+//       spec, so 4 ships — but it is a 6.2% RELAXATION (farmer:eater 1.17647 -> 1.250) inside
+//       a change whose stated purpose was more food pressure. Reported in build report §7.
+// This assertion now pins the SHIPPED ratio of 0.80 and names the parity value it is not.
+// Superseded by: v0.55 Part 3.1 + Jerry's CONSUMPTION directive.
+check("consumption is 4/s against a 5/s farmer — ratio 0.80 (Kittens' catnipPerKitten ratio is 0.85 → 4.25)",
+  rates.consumption === 4 && Math.abs(rates.consumption / rates.farmer - 0.80) < 1e-9,
   `${rates.consumption} vs farmer ${rates.farmer}`);
-check("True Ice Cellars lands on 0.34", rates.cellars === 0.34, String(rates.cellars));
+check("the provisions rescale is a declared constant, not scattered literals",
+  rates.scale === 10, `PROVISIONS_SCALE ${rates.scale}`);
+check("True Ice Cellars lands on 3.2 (0.32 × 10)", rates.cellars === 3.2, String(rates.cellars));
 
 // ============================================================================
 // Part 6 — branches, not rungs

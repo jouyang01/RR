@@ -221,10 +221,21 @@ const content = await page.evaluate(() => {
   // Chem-Baron Tithe
   clean(); const apBefore = autoprodMult();
   S.upgrades.chemBaronTithe = true; o.tithe = apBefore < autoprodMult();
-  // Atlas Gauntlets — materials only, never comforts
+  // v0.55 Part 4: Atlas Gauntlets applies to EVERY camp now — Kittens has one hunterRatio and
+  // no material/comfort split. `gauntlets` keeps its old meaning (material-only) so the
+  // assertion can state that it is now FALSE; `luxuryBoundStillSplits` checks the split that
+  // survives, which is the comfort CEILING rather than the upgrade.
   clean(); const matB = campYieldMult(), luxB = campYieldMult(true);
   S.upgrades.atlasGauntletsUp = true;
   o.gauntlets = campYieldMult() > matB && Math.abs(campYieldMult(true) - luxB) < 1e-9;
+  // The bound only SPLITS where it actually bites. At Sigma 0.5 both limits are still in
+  // their free linear band (0.75 x 1.0 = 0.75 and 0.75 x 6 = 4.5), so the two multipliers are
+  // identical there by construction — the probe has to be read at a Sigma the comfort ceiling
+  // can reach. The full five-Discovery stack is Sigma 5.00.
+  S.upgrades = { trappersCraft: 1, beastLore: 1, masterOfTheHunt: 1, atlasGauntletsUp: 1, jessedHawks: 1 };
+  o.luxuryBoundStillSplits = LUXURY_CAMP_YIELD_LIMIT === 1.0 && CAMP_YIELD_LIMIT === 6 &&
+    campYieldMult(true) < campYieldMult();
+  o.splitAtFullSigma = [+campYieldMult().toFixed(3), +campYieldMult(true).toFixed(3)];
   // Grey Scrubbers
   clean(); S.techs = { sparks: 1, chemtech: 1, hexcore: 1 };
   S.buildings = { sumpMine: 20 }; S.buildingsOff = {};
@@ -262,7 +273,15 @@ check("the mix is Kittens-shaped: mostly upgrades, some buildings, one expeditio
 check("Piltovan Cranes cuts the Scaffold recipe 40 → 28 beams",
   content.cranes[0] === 40 && content.cranes[1] === 28, JSON.stringify(content.cranes));
 check("the Chem-Baron Tithe feeds the same diminishing pool as the Chembarrels", content.tithe);
-check("Atlas Gauntlets raises material camps and leaves comforts alone", content.gauntlets);
+// v0.55 Part 4 RE-POINT: the five hunt Discoveries are UNCONDITIONAL now. Kittens has one
+// `hunterRatio` and no material/comfort split, so conditioning two of the five on which kind
+// of camp was being hunted meant NEITHER path ever saw the source's Sigma. RR's split is kept
+// where it belongs — in the BOUND (LUXURY_CAMP_YIELD_LIMIT 1.0 against CAMP_YIELD_LIMIT 6),
+// which is RR's comfort design and is recorded as such in the parity ledger.
+// Superseded by: v0.55 Part 4.
+check("Atlas Gauntlets applies to every camp, and the comfort ceiling does the comfort work",
+  !content.gauntlets && content.luxuryBoundStillSplits,
+  `unconditional: ${!content.gauntlets}, at Σ 5.00 materials/comfort = ${JSON.stringify(content.splitAtFullSigma)}`);
 check("Grey Scrubbers cuts converter mana draw", content.scrubbers);
 check("Voidglass Lenses gives Observatories +50% knowledge cap", Math.abs(content.lenses - 1.5) < 0.01, `×${content.lenses}`);
 check("Progress Day Parade widens culture ×1.35 and discounts caravans 15%",

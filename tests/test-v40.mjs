@@ -103,11 +103,20 @@ check("Era-3 tech prices sit on the v0.47 Kittens-parity ladder",
 const p1b = await page.evaluate(() => {
   const o = { limit: typeof LUXURY_CAMP_YIELD_LIMIT !== "undefined" && LUXURY_CAMP_YIELD_LIMIT === 1.0,
               matLimit: CAMP_YIELD_LIMIT === 6 };
-  S.buildings = { hunterLodge: 40 }; S.jobs = { jungler: 40 }; S.upgrades = {}; S.policies = {}; S.champs = {}; S.wanderers = [];
-  S.upgrades = { trappersCraft: 1, beastLore: 1, masterOfTheHunt: 1 };
+  // v0.55 Part 4 RE-POINT: `hunterLodge` is DELETED and the Jungler no longer feeds this
+  // stack, so the old `{ hunterLodge: 40 }, { jungler: 40 }` probe now measures nothing.
+  // The fully-invested settlement is the SOURCE's seven members: five hunt Discoveries
+  // (1.0 + 2.0 + 1.0 + 0.5 + 0.5), the Open Range policy (0.1), and 20 Trailblazers
+  // (20 x 0.005 = 0.10) -> Sigma 5.10, which is Kittens' own Sigma exactly.
+  S.buildings = {}; S.jobs = {}; S.policies = {}; S.champs = {};
+  S.wanderers = []; for (var i = 0; i < 20; i++) S.wanderers.push({ t: "trailblazer" });
+  _traitCounts = null;
+  S.upgrades = { trappersCraft: 1, beastLore: 1, masterOfTheHunt: 1, atlasGauntletsUp: 1, jessedHawks: 1 };
+  S.policies = { openRange: 1 };
+  o.sigma = +(1.0 + 2.0 + 1.0 + 0.5 + 0.5 + 0.1 + traitBonus("trailblazer")).toFixed(3);
   o.materials = +campYieldMult().toFixed(3);
   o.luxury = +campYieldMult(true).toFixed(3);
-  S.buildings = {}; S.jobs = {}; S.upgrades = {};
+  S.buildings = {}; S.jobs = {}; S.upgrades = {}; S.policies = {}; S.wanderers = []; _traitCounts = null;
   o.bareMaterials = +campYieldMult().toFixed(3);
   o.bareLuxury = +campYieldMult(true).toFixed(3);
   // the three luxury camps must pass the flag; the material camps must not
@@ -120,7 +129,13 @@ const p1b = await page.evaluate(() => {
 });
 check("LUXURY_CAMP_YIELD_LIMIT is 1.0 and the material limit is untouched at 6", p1b.limit && p1b.matLimit);
 check("both multipliers start at ×1", p1b.bareMaterials === 1 && p1b.bareLuxury === 1);
-check("a fully invested settlement gets ×6+ on materials", p1b.materials > 6, `×${p1b.materials}`);
+// v0.55 Part 4 RE-POINT: the stack is the SOURCE's now — Sigma 5.10 across seven members
+// against Kittens' own 5.10 -> x6.10, delivered through limitedDR(_, 6) at x5.9. The old
+// ">6" was reachable only because RR carried two extra RR-original members (the Hunter's
+// Lodge per copy and the Jungler per worker), both of which v0.55 deletes. The band is the
+// spec's pass condition. Superseded by: v0.55 Part 4.
+check("a fully invested settlement gets ×5.7–6.1 on materials — Kittens' own Σ 5.10 → ×6.10",
+  p1b.materials >= 5.7 && p1b.materials <= 6.1, `×${p1b.materials}`);
 check("but comforts are held under ×2", p1b.luxury < 2 && p1b.luxury > 1.9, `×${p1b.luxury}`);
 check("Wolves, Gromp and Raptors pass the luxury flag; Krugs does not",
   p1b.wolvesLux && p1b.grompLux && p1b.raptorsLux && p1b.krugsNotLux);
@@ -143,9 +158,12 @@ const p23 = await page.evaluate(() => {
       gromp: +(c("gromp") / avg.gromp).toFixed(2),
       raptors: +(c("raptors") / avg.raptors).toFixed(2)
     },
-    wolvesRange: /12 \+ Math\.floor\(Math\.random\(\) \* 8\)/.test(src("wolves")),
-    grompRange: /10 \+ Math\.floor\(Math\.random\(\) \* 14\)/.test(src("gromp")),
-    raptorRange: /12 \+ Math\.floor\(Math\.random\(\) \* 7\)/.test(src("raptors")),
+    // v0.55 Part 8 RE-POINT: every roll inside EXPEDITIONS now goes through the undo-penalty
+    // wrappers `rerollAmt` / `rerollHit` instead of raw Math.random. The RANGES are unchanged;
+    // only the source of the uniform moved. Superseded by: v0.55 Part 8.
+    wolvesRange: /12 \+ Math\.floor\(rerollAmt\("hunt"\) \* 8\)/.test(src("wolves")),
+    grompRange: /10 \+ Math\.floor\(rerollAmt\("hunt"\) \* 14\)/.test(src("gromp")),
+    raptorRange: /12 \+ Math\.floor\(rerollAmt\("hunt"\) \* 7\)/.test(src("raptors")),
     strings: { wolves: y("wolves"), gromp: y("gromp"), raptors: y("raptors") },
     grompWithAbyss: (function () { var had = S.techs.abyss; S.techs.abyss = true;
                                    var v = y("gromp"); S.techs.abyss = had; return v; })()
@@ -154,6 +172,7 @@ const p23 = await page.evaluate(() => {
 check("all three luxury camps cost exactly 100 Vigor, Krugs stays at 150",
   p23.costs.wolves === 100 && p23.costs.gromp === 100 && p23.costs.raptors === 100 && p23.costs.krugs === 150,
   JSON.stringify(p23.costs));
+// v0.55 Part 8 RE-POINT: the roll source moved to `rerollAmt`; the ranges did not.
 check("Wolves yield 12–19, Gromp 10–23, Raptors unchanged 12–18",
   p23.wolvesRange && p23.grompRange && p23.raptorRange);
 check("per-unit vigor cost stays inside the 6.0–6.7 parity band",

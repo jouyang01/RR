@@ -20,13 +20,17 @@ const TABLE = {
   almanac: 30, cultivation: 100, woodcraft: 300, mining: 500, logistics: 500,
   scriptorium: 900, carpentry: 1000, trade: 1200, songcraft: 1300, smelting: 1500,
   masquerade: 1500, abyss: 2000, yordle: 2000, hextech: 2200, drakeLore: 3600,
-  petricite: 9500, voidStudies: 12000, ritesOfTargon: 12000, callToArms: 15000, sparks: 20000,
+  // v0.55 Part 2.1 RE-POINT: Petricite 9,500 -> 65,000 (+ 65 Morellonomica). It was priced
+  // as a mid-Era-2 tech while gating an Era-3 material line; the reprice puts it beside the
+  // Chem-Baron Accords, which is where its unlock actually belongs. Superseded by: v0.55
+  // Part 2.1. All five ladder conditions were re-derived after the move and still hold.
+  voidStudies: 12000, ritesOfTargon: 12000, callToArms: 15000, sparks: 20000,
   championsRegimen: 28000, deepCartography: 35000,
   // v0.52 Part 2.4: refinedMetallurgy (42000) DELETED with the Bloomery. 38 -> 37 techs.
   // Recomputed, all five conditions still hold: 37 techs, 8 ties, median x1.1222 (was
   // x1.1333), geometric mean x1.2632 (was x1.2553), largest step x3.333 unmoved.
   kindling: 50000, hexdraulics: 50000, sumpEcology: 55000, progressDay: 60000,
-  chemtech: 60000, chemBaronAccords: 65000, hexcore: 75000, gloriousEvolution: 85000,
+  chemtech: 60000, petricite: 65000, chemBaronAccords: 65000, hexcore: 75000, gloriousEvolution: 85000,
   atlasGauntlets: 90000, deepWorks: 100000, hexgate: 115000, greyReclamation: 115000,
   voidglassOptics: 125000, watchersBelow: 125000, icathia: 135000
 };
@@ -47,14 +51,18 @@ const lad = await page.evaluate(table => {
     median: +med(steps).toFixed(4), geo: +geo(steps).toFixed(4),
     ties: steps.filter(s => s === 1).length, max: +Math.max(...steps).toFixed(3),
     inversions: sci.filter(t => t.req && byId[t.req] && t.cost.knowledge <= byId[t.req].cost.knowledge).map(t => t.id),
-    lowWithMats: sci.filter(t => rank[t.id] <= 19 && mats(t).length).map(t => t.id),
+    // v0.55 Part 2.1 RE-POINT: pinned to the literal rank 19, so the Petricite reprice broke
+    // it by sliding Sparks from rank 20 to rank 19 without any material cost changing. The
+    // rule is about the Era-3 GATE, not about an ordinal. Superseded by: v0.55 Part 2.1.
+    sparksRank: rank.sparks,
+    lowWithMats: sci.filter(t => rank[t.id] < rank.sparks && mats(t).length).map(t => t.id),
     // The spec says ranks 21-38 carry materials AND that championsRegimen and
     // deepCartography keep their costs on the Discoveries that absorbed them in v0.46.
     // (refinedMetallurgy was the third; deleted v0.52 Part 2.4.)
     // Those two instructions conflict for exactly those two; the Era-3 chain is what the
     // rule is really about, so it is asserted over techs gated on Sparks or later.
     ERA3_EXEMPT: ["championsRegimen", "deepCartography", "kindling"],
-    highWithoutMats: sci.filter(t => rank[t.id] >= 21 && !mats(t).length &&
+    highWithoutMats: sci.filter(t => rank[t.id] > rank.sparks + 1 && !mats(t).length &&
       ["championsRegimen", "deepCartography", "kindling"].indexOf(t.id) === -1).map(t => t.id),
     sparksMats: mats(byId.sparks),
     orphanU: UPGRADES.filter(u => u.tech && !byId[u.tech]).map(u => u.id),
@@ -79,12 +87,12 @@ check("no orphaned Discovery or building after the two retirements",
   JSON.stringify({ u: lad.orphanU, b: lad.orphanB }));
 // NB rank 20 is Sparks, which the spec puts in BOTH the knowledge-only table AND Part 4.2's
 // restore list. Sparks is the Era-3 gate itself, so it carries the material.
-check("PASS CONDITION: no tech at rank ≤19 carries a non-knowledge cost",
-  lad.lowWithMats.length === 0, lad.lowWithMats.join(", ") || "none");
+check("PASS CONDITION: no tech cheaper than the Era-3 gate carries a non-knowledge cost",
+  lad.lowWithMats.length === 0, (lad.lowWithMats.join(", ") || "none") + ` (gate = Sparks at rank ${lad.sparksRank})`);
 check("PASS CONDITION: every Era-3 tech at rank ≥21 carries one",
   lad.highWithoutMats.length === 0,
   (lad.highWithoutMats.join(", ") || "none") + "  (exempt by the spec's own Part 4.2: " + lad.ERA3_EXEMPT.join(", ") + ")");
-check("...and Sparks (rank 20) carries steel 200, per Part 4.2",
+check("...and Sparks (the gate) carries steel 200, per Part 4.2",
   lad.sparksMats.length === 1 && lad.sparksMats[0] === "steel", lad.sparksMats.join(","));
 
 // ============================================================================
@@ -184,8 +192,12 @@ check("...Longhouse 50 and Skyrise 50 unchanged, already exact",
 check("PASS CONDITION: the Storehouse costs timber alone, at ratio 1.75 — Kittens' barn",
   p3.storehouseCost.timber === 50 && Object.keys(p3.storehouseCost).length === 1 &&
   p3.storehouseRatio === 1.75, JSON.stringify(p3.storehouseCost));
-check("...with caps provisions 750 / timber 200 / ore 250 / mana 100 / gold 10",
-  p3.storehouseCaps.provisions === 750 && p3.storehouseCaps.timber === 200 &&
+// v0.55 Part 3.1 RE-POINT: the provisions economy is rescaled x10 (PROVISIONS_SCALE), so
+// every provisions CAP in the game moves with it — 750 -> 7,500 here. Nothing else in this
+// row moves, which is the point: the rescale touched provisions and only provisions.
+// Superseded by: v0.55 Part 3.1.
+check("...with caps provisions 7,500 (750 × 10) / timber 200 / ore 250 / mana 100 / gold 10",
+  p3.storehouseCaps.provisions === 7500 && p3.storehouseCaps.timber === 200 &&
   p3.storehouseCaps.ore === 250 && p3.storehouseCaps.mana === 100 && p3.storehouseCaps.gold === 10,
   JSON.stringify(p3.storehouseCaps));
 check("PASS CONDITION: the Trade Dock grants NO storage cap of any kind",

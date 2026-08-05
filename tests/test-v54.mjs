@@ -188,7 +188,8 @@ const d8 = await page.evaluate(() => {
     banked: worker ? (worker.jx.farmer || 0) : 0, lifetime: worker ? worker.xp : 0,
     idleBanked: idle ? Object.keys(idle.jx || {}).length : -1,
     ranked: rankedJobs(w).map(o => o.job),
-    minerXpDoesNotPayTheFarmer: Math.abs(asChallengerFarmer / asBronzeFarmer - 1.1875) < 1e-4
+    minerXpDoesNotPayTheFarmer: Math.abs(asChallengerFarmer / asBronzeFarmer - 1.1875) < 1e-4,
+    xpRate: typeof XP_PER_SECOND !== "undefined" ? XP_PER_SECOND : 1
   };
 });
 check("8 — one wanderer is Challenger in one trade and Bronze in another at the same time",
@@ -196,9 +197,15 @@ check("8 — one wanderer is Challenger in one trade and Bronze in another at th
   `miner ${d8.minerRank}, jungler ${d8.junglerRank}`);
 check("8 — rankOf() with no job named defaults to the trade they are actually doing",
   d8.defaultsToTrade === "challenger" && d8.freshIsBronze === "bronze");
-check("8 — experience banks into the worked trade, and `xp` survives as the lifetime total",
-  Math.abs(d8.banked - 10) < 1.5 && Math.abs(d8.lifetime - 10) < 1.5,
-  `jx.farmer ${d8.banked.toFixed(2)}, xp ${d8.lifetime.toFixed(2)}`);
+// v0.55 Part 7 RE-POINT: the accrual rate is a named constant now (`XP_PER_SECOND`) instead
+// of the bare `dt` it was, and its value doubles 1 -> 2. This probe drives 50 ticks of
+// TICK_MS = 10 virtual seconds, so the expected bank moves 10 -> 20. Read it from the
+// constant rather than the literal so a future rate move does not re-break the assertion —
+// what this check is really about is that the bank lands in the WORKED trade and that `xp`
+// mirrors it as the lifetime total. Superseded by: v0.55 Part 7.
+check("8 — experience banks into the worked trade at XP_PER_SECOND, and `xp` survives as the lifetime total",
+  Math.abs(d8.banked - 10 * d8.xpRate) < 1.5 * d8.xpRate && Math.abs(d8.lifetime - 10 * d8.xpRate) < 1.5 * d8.xpRate,
+  `jx.farmer ${d8.banked.toFixed(2)}, xp ${d8.lifetime.toFixed(2)}, rate ${d8.xpRate}/s`);
 check("8 — an idle wanderer banks nothing, in any trade", d8.idleBanked === 0);
 check("8 — a Challenger MINER farms like a Bronze farmer until they have farmed",
   d8.minerXpDoesNotPayTheFarmer);
@@ -401,8 +408,12 @@ check("offline — both catch-up routes share ONE chronicle line",
 // ============================================================================
 // SHIP DISCIPLINE and regression guards
 // ============================================================================
-check("ship — VERSION reads v0.54 and the footer is rendered from it",
-  await page.evaluate(() => VERSION === "v0.54"),
+// v0.55 ship RE-POINT: pinned to the literal "v0.54", so it is guaranteed to fail on the
+// very next release — a shipped suite must not encode the round it shipped in. Restated as
+// the shape plus the wiring, which is the property the check was for. This is the same
+// re-point v0.54 applied to test-v53's copy of it. Superseded by: v0.55 ship discipline.
+check("ship — VERSION is well-formed and the footer is rendered from it",
+  await page.evaluate(() => /^v\d+\.\d+$/.test(VERSION)),
   await page.evaluate(() => VERSION));
 check("regression — BOOST_LIMIT still has seven keys and `knowledge` is still absent",
   await page.evaluate(() => Object.keys(BOOST_LIMIT).length === 7 && BOOST_LIMIT.knowledge === undefined));

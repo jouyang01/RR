@@ -57,8 +57,22 @@ const routed = await page.evaluate(() => {
   S.buildings = {};
   return o;
 });
-check("drake bonus: 0 at none, +5% at one kill", routed.drake0 === 0 && Math.abs(routed.drake1 - 0.05) < 1e-9);
-check("drake bonus: free to +35% at 7 kills, bounded under +50% forever", Math.abs(routed.drake7 - 0.35) < 1e-9 && routed.drake1000 < 0.5 && routed.drake1000 > 0.49, routed.drake1000.toFixed(4));
+// v0.55 Part 6 RE-POINT: drakeBonus is routed through `strictDR`, which has NO free band and
+// diminishes from the first kill — that is the whole of directive 1. The first kill is
+// therefore worth slightly LESS than its nominal 0.05: strictDR(0.05, 0.5) = 0.5*0.05/0.55.
+// Superseded by: v0.55 Part 6.
+check("drake bonus: 0 at none, and the FIRST kill already diminishes (no free band)",
+  routed.drake0 === 0 && routed.drake1 < 0.05 && routed.drake1 > 0.04,
+  routed.drake1.toFixed(5));
+// v0.55 Part 6 RE-POINT: `limitedDR` is LINEAR below 0.75 x limit, so seven kills used to be
+// worth their full nominal 0.35 — a player reached three-quarters of every drake cap with no
+// diminishing return at all. Under strictDR seven kills deliver 0.206 — 41% of the cap where
+// the old curve gave them 70% — and the cap is still
+// approached but never reached. The bound half of the old assertion is unchanged and kept.
+// Superseded by: v0.55 Part 6.
+check("drake bonus: curved from the first kill, and still bounded under +50% forever",
+  routed.drake7 < 0.35 && routed.drake7 > 0.19 && routed.drake1000 < 0.5 && routed.drake1000 > 0.49,
+  `7 kills ${routed.drake7.toFixed(4)}, 1000 kills ${routed.drake1000.toFixed(4)}`);
 // v0.40 Part 2.4 supersedes: RR was running Kittens' Solar Revolution curve at 5x its
 // coefficient. Same unlimitedDR, same stripe of 1000, now 0.01 not 0.05 — so the shape
 // this test was really guarding (sqrt, unbounded-but-decelerating) is unchanged and the
@@ -72,7 +86,12 @@ check("worship keeps its sqrt shape at the measured stripe",
   (routed.w1M / routed.w100k) < (routed.w100k / routed.w1k),
   `${(routed.w1k * 100).toFixed(2)}% / ${(routed.w100k * 100).toFixed(1)}% / ${(routed.w1M * 100).toFixed(1)}%`);
 check("worship: the arbitrary +400% wall is gone (old cap was 4.0)", routed.noWall && routed.w1B > 3.0, `+${Math.round(routed.w1B * 100)}% at 1B worship`);
-check("camp discoveries stack additively (+100%), not multiplicatively (+134%)", Math.abs(routed.campStack - 2.0) < 0.01, routed.campStack.toFixed(3));
+// v0.55 Part 4 RE-POINT: the three Discoveries carry Kittens' own figures now (1.0 + 2.0 +
+// 1.0 = 4.00), so the stack is x5.00 additive rather than x2.00. The property under test is
+// ADDITIVITY and it still holds — multiplicative would be 2.0 x 3.0 x 2.0 = x12.
+// Superseded by: v0.55 Part 4.
+check("camp discoveries stack additively at Kittens' figures, not multiplicatively",
+  Math.abs(routed.campStack - 5.0) < 0.01, routed.campStack.toFixed(3));
 check("craft yield bounded by LDR under absurd workshop counts", routed.craftHuge < 5 && routed.craft5 > 1.29, `${routed.craft5.toFixed(2)} / ${routed.craftHuge.toFixed(2)}`);
 
 // price-ratio reductions are LDR-capped against (base - 1)
@@ -137,9 +156,14 @@ check("1.25 reserved for genuine global multipliers only",
 // v0.42 Part 2f: the Shelter joins the Storehouse above the 1.25 band, which IS Kittens'
 // pattern — first-tier storage (barn 1.75) and first-tier housing (hut 2.50) are the two
 // things a player buys constantly, and both are priced with a trivial base to match.
-check("nothing above 1.25 except first-tier storage and first-tier housing",
-  Object.keys(dist.by).filter(r => +r > 1.25).length <= 2 &&
-  Object.keys(dist.by).filter(r => +r > 1.25).every(r => dist.by[r] === 1), JSON.stringify(dist.by));
+// v0.55 Part 5 RE-POINT: the Poro Pasture joins the Storehouse (1.75) and the Shelter (2.20)
+// above the band, and it joins them for the SAME reason — Kittens prices `unicornPasture` at
+// priceRatio 1.75 and STANDING-RULINGS §2 says the source assigns priceRatio by what a
+// building IS. Three ratios above 1.25 now, and 1.75 legitimately has two members.
+// Superseded by: v0.55 Part 5.
+check("nothing above 1.25 except first-tier storage, first-tier housing and the pasture — all three at Kittens' own ratios",
+  Object.keys(dist.by).filter(r => +r > 1.25).every(r => ["1.75", "2.2"].includes(r)),
+  JSON.stringify(dist.by));
 
 // ============ FINDING 3: science depth ============
 const sci = await page.evaluate(() => {
