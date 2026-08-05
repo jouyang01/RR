@@ -538,7 +538,13 @@ var BUILDINGS = [
     //   the pasture at `unicorns 2` on priceRatio 1.75 where RR asks `poros 5` at 1.15, and
     //   the source's catnipDemandRatio is -0.0015 against RR's eatCut 0.003. Directive 13 is
     //   about production; those two are for the analyzer.
-    cost: { poros: 5 }, ratio: 1.15, prod: { poros: 0.005 },
+    // v0.55 PART 5 (directive 6) — ratio 1.15 -> 1.75. Source: `js/buildings.js`
+    // `unicornPasture`, prices [ unicorns 2 ], **priceRatio 1.75**. STANDING-RULINGS §2
+    // governs the reasoning: Kittens assigns priceRatio by WHAT A BUILDING IS, not by the
+    // size of its effect — and this is the same building. v0.54 fixed its production
+    // (0.001/s -> 0.005/s, the source's 0.001/tick x 5); the ratio was the second of the
+    // three divergences that round reported and did not change.
+    cost: { poros: 5 }, ratio: 1.75, prod: { poros: 0.005 },
     unlock: function (s) { return s.seenMax.poros >= 1; },
     eatCut: 0.003, eatCutLimit: EAT_CUT_LIMIT },
   // v0.52 Part 2.3: the Tavern is DELETED. Its overcrowding relief moved onto the Bard's
@@ -2259,9 +2265,50 @@ function syncRoster() {
 // THE WILDS — expeditions spend Vigor (idle accrual → active decision)
 // ============================================================
 var DRAKE_PER_KILL = { infernal: 0.05, ocean: 0.06, mountain: 0.06, cloud: 0.10, hextech: 0.06 };
+// v0.55 Part 6: the caps were five magic numbers spread across five call sites, which is why
+// nothing could enumerate them. They are a table now, and every call site reads it.
+var DRAKE_CAP = { infernal: 0.5, ocean: 0.6, mountain: 0.6, cloud: 1.0, hextech: 0.6 };
+// ============================================================================
+// v0.55 PART 6 (directive 1) — DRAKES DIMINISH FROM THE FIRST KILL.
+//
+// Half of this was already shipped and the other half is the interesting half. The cap
+// existed and limitedDR existed. What did not exist was diminishing return anywhere a player
+// will actually be:
+//
+//   function limitedDR(x, limit) { var free = 0.75 * limit; if (a <= free) return x; ... }
+//
+// limitedDR IS LINEAR BELOW 75% OF THE CAP. For the Mountain Drake (0.06/kill, cap 0.6) the
+// free band ends at 0.45 — SEVEN AND A HALF KILLS. A player reached three-quarters of every
+// drake cap with no diminishing return whatsoever, and only the last quarter curved. That is
+// exactly the behaviour the directive objects to, and "it should be very difficult for the
+// player to reach drake cap" is a request for a curve that bites from zero.
+//
+// Drakes are RR-ORIGINAL — Kittens has none — so there is no rung to port. But there is a
+// CURVE, and RR already ships one: `unlimitedDR` is Kittens' Solar Revolution shape and
+// diminishes from the first point. `strictDR` is its bounded sibling: monotone, asymptotic at
+// `limit`, no free band, and exactly half the cap at x = limit.
+//
+//   strictDR(x, limit) = limit * x / (x + limit)
+//
+// limitedDR ITSELF IS NOT TOUCHED. It is load-bearing for BOOST_LIMIT, CAMP_YIELD_LIMIT,
+// MORALE_RELIEF_LIMIT, TRAIT_LIMIT, AUTOPROD_LIMIT and EAT_CUT_LIMIT; changing it here would
+// have changed all six silently, which is the v0.47 devotion trap in a new shape.
+//
+// MOUNTAIN DRAKE, kills to reach each fraction of its 0.6 cap:
+//        25%      50%      75%      90%
+//   before:   2.5      5.0      7.5     16.5   (linear to 7.5, then curved)
+//   after:    3.3     10.0     30.0     90.0
+// ============================================================================
+function strictDR(x, limit) {
+  if (!limit) return 0;
+  var a = Math.abs(x);
+  var v = limit * a / (a + limit);
+  return x < 0 ? -v : v;
+}
 function drakeBonus(id, max) {
   var n = (S.drakes && S.drakes[id]) || 0;
-  return limitedDR(n * (DRAKE_PER_KILL[id] || 0.05), max);
+  var cap = max !== undefined ? max : (DRAKE_CAP[id] || 0.6);
+  return strictDR(n * (DRAKE_PER_KILL[id] || 0.05), cap);
 }
 var DRAKE_TYPES = [
   { id: "infernal", name: "Infernal Drake", desc: "all production, +5% per kill approaching +50%" },
@@ -3426,7 +3473,7 @@ function computeCaps() {
   // it a side effect of the thing v0.45 Part 3 exists to control; as a building cap it
   // is a decision, and it stops growing when housing stops. See the Shelter, Longhouse
   // and Skyrise entries in BUILDINGS — the caps block above already summed them.
-  var mountainMult = 1 + drakeBonus("mountain", 0.6);
+  var mountainMult = 1 + drakeBonus("mountain", DRAKE_CAP.mountain);
   for (var r2 in caps) { if (CAP_MULT_EXEMPT[r2]) continue; caps[r2] *= mountainMult; }
   // Keeper's Verdict, rescoped (v0.45 Part 8.1 / Jerry's directive): material caps only,
   // +8%. Knowledge, the Scholarship lines (Culture & Devotion), Renown and Vigor are all
@@ -3523,8 +3570,8 @@ function computeRates(bdRes) {
   boosts.hexore = (boosts.hexore || 0) + affinityBonus("hexwarden") / 100;
   boosts.crystals += affinityBonus("hexwarden") / 100;
   var villageMult = 1 + champPassive("village") / 100;
-  boosts.vigor += drakeBonus("cloud", 1.0);
-  boosts.crystals += drakeBonus("hextech", 0.6);
+  boosts.vigor += drakeBonus("cloud", DRAKE_CAP.cloud);
+  boosts.crystals += drakeBonus("hextech", DRAKE_CAP.hextech);
   for (var pk in boosts) boosts[pk] += policyBoost(pk);
   // Bound each percentage-boost stack with the DR primitive, exactly as camp and
   // craft yields are bounded. Aspect's Sanctum at +10%/copy with no ceiling was
@@ -3670,7 +3717,7 @@ function computeRates(bdRes) {
   // additive, bounded by the same primitive every other RR stack uses.
   var META_LIMIT = 1.0;
   var metaCharts = S.upgrades.celestialCharts ? 0.10 : 0;
-  var catMeta = 1 + limitedDR(metaCharts + drakeBonus("infernal", 0.5) + (S.dragonSoul ? 0.25 : 0), META_LIMIT);
+  var catMeta = 1 + limitedDR(metaCharts + drakeBonus("infernal", DRAKE_CAP.infernal) + (S.dragonSoul ? 0.25 : 0), META_LIMIT);
   // Transient resources took catCharts and NOT the drakes or the Soul (v0.45 Part 1, a
   // deliberate RR divergence recorded as such). Collapsing the three must not quietly hand
   // them the other two — this is the v0.47 devotion trap in a new shape. They take the
@@ -3753,7 +3800,7 @@ function computeRates(bdRes) {
 
   // Ocean drake: provisions bonus
   if (rates.provisions > 0 && (S.drakes.ocean || 0) > 0) {
-    var oceanMult = 1 + drakeBonus("ocean", 0.6);
+    var oceanMult = 1 + drakeBonus("ocean", DRAKE_CAP.ocean);
     rates.provisions *= oceanMult;
     if (bdRes === "provisions") {
       bd.forEach(function (e) { e.amt *= oceanMult; });
