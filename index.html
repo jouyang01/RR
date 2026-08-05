@@ -405,7 +405,22 @@ var BUILDINGS = [
   // catches this: Cultivation is rank 2 (100) and ore arrives with the Mine at rank 4
   // (500), so an ore-priced building on Cultivation is exactly the Tavern/Storehouse shape
   // v0.50 Part 2 just cleared and would put auditRawGraph() straight back to one.
-  { id: "irrigation", name: "Irrigation Channel", group: "Village", tech: "mining",
+  // v0.55 PART 2.2 (directive 7.4) — `mining` (500) -> `smelting` (1,500). Source:
+  // `js/science.js` `engineering` costs 1,500 science and unlocks `aqueduct`;
+  // `js/buildings.js` `aqueduct` is `minerals 75`, priceRatio 1.12, `catnipRatio 0.03`. RR's
+  // Channel already copies the cost, the ratio and the figure EXACTLY — only the rung was
+  // three steps early.
+  //
+  // `smelting` over `masquerade`, both of which are RR's 1,500 rung: smelting is the
+  // construction/metallurgy rung and the Channel is priced in ore, where masquerade is the
+  // culture rung and would be exactly the role mismatch §16's last clause warns about.
+  //
+  // THIS IS NOT v0.52 PART 1.2 REPEATING. That round moved the FIGURE off the wrong building
+  // (the Farmstead) onto the right one, and put the right one on `mining` because ore arrives
+  // at `mining` and anything earlier would have re-opened a raw gate. The building was
+  // right; the rung was early. auditRawGraph() confirmed 0 after the move — ore is available
+  // three rungs before 1,500.
+  { id: "irrigation", name: "Irrigation Channel", group: "Village", tech: "smelting",
     lore: "Water persuaded to go where the fields are, and to keep going.",
     effect: "Every field gives up more, for the same work.",
     cost: { ore: 75 }, ratio: 1.12, boost: { provisions: 0.03 } },
@@ -597,11 +612,12 @@ var BUILDINGS = [
     lore: "Loud. Brilliant. Occasionally on fire.", effect: "Every craft in the Workshop returns more per action.",
     cost: { timber: 200, ore: 300, steel: 20, gold: 100 }, ratio: 1.15,
     craftBoost: 0.06 },
-  { id: "hunterLodge", name: "Hunter's Lodge", group: "Industry", tech: "logistics",
-    lore: "Maps on every wall, trophies over the door, and someone always sharpening something.",
-    effect: "Every camp in the Wilds brings back more.",
-    cost: { timber: 200, ore: 220, furs: 20 }, ratio: 1.15,
-    campBoost: 0.15 },
+  // v0.55 Part 4: THE HUNTER'S LODGE IS DELETED. It granted campBoost 0.15 per copy — a
+  // repeatable building in a category whose every source member is a one-off workshop
+  // upgrade, so its contribution was unbounded in a count the player controls. Its yield is
+  // redistributed into the upgrade chain at the source's own figures; see campYieldMult().
+  // Old saves are migrated one-way in loadFromString(), the same shape the Tavern (v0.52) and
+  // the Bloomery (v0.52) used. Do not re-add a building-count term to campYieldMult().
   { id: "trainingGround", name: "Training Ground", group: "Industry", tech: "logistics",
     lore: "Wanderers learn the spear, and someone writes down who won.", effect: "Somewhere to hold Vigor and to earn a name — and Vigor accrues faster.",
     cost: { timber: 120, ore: 150, provisions: 500 }, ratio: 1.15, caps: { vigor: 150, renown: 60 }, boost: { vigor: 0.10 } },   // provisions x10, v0.55 Part 3.3
@@ -884,7 +900,11 @@ var JOBS = [
   { id: "loremaster", name: "Loremaster", desc: "+0.175 knowledge/s", prod: { knowledge: 0.175 },
     unlock: function (s) { return count("archive") > 0; } },
   { id: "arcanist",   name: "Arcanist",   desc: "+0.35 mana/s", prod: { mana: 0.35 }, unlock: function (s) { return count("manaWell") >= 3; } },
-  { id: "jungler",    name: "Jungler",    desc: "+0.30 vigor/s, camp yields +5% each (many hands make the routes)", prod: { vigor: 0.30 }, tech: "logistics" },
+  // v0.55 Part 4: the camp-yield term is GONE. Kittens' hunter produces `manpower 0.06`/tick
+  // = 0.30/s and boosts nothing; RR's vigor output is that figure exactly, which is a PARITY
+  // row in the ledger. The +5%-per-jungler was RR-original, EASIER, and unbounded in the
+  // number of workers assigned — half of what directive 4 calls abusable.
+  { id: "jungler",    name: "Jungler",    desc: "+0.30 vigor/s (the routes stay open)", prod: { vigor: 0.30 }, tech: "logistics" },
   { id: "miner",      name: "Miner",      desc: "+0.25 ore/s, +0.008 gold/s", prod: { ore: 0.25, gold: 0.008 }, tech: "mining" },
   // v0.54, DEV DIRECTIVE 15. Unlocked by Hextech Theory, not by owning a Refinery. The job
   // produces crystals directly and does not depend on the building in any way; gating it on
@@ -980,7 +1000,32 @@ var TECHS = [
   { id: "drakeLore", name: "Drake Lore", cost: { knowledge: 3600 }, req: "logistics",
     lore: "The elemental drakes have returned to the wilds.",
     effect: "Renown cap +60."},
-  { id: "petricite", name: "Petricite Masonry", cost: { knowledge: 9500 }, req: "smelting",
+  // v0.55 PART 2.1 — 9,500 -> 65,000 + morellonomicon 65. Directive 3: "Petricite Masonry
+  // unlocks too early. The 35% miner bonus compared to the cost makes no sense to build."
+  //
+  // SOURCE, verified: `js/science.js` — `archeology`, prices [ science 65000, compedium 65 ],
+  // unlocks { buildings: ["quarry"] }. RR's Petricite Quarry IS Kittens' quarry: STANDING-
+  // RULINGS §5 pins its cost at `stoneSlab 1000 + steel 125 + scaffold 50` at ratio 1.15,
+  // which is the source's `slab 1000 + steel 125 + scaffold 50` verbatim, and pins the id.
+  // THE COST WAS ALREADY AT EXACT PARITY AND DOES NOT MOVE. Only the unlock rung was wrong,
+  // and §5 does not cover the rung.
+  //
+  // `morellonomicon: 65` is the compedium term at exact rank: Kittens' compedium is
+  // `science 9000 + manuscript 55` and RR's morellonomicon is `knowledge 9000 + tome 30`,
+  // where an RR tome is 50 parchment against a manuscript's 25 — so 30 tomes is ~60
+  // manuscript-equivalents against 55. Rank-for-rank, and it is what turns the Quarry from a
+  // routine purchase into the project the source makes it.
+  //
+  // ALL FOUR DEPENDANTS FOLLOW THE TECH and none is re-homed: the `quarry` building (it IS
+  // archeology's unlock), `stonecutGuild`, `RES.petriciteBlock`'s visibility, and the
+  // `petriciteBlock` craft. The craft carries `crystals 15`, so moving it delays part of the
+  // crystal sink v0.53 Part 2 shipped by 55,500 knowledge — measured and reported in BUILD
+  // REPORT v0.55 §2.1, and the answer is that it is negligible: its ONLY consumer is the
+  // Quarry at 2 blocks a copy, i.e. 30 crystals per Quarry against a measured Icathia income
+  // of ~10,000 crystals per game-year. The repeatable sinks are the crystal economy.
+  //
+  // Ladder: 65,000 already exists (`chemBaronAccords`), so this is a TIE, not a new rung.
+  { id: "petricite", name: "Petricite Masonry", cost: { knowledge: 65000, morellonomicon: 65 }, req: "smelting",
     lore: "Stone that drinks magic, cut by people who resent being impressed."},
   { id: "voidStudies", name: "Void Studies", cost: { knowledge: 12000 }, req: "drakeLore",
     lore: "Something ancient stirs beneath the river.",
@@ -2243,15 +2288,56 @@ var campEmpowered = 1;      // set to CHARGE_BONUS for the duration of an empowe
 // hunt than its mineral and science lines do. Without the split, supply carried a
 // ×6.6 multiplier that demand had no counterpart for, and luxuries ran 436×
 // oversupplied — which is why the morale term never bit.
+// ============================================================================
+// v0.55 PART 4 — HUNT YIELD IS A ONE-OFF UPGRADE CHAIN, AS IT IS IN THE SOURCE.
+//
+// Directive 4: "Hunter's lodge feels abusable. Let's remove this building and shift the hunt
+// yield bonuses to a discovery chain similar to the Kitten's Bow/armor for hunting upgrade...
+// Jungler should not increase camp yield." Both halves are correct against source.
+//
+// KITTENS' ENTIRE HUNT-YIELD STACK IS WORKSHOP UPGRADES (js/workshop.js `hunterRatio`):
+//   bolas 1.0 + huntingArmor 2.0 + steelArmor 0.5 + alloyArmor 0.5 + nanosuits 0.5
+//   + griffinRelationsScouts 0.5 + rationing 0.1  =  Sigma 5.10 -> x6.10, unbounded, SEVEN
+//   members. Kittens' hunter JOB produces `manpower 0.06`/tick and boosts nothing at all.
+//
+// RR summed TEN sources, and two of them were RR-original and unbounded in a COUNT THE PLAYER
+// CONTROLS — 0.05 per Jungler assigned and 0.15 per Hunter's Lodge owned. Everything in the
+// source's list is a one-off. That is the abuse the directive names, and it is a structural
+// difference rather than a tuning one. Both are deleted.
+//
+// THE CHAIN IS RE-RANKED TO THE SOURCE'S OWN FIGURES, member for member:
+//   trappersCraft    1.00  <- bolas                     (early, on logistics)
+//   beastLore        2.00  <- huntingArmor              (the big one, as in the source)
+//   masterOfTheHunt  1.00  <- steelArmor + alloyArmor   (RR merges the two armour rungs)
+//   atlasGauntletsUp 0.50  <- nanosuits                 (late)
+//   jessedHawks      0.50  <- griffinRelationsScouts
+//   openRange        0.10  <- rationing                 (the policy term; was 0.12)
+//   trailblazer      trait  -- the seventh member, RR-original and small
+//   Sigma = 5.10 EXACTLY across the six named members, matching the source to the digit.
+//
+// TWO RR DIVERGENCES KEPT AND LABELLED rather than quietly removed:
+//  * `champPassive("camp")` — Shaco's Ambush. Champions are RR-ORIGINAL and EASIER by
+//    construction; the ledger says so. Not deleted, because deleting a champion passive is a
+//    champion decision, not a hunt-yield one.
+//  * The LUXURY/MATERIAL split of the BOUND (LUXURY_CAMP_YIELD_LIMIT 1.0 vs CAMP_YIELD_LIMIT
+//    6). Kittens has one hunterRatio and no split. RR's split is its comfort design and it
+//    stays — but the five UPGRADES no longer split with it. They were conditional
+//    (atlasGauntletsUp material-only, jessedHawks comfort-only), which meant neither path ever
+//    saw the source's Sigma. Now both do, and the comfort ceiling does the comfort work.
+//
+// CAMP_YIELD_LIMIT STAYS 6 (STANDING-RULINGS Appendix). At Sigma 5.10 through
+// limitedDR(_, 6) the delivered figure is x5.93 against the source's x6.10 — within 3%. The
+// limit is NOT tuned to hit a number; the number is reported.
+// ============================================================================
 function campYieldMult(isLuxury) {
   // Additive within the category (Kittens Law 2), then bounded by the primitive
-  var sum = 0.05 * (S.jobs.jungler || 0) + bfield("hunterLodge", "campBoost") * count("hunterLodge") + champPassive("camp") / 100;
-  if (S.upgrades.trappersCraft) sum += 0.25;
-  if (S.upgrades.beastLore) sum += 0.25;
-  if (S.upgrades.masterOfTheHunt) sum += 0.5;
-  if (S.upgrades.atlasGauntletsUp && !isLuxury) sum += 0.5;   // a bigger fist carries more ore, not more comfort
-  if (S.upgrades.jessedHawks && isLuxury) sum += 0.25;        // v0.45 Part 6 — Falconry, the mirror of the line above
-  if (hasPolicy("openRange")) sum += 0.12;
+  var sum = champPassive("camp") / 100;
+  if (S.upgrades.trappersCraft) sum += 1.0;
+  if (S.upgrades.beastLore) sum += 2.0;
+  if (S.upgrades.masterOfTheHunt) sum += 1.0;
+  if (S.upgrades.atlasGauntletsUp) sum += 0.5;
+  if (S.upgrades.jessedHawks) sum += 0.5;
+  if (hasPolicy("openRange")) sum += 0.1;
   sum += traitBonus("trailblazer");
   return (1 + limitedDR(sum, isLuxury ? LUXURY_CAMP_YIELD_LIMIT : CAMP_YIELD_LIMIT)) * campEmpowered;
 }
@@ -4701,6 +4787,20 @@ function loadFromString(str) {
   for (var k in fresh) if (k in data) {
     if (typeof fresh[k] === "object" && fresh[k] !== null && !Array.isArray(fresh[k])) Object.assign(fresh[k], data[k]);
     else fresh[k] = data[k];
+  }
+  // v0.54 → v0.55 Part 4: the Hunter's Lodge is DELETED and its yield redistributed into the
+  // one-off upgrade chain. The count is NOT carried onto anything — there is nothing left it
+  // is interchangeable with — so it is refunded at 50% of the ratio-1.15 geometric sum, the
+  // same one-way pattern the v0.49 monument merge, the v0.52 Tavern and the v0.52 Bloomery
+  // all used. A returning player keeps half the materials and loses a bonus that the upgrade
+  // chain now pays them instead.
+  if (fresh.buildings.hunterLodge) {
+    var hn = fresh.buildings.hunterLodge;
+    var hgeo = (Math.pow(1.15, hn) - 1) / 0.15;            // Σ ratio^i, i = 0..n-1
+    fresh.res.timber = (fresh.res.timber || 0) + Math.floor(0.5 * 200 * hgeo);
+    fresh.res.ore    = (fresh.res.ore || 0)    + Math.floor(0.5 * 220 * hgeo);
+    fresh.res.furs   = (fresh.res.furs || 0)   + Math.floor(0.5 * 20 * hgeo);
+    delete fresh.buildings.hunterLodge;
   }
   // v0.53 → v0.54, directive 8: a Wanderer's single `xp` becomes per-trade `jx`. A veteran
   // keeps their whole bank, credited to the trade they were holding when the save was
