@@ -228,7 +228,18 @@ const r = await page.evaluate(() => {
     // the Freljord monument line
     poroRatio: growth(n => { S.buildings = { frostguardCairn: n }; }, () => poroRatio(), 5, 500),
     // Hunter's Lodge -> campYieldMult, bounded by CAMP_YIELD_LIMIT
-    campBoost: growth(n => { S.buildings = { hunterLodge: n }; }, () => campYieldMult(), 5, 500),
+    // v0.55 Part 4: the Hunter's Lodge is deleted, so there is no building-count term left in
+    // campYieldMult() to grow. The stack is measured at its own Sigma instead — every upgrade
+    // owned, which is the state the source's x6.10 is quoted at.
+    campStackAtFullSigma: (() => {
+      bare();
+      ["trappersCraft", "beastLore", "masterOfTheHunt", "atlasGauntletsUp", "jessedHawks"]
+        .forEach(u => S.upgrades[u] = true);
+      const material = campYieldMult(false), comfort = campYieldMult(true);
+      bare();
+      return { sigma: 5.10, material: +material.toFixed(4), comfort: +comfort.toFixed(4),
+               kittensWouldGive: 6.10 };
+    })(),
     // Yordle Workshop -> craftYield, bounded by CRAFT_YIELD_LIMIT
     craftBoost: growth(n => { S.buildings = { workshop: n }; }, () => craftYield(), 5, 500),
     // Chembarrel -> autoprodMult, bounded by AUTOPROD_LIMIT

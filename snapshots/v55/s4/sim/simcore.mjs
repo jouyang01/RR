@@ -475,13 +475,6 @@ export async function runSim(page, years, seed = 1) {
       if (idleCount() > 0) assignJob("farmer", 1);
     }
 
-    // v0.55 Part 9, correction: HANDOFF v0.54 §4 says these two are "at module scope and
-    // exported". They are NOT exported — they are `const`s inside runSim()'s page.evaluate,
-    // and they are returned in the run RESULT, which is what test-v53's enumeration actually
-    // reads. test-v53's own "module scope" check greps the source TEXT with indexOf, which
-    // matches at any scope. The reachability guard is real and works; the description of how
-    // it works was wrong, and it is corrected here and in HANDOFF v0.55 §4.
-    //
     // v0.53 Part 1.1. The build order was a `const` INSIDE manageBuildings, which is
     // exactly why nothing could assert against it: a list nothing outside the function
     // can read cannot be enumerated, and the omission of the Shimmer Refinery survived
