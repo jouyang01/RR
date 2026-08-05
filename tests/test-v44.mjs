@@ -189,8 +189,20 @@ const ceil = await page.evaluate(() => {
            renownX: +(chem / bare).toFixed(4), timberX: +(timberFull / timberBare).toFixed(4) };
 });
 check("Hall of Heroes is +250 Renown", ceil.hallCap === 250, String(ceil.hallCap));
-check("Renown takes √Masonry", Math.abs(ceil.renownX - Math.sqrt(1.75 * 1.8 * 2 * 2)) < 0.01, `×${ceil.renownX}`);
-check("materials still take the FULL Masonry line", Math.abs(ceil.timberX - 1.75 * 1.8 * 2 * 2) < 0.01, `×${ceil.timberX}`);
+// v0.56 Part 5 RE-POINT (both lines): the multiplicative Masonry chain is gone. Kittens'
+// `js/resources.js addBarnWarehouseRatio` runs TWO ADDITIVE accumulators — barnRatio Σ 4.35
+// and warehouseRatio Σ 1.80 across six workshop upgrades each — applied at three different
+// SCOPES, and RR's five rungs carry the source's sums between them. At four rungs owned the
+// barn sum is 3.55 and the warehouse sum is 1.55, so timber (narrow: both) takes
+// (1+3.55)(1+1.55) = ×11.6025 and renown (broad: warehouse only) takes ×2.55.
+// The properties under test are unchanged: renown rises with the era SUB-LINEARLY against
+// materials, and materials take the whole line. Superseded by: v0.56 Part 5.
+check("Renown rises sub-linearly against materials, on the warehouse tier",
+  Math.abs(ceil.renownX - (1 + 0.25 + 0.50 + 0.45 + 0.35)) < 0.01 && ceil.renownX < ceil.timberX,
+  `renown ×${ceil.renownX} against timber ×${ceil.timberX}`);
+check("materials still take the FULL line — both accumulators, multiplied between categories",
+  Math.abs(ceil.timberX - (1 + 0.75 + 0.80 + 1.00 + 1.00) * (1 + 0.25 + 0.50 + 0.45 + 0.35)) < 0.01,
+  `×${ceil.timberX}`);
 check("the Chemtech ceiling clears the tenth rung's 9,611 Renown", ceil.chem > 9611, String(ceil.chem));
 
 // ==================== Part 2.5 — the re-priced ladder ====================

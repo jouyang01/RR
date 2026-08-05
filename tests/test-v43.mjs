@@ -86,13 +86,21 @@ const renown = await page.evaluate(() => {
   return { bare: Math.round(bare), chemtech: Math.round(chemtech), icathia: Math.round(icathia),
            vigorExempt: Math.abs(vBare - vMasonry) < 1e-9 };
 });
-// v0.44 Part 2.2 supersedes the magnitude: Renown takes the SQUARE ROOT of Masonry.
-// The v0.43 measurement was that the full line reached 23,208 before Sparks and simply
-// outran the ladder, so the currency never gated anything. √Masonry keeps the ceiling
-// rising with the era without matching it one-for-one.
-check("Renown scales with the SQUARE ROOT of the Masonry line",
-  Math.abs(renown.chemtech / renown.bare - Math.sqrt(1.75 * 1.8 * 2 * 2)) < 0.02 &&
-  Math.abs(renown.icathia / renown.bare - Math.sqrt(1.75 * 1.8 * 2 * 2 * 1.75)) < 0.02,
+// v0.44 Part 2.2 superseded v0.43's magnitude with sqrt(Masonry), because the full
+// multiplicative line reached 23,208 before Sparks and the currency never gated anything.
+//
+// v0.56 Part 5 RE-POINT: THERE IS NO LONGER A PRODUCT TO TAKE A ROOT OF. The Masonry chain is
+// replaced by two additive accumulators applied at three scopes (Kittens `js/resources.js`
+// addBarnWarehouseRatio), and Renown — which is RR-ORIGINAL with no source counterpart at all
+// — is assigned to the WAREHOUSE (broad) tier. That is a design ruling, not a parity claim,
+// and it was made from this measurement: at the "none" tier the Chemtech-era ceiling is 5,810
+// against the tenth champion's 9,611 Renown cost, which puts the last rung of the champion
+// ladder out of reach. At "broad" it is 14,815. The property this assertion has always been
+// about — the ceiling rises with the era, sub-linearly, and clears the tenth champion — is
+// unchanged and is asserted directly below. Superseded by: v0.56 Part 5.
+check("Renown rises with the storage era on the warehouse (broad) tier, not on a square root",
+  Math.abs(renown.chemtech / renown.bare - (1 + 0.25 + 0.50 + 0.45 + 0.35)) < 0.02 &&
+  Math.abs(renown.icathia / renown.bare - (1 + 0.25 + 0.50 + 0.45 + 0.35 + 0.25)) < 0.02,
   `${renown.bare} bare → ${renown.chemtech} at Chemtech Silos → ${renown.icathia} at Voidward`);
 check("the Chemtech-era ceiling covers the tenth champion's 9,611 Renown", renown.chemtech > 9611, String(renown.chemtech));
 check("Vigor stays exempt — it is a transient flow, not a store", renown.vigorExempt);

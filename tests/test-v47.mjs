@@ -192,12 +192,20 @@ check("...Longhouse 50 and Skyrise 50 unchanged, already exact",
 check("PASS CONDITION: the Storehouse costs timber alone, at ratio 1.75 — Kittens' barn",
   p3.storehouseCost.timber === 50 && Object.keys(p3.storehouseCost).length === 1 &&
   p3.storehouseRatio === 1.75, JSON.stringify(p3.storehouseCost));
-// v0.55 Part 3.1 RE-POINT: the provisions economy is rescaled x10 (PROVISIONS_SCALE), so
-// every provisions CAP in the game moves with it — 750 -> 7,500 here. Nothing else in this
-// row moves, which is the point: the rescale touched provisions and only provisions.
-// Superseded by: v0.55 Part 3.1.
-check("...with caps provisions 7,500 (750 × 10) / timber 200 / ore 250 / mana 100 / gold 10",
-  p3.storehouseCaps.provisions === 7500 && p3.storehouseCaps.timber === 200 &&
+// v0.55 Part 3.1 rescaled the provisions economy x10 (PROVISIONS_SCALE), taking this cap
+// 750 -> 7,500 -- and in doing so it made RR's food unit IDENTICAL to Kittens' catnip unit
+// (the farmer produces 5.000/s in both games now).
+//
+// v0.56 RE-POINT, on Jerry's directive that "the provision cap is too large and Deepwinter is
+// never a problem": once the units match, Kittens' barn figure transplants directly.
+// `js/buildings.js:765-767` — barn `var effects = { "catnipMax": 5000, "woodMax": 200, ... }`.
+// RR's timber 200 was already exact to the digit; provisions 7,500 was ×1.5 the source, and
+// it was the ONLY column on this building that was not at parity. The v0.47 note that
+// defended it ("catnip is one resource doing two jobs and RR splits it into provisions and
+// mana") was an argument about units, and v0.55 dissolved the units problem.
+// Superseded by: v0.56 Part 5 + Jerry's provisions-cap directive.
+check("...with caps provisions 5,000 — Kittens' barn catnipMax exactly — timber 200 / ore 250 / mana 100 / gold 10",
+  p3.storehouseCaps.provisions === 5000 && p3.storehouseCaps.timber === 200 &&
   p3.storehouseCaps.ore === 250 && p3.storehouseCaps.mana === 100 && p3.storehouseCaps.gold === 10,
   JSON.stringify(p3.storehouseCaps));
 check("PASS CONDITION: the Trade Dock grants NO storage cap of any kind",

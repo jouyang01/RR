@@ -559,22 +559,46 @@ var BUILDINGS = [
     // v0.47 Part 4.4: Kittens' barn is `wood 50` at priceRatio 1.75 — ONE raw material.
     // The ore cost goes (the Storehouse arrives at Cultivation, rank 2, and used to demand
     // ore). ore 150 -> 250 is the barn's own minerals figure; gold 10 is the barn's own gold
-    // term, which is where Kittens puts the early gold ceiling (Part 4.4b). provisions 750
-    // STAYS: Kittens' catnip is one resource doing two jobs and RR splits it into provisions
-    // and mana, so the barn's catnipMax 5000 has no single RR counterpart to transplant.
-    cost: { timber: 50 }, ratio: 1.75, caps: { provisions: 7500, timber: 200, ore: 250, mana: 100, gold: 10 } },   // provisions cap x10, v0.55 Part 3.3
+    // term, which is where Kittens puts the early gold ceiling (Part 4.4b).
+    //
+    // v0.56, JERRY'S DIRECTIVE — "the provision cap is too large and Deepwinter is never a
+    // problem". The v0.47 note that stood here said provisions 750 STAYS because "Kittens'
+    // catnip is one resource doing two jobs and RR splits it into provisions and mana, so the
+    // barn's catnipMax 5000 has no single RR counterpart to transplant." THAT ARGUMENT DIED
+    // IN v0.55. Part 3.1 rescaled provisions x10 precisely so that RR's food unit IS Kittens'
+    // catnip unit — the farmer produces 5.000/s in both games now — so the barn's figure
+    // transplants directly and there is nothing left to apportion. The mana term is a separate
+    // RR-original line and is not touched this round (§5, one lever at a time).
+    //
+    // Kittens `js/buildings.js:765-767`: barn `var effects = { "catnipMax": 5000, "woodMax":
+    // 200, ... }`. RR's timber 200 was already exact; provisions 7,500 was x1.5 the source,
+    // and it was the only column on this building that was not at parity.
+    cost: { timber: 50 }, ratio: 1.75, caps: { provisions: 5000, timber: 200, ore: 250, mana: 100, gold: 10 } },
   // v0.47 Part 1.4(b): Carpentry, not Mining. It costs beam 2, and beams are a Carpentry
   // recipe now — at tech "mining" (rank 4) it would be visible for three ranks with an
   // uncraftable input. It is also parity: Kittens' `construction` unlocks warehouse AND
   // lumberMill from the same tech.
   { id: "warehouse", name: "Warehouse", group: "Storage", tech: "carpentry", unlock: function (s) { return s.upgrades.slabCutting; },
     lore: "Dry, guarded, and rat-proof — for materials, not meals.", effect: "Dry, guarded and rat-proof — for materials, not meals.",
-    cost: { beam: 2, stoneSlab: 3 }, ratio: 1.15, caps: { timber: 400, ore: 300, steel: 100, gold: 80 } },
+    // v0.56 Part 5: Kittens' warehouse DOES store catnip — 750 each, and only once Silos is
+    // researched (wiki, Catnip: "each Warehouse increases the catnip capacity by 750 each
+    // (after Silos research)"). RR's Warehouse stored none at all. Added, gated on the same
+    // upgrade the quarter-scope is gated on, so one research opens both halves of the source's
+    // Silos behaviour rather than half of it. This PARTLY offsets the Storehouse and Harbor
+    // cuts above and below — the point of the directive is the right ceiling, not merely a
+    // lower one.
+    cost: { beam: 2, stoneSlab: 3 }, ratio: 1.15,
+    caps: { timber: 400, ore: 300, steel: 100, gold: 80 },
+    capsIf: { upgrade: "chemtechSilos", caps: { provisions: 750 } } },
   // v0.47 Part 1.4(c): the Harbor costs gear 20, and gear is Smelting-gated. At tech
   // "trade" (1,200) it was visible one rank before its input existed.
   { id: "harbor", name: "Harbor", group: "Storage", tech: "smelting", unlock: function (s) { return s.upgrades.deepwaterDocks; },
     lore: "Bilgewater hulls at anchor hold more than any cellar.", effect: "Bilgewater hulls at anchor hold more than any cellar.",
-    cost: { stoneSlab: 50, gear: 20, beam: 30 }, ratio: 1.15, caps: { provisions: 10000, timber: 700, ore: 500, steel: 150, gold: 200, mana: 150, crystals: 20 } },   // provisions cap x10, v0.55 Part 3.3
+    // v0.56, JERRY'S DIRECTIVE: Kittens' harbour stores 2,500 catnip each (wiki, Catnip).
+    // RR's Harbor stored 10,000 — FOUR TIMES the source, on the building the bot owns most of
+    // late. Between this and the Storehouse, RR's two food stores were carrying 1.5x and 4x
+    // their counterparts, which is the whole of "the provision cap is too large".
+    cost: { stoneSlab: 50, gear: 20, beam: 30 }, ratio: 1.15, caps: { provisions: 2500, timber: 700, ore: 500, steel: 150, gold: 200, mana: 150, crystals: 20 } },
   { id: "archive", name: "Archive", group: "Industry",
     lore: "What survived the wars, shelved.", effect: "Somewhere to keep what you know, and scholars who gather it faster.",
     cost: { timber: 40, mana: 50 }, ratio: 1.15, caps: { knowledge: 250 }, boost: { knowledge: 0.10 } },
@@ -1602,6 +1626,124 @@ var SCHOLAR_CAPS = { culture: 1, devotion: 1 };
 // among them. So catpower takes no storage multiplier in the source either. Two
 // exemptions, two different sources; do not merge them.
 var CAP_MULT_EXEMPT = { vigor: 1, knowledge: 1 };
+// ============================================================================
+// v0.56 PART 5 — THE STORAGE-SCOPE RESTRUCTURE.
+//
+// RR ran ONE MULTIPLICATIVE CHAIN across twelve resources:
+//   masonryMult = 1.75 x 1.8 x 2 x 2 x 1.75 = x22.05 nominal (x12.6 realised, because
+//   voidwardStores has never been researched in any measured run)
+// and that is wrong in two independent ways at once.
+//
+// (1) IT IS A KITTENS'-LAW VIOLATION. Effects are ADDITIVE within a category and
+//     multiplicative only BETWEEN categories. Storage expansion is one category.
+//
+// (2) IT HAS NO SCOPE. Kittens' storage upgrades do not touch every resource; they touch
+//     SEVEN effect names and no others, at THREE different strengths. Verified from source
+//     this session -- `js/resources.js:866-885`, quoted verbatim:
+//
+//       addBarnWarehouseRatio: function(effects){
+//           var newEffects = {};
+//           var barnRatio = this.game.getEffect("barnRatio");
+//           var warehouseRatio = 1 + this.game.getEffect("warehouseRatio");
+//           for (var name in effects){
+//               var effect = effects[name];
+//               if (name === "catnipMax" && this.game.workshop.get("silos").researched){
+//                   effect *= 1 + barnRatio * 0.25;
+//               }
+//               if (name == "woodMax" || name == "mineralsMax" || name == "ironMax"){
+//                   effect *= 1 + barnRatio;
+//                   effect *= warehouseRatio;
+//               }
+//               if (name == "coalMax" || name == "titaniumMax" || name == "goldMax"){
+//                   effect *= warehouseRatio;
+//               }
+//               newEffects[name] = effect;
+//           }
+//           return newEffects;
+//       }
+//
+// THE TWO ACCUMULATORS, enumerated from `js/workshop.js` this session (six members each,
+// and `strenghtenBuild` is the one upgrade that feeds BOTH):
+//   barnRatio      stoneBarns 0.75 + reinforcedBarns 0.80 + titaniumBarns 1.00
+//                + alloyBarns 1.00 + concreteBarns 0.75 + strenghtenBuild 0.05  = 4.35
+//   warehouseRatio reinforcedWarehouses 0.25 + titaniumWarehouses 0.50 + alloyWarehouses 0.45
+//                + concreteWarehouses 0.35 + storageBunkers 0.20 + strenghtenBuild 0.05 = 1.80
+//
+// which delivers, fully stacked:
+//   narrow  (wood / minerals / iron)  (1 + 4.35) x (1 + 1.80) = x14.98
+//   broad   (coal / titanium / gold)  (1 + 1.80)              = x2.80
+//   quarter (catnip, and ONLY after Silos)  1 + 4.35 x 0.25   = x2.0875
+//   none    everything else                                   = x1.00
+//
+// NB the v0.56 spec's pass-condition table states x14.84 and x2.075, which imply a barn sum
+// of 4.30 -- the source's 4.35 minus `strenghtenBuild`'s 0.05, which the same spec's own
+// PROSE counts. The two halves of the spec disagree by one upgrade. Under STANDING-RULINGS
+// §16 the source is the balance authority, so the sourced 4.35 ships and the discrepancy is
+// reported in BUILD REPORT §5. The warehouse sum 1.80 is the same in both readings, and it
+// includes `strenghtenBuild` -- so the spec's table counts that upgrade for one accumulator
+// and not the other, which is what identifies it as an arithmetic slip rather than a ruling.
+var BARN_LINE = [["expandedStores", 0.75], ["ironboundStores", 0.80], ["hexRunedStores", 1.00],
+                 ["chemtechSilos", 1.00], ["voidwardStores", 0.80]];        // Sigma 4.35
+var WAREHOUSE_LINE = [["expandedStores", 0.25], ["ironboundStores", 0.50], ["hexRunedStores", 0.45],
+                      ["chemtechSilos", 0.35], ["voidwardStores", 0.25]];   // Sigma 1.80
+// RR has five Masonry rungs against the source's eleven upgrades, so each RR rung carries a
+// barn value AND a warehouse value, mapped in ladder order onto Kittens' tiers, with
+// `strenghtenBuild`'s +0.05/+0.05 folded onto the terminal Icathia rung. The SUMS are the
+// source's exactly; only the packaging differs, because RR's ladder is shorter.
+//
+// THE SCOPE TABLE. Every capped resource lands in EXACTLY ONE tier -- asserted by
+// enumeration in test-v56, so a new resource cannot arrive without a decision being made
+// about it. Assignment is BY ROLE (§16's last clause), not by name:
+//   narrow  timber/ore/steel    = wood/minerals/iron, the bulk construction materials
+//           mana                -- no source counterpart, but RR ruled in v0.36 item 15 that
+//                                  "Mana is a material, at cap parity with Timber". Honouring
+//                                  a standing ruling means honouring BOTH halves of it, so
+//                                  mana sits in Timber's tier rather than being quietly
+//                                  demoted by a table that did not exist when it was ruled.
+//   broad   gold                = gold
+//           zaunore/coalgas/hexore/shimmer = coal/titanium, the Era-3 refined raws
+//           crystals            = RR's precious currency; gold's role, not wood's
+//           renown              -- RR-ORIGINAL with no source counterpart at ALL, so no tier
+//                                  is a parity answer and this is a DESIGN ruling stated as
+//                                  one. It sits with gold because prestige is what gold is
+//                                  for. Measured before choosing: at "none" the Chemtech-era
+//                                  ceiling is 5,810 against the tenth champion's 9,611 Renown
+//                                  cost — the ladder's last rung becomes unreachable. At
+//                                  "broad" it is 14,816. v0.44 Part 2.2's sqrt(masonry) is
+//                                  retired: there is no longer a product to take a root of.
+//   quarter provisions          = catnip, gated on Silos exactly as the source gates it
+//   none    voidessence         -- Kittens' unobtainium tier gets nothing, and RR's measured
+//                                  cap-out for it is 0.0%: it has never been a constraint.
+//           culture, devotion   -- these take the SCHOLARSHIP family instead, which is RR's
+//                                  port of Kittens' own separate cultureMax/scienceMax ratio
+//                                  lines. "none" here means "not on the Masonry line".
+//           knowledge, vigor    -- already CAP_MULT_EXEMPT for two separately sourced
+//                                  reasons (workshop.js:2769-2786; manpower absent from
+//                                  addBarnWarehouseRatio). Listed so the table is total.
+var CAP_SCOPE = {
+  timber: "narrow", ore: "narrow", steel: "narrow", mana: "narrow",
+  gold: "broad", zaunore: "broad", coalgas: "broad", hexore: "broad", shimmer: "broad",
+  crystals: "broad", renown: "broad",
+  provisions: "quarter",
+  voidessence: "none", culture: "none", devotion: "none",
+  knowledge: "none", vigor: "none"
+};
+// Kittens gates catnip's quarter-share on the `silos` workshop upgrade. RR's fourth Masonry
+// rung is literally named Chemtech Silos, so the gate ports one-for-one.
+var QUARTER_GATE = "chemtechSilos";
+function storageRatios() {
+  var barn = 0, ware = 0;
+  BARN_LINE.forEach(function (u) { if (S.upgrades[u[0]]) barn += u[1]; });
+  WAREHOUSE_LINE.forEach(function (u) { if (S.upgrades[u[0]]) ware += u[1]; });
+  return { barn: barn, ware: ware };
+}
+function storageMultFor(r, ratios) {
+  var scope = CAP_SCOPE[r] || "none";
+  if (scope === "narrow") return (1 + ratios.barn) * (1 + ratios.ware);
+  if (scope === "broad") return 1 + ratios.ware;
+  if (scope === "quarter") return S.upgrades[QUARTER_GATE] ? 1 + ratios.barn * 0.25 : 1;
+  return 1;
+}
 // Keeper's Verdict, rescoped per Jerry's directive: material caps only, +8%.
 var POPPY_CAP_MULT = 1.08;
 function capMultNames() {
@@ -1703,21 +1845,21 @@ var UPGRADES = [
   { id: "reinforcedStorehouses", name: "Reinforced Storehouses", cost: { gear: 10, timber: 300 }, tech: "smelting",
     lore: "Gear-braced beams and doubled lofts.",
     effect: "Storehouse capacity +75%."},
+  // v0.56 Part 5: the five Masonry rungs no longer each multiply everything. Each carries a
+  // BARN share and a WAREHOUSE share (BARN_LINE / WAREHOUSE_LINE), and the two are summed and
+  // applied at different scope per resource. The `effect` strings are GENERATED from those
+  // two tables immediately below the definitions, so a future change to a share cannot leave
+  // a stale number in a tooltip -- which is the fourth storage tooltip in this file to drift.
   { id: "expandedStores", name: "Expanded Stores", cost: { timber: 800, gear: 20 }, tech: "smelting",
-    lore: "Every loft doubled, every cellar dug deeper.",
-    effect: "Masonry I — all material storage ×1.75."},
+    lore: "Every loft doubled, every cellar dug deeper."},
   { id: "ironboundStores", name: "Ironbound Stores", cost: { steel: 150, gold: 300 }, tech: "smelting",
-    lore: "Steel-strapped, and a lasting disappointment to rats.",
-    effect: "Masonry II — all material storage ×1.8."},
+    lore: "Steel-strapped, and a lasting disappointment to rats."},
   { id: "hexRunedStores", name: "Hex-Runed Stores", cost: { crystals: 80, gold: 600 }, tech: "hextech",
-    lore: "The runes fold space, slightly, politely.",
-    effect: "Masonry III — all material storage ×2."},
+    lore: "The runes fold space, slightly, politely."},
   { id: "chemtechSilos", name: "Chemtech Silos", cost: { alloy: 60, plating: 60 }, tech: "chemtech",
-    lore: "Pressurized, sealed, and probably fine.",
-    effect: "Masonry IV — all material storage ×2."},
+    lore: "Pressurized, sealed, and probably fine — and the first store dry enough to keep a harvest."},
   { id: "voidwardStores", name: "Voidward Stores", cost: { voidglass: 8, hexcrete: 8 }, tech: "icathia",
-    lore: "Storage warded against the thing storage attracts.",
-    effect: "Masonry V — all material storage ×1.75."},
+    lore: "Storage warded against the thing storage attracts."},
   // ==========================================================================
   // v0.53 — JERRY'S DIRECTIVE 5: THE ARCANIST'S CIRCLE.
   // A mana ceiling that has been full since spring is a faucet running into a closed
@@ -1922,6 +2064,32 @@ var UPGRADES = [
     lore: "Fractions, condensers, and a great deal of ventilation.",
     effect: "Unlocks the Hextech Refinery."}
 ];
+
+// v0.56 Part 5 — the Masonry `effect` strings, DERIVED from BARN_LINE and WAREHOUSE_LINE so
+// they cannot drift from the maths. Each rung states what it adds and what the whole line is
+// worth at each of the three scopes, because "all material storage x1.75" was the shape of
+// claim that let a x22 chain sit unexamined for eleven versions.
+(function () {
+  var SCOPE_NAMES = { narrow: [], broad: [], quarter: [] };
+  for (var r in CAP_SCOPE) if (SCOPE_NAMES[CAP_SCOPE[r]]) SCOPE_NAMES[CAP_SCOPE[r]].push(RES[r] ? RES[r].name : r);
+  var barnTotal = 0, wareTotal = 0;
+  BARN_LINE.forEach(function (u) { barnTotal += u[1]; });
+  WAREHOUSE_LINE.forEach(function (u) { wareTotal += u[1]; });
+  var romans = ["I", "II", "III", "IV", "V"];
+  BARN_LINE.forEach(function (u, i) {
+    var up = UPGRADES.find(function (x) { return x.id === u[0]; });
+    if (!up) return;
+    var ware = WAREHOUSE_LINE[i] ? WAREHOUSE_LINE[i][1] : 0;
+    up.effect = "Masonry " + romans[i] + " — barn +" + u[1].toFixed(2) + ", warehouse +" + ware.toFixed(2) +
+      ". Barns widen " + SCOPE_NAMES.narrow.join(", ") +
+      "; warehouses widen those and " + SCOPE_NAMES.broad.join(", ") + "." +
+      (u[0] === QUARTER_GATE ? " Also opens a quarter of the barn line to " + SCOPE_NAMES.quarter.join(", ") + "." : "");
+  });
+  var lastId = BARN_LINE[BARN_LINE.length - 1][0];
+  var last = UPGRADES.find(function (x) { return x.id === lastId; });
+  if (last) last.effect += " With all five: ×" + ((1 + barnTotal) * (1 + wareTotal)).toFixed(2) +
+    " / ×" + (1 + wareTotal).toFixed(2) + " / ×" + (1 + barnTotal * 0.25).toFixed(4) + ".";
+})();
 
 // ============================================================
 // v0.48 §3 — THE PROSE SPLIT.
@@ -3473,11 +3641,18 @@ function computeCaps() {
   var caps = {};
   for (var r in RES) if (RES[r].baseCap !== undefined) caps[r] = RES[r].baseCap;
   BUILDINGS.forEach(function (b) {
-    if (!b.caps) return;
+    if (!b.caps && !b.capsIf) return;
     var n = count(b.id);
     if (!n) return;
     var mult = capMultPerCopy(b);
-    for (var r in b.caps) caps[r] += b.caps[r] * n * mult;
+    if (b.caps) for (var r in b.caps) caps[r] += b.caps[r] * n * mult;
+    // v0.56 Part 5: a cap a building only grants once a named upgrade is researched. Kittens'
+    // Silos is the only case — it is what lets warehouses hold catnip at all — and it is
+    // declared here rather than special-cased in the loop so a second one cannot be bolted on
+    // as a conditional two hundred lines away.
+    if (b.capsIf && S.upgrades[b.capsIf.upgrade]) {
+      for (var r2 in b.capsIf.caps) caps[r2] += b.capsIf.caps[r2] * n * mult;
+    }
   });
   // v0.45 Part 5: this block used to say "the clamp is retired". It is not — that was
   // v0.40 prose that survived v0.42's restoration of the clamp, and it sat directly
@@ -3511,14 +3686,15 @@ function computeCaps() {
   // so the scribal chain and the trade chain start supporting each other.
   caps.culture += unlimitedDR(Math.floor(S.res.tome || 0), 0.01);
   if (S.wtechs && S.wtechs.solariAltar) caps.devotion *= 2;
-  // Storage-ratio upgrades, two families (Kittens' Expanded Barns arc, split per analyzer):
-  // Masonry multiplies material caps; Scholarship multiplies knowledge/culture/devotion.
-  // Priced in different currencies so maxing both in one run is a real choice, not a default.
-  var masonryMult = 1, scholarMult = 1;
-  // (SCHOLAR_LINE is declared beside the upgrades so the descriptions read from it too)
-  [["expandedStores", 1.75], ["ironboundStores", 1.8], ["hexRunedStores", 2], ["chemtechSilos", 2], ["voidwardStores", 1.75]].forEach(function (u) {
-    if (S.upgrades[u[0]]) masonryMult *= u[1];
-  });
+  // Storage-ratio upgrades, two families. SCHOLARSHIP is unchanged and stays multiplicative:
+  // it is RR's port of Kittens' own separate cultureMax/scienceMax ratio lines, which are a
+  // different category and therefore multiply against this one (Kittens' Law).
+  //
+  // MASONRY is no longer a multiplicative chain. v0.56 Part 5 replaces it with the source's
+  // two ADDITIVE accumulators applied at three different scopes -- see BARN_LINE,
+  // WAREHOUSE_LINE and CAP_SCOPE above for the source quotation and the tier assignments.
+  var scholarMult = 1;
+  var ratios = storageRatios();
   // v0.45 Part 5 corrects a false claim that stood here for three versions. Kittens
   // DOES have a multiplicative science-cap line: libraryRatio (js/buildings.js:578-579),
   //   library.effects["scienceMax"] *= (1 + observatory.on * libraryRatio)
@@ -3535,10 +3711,12 @@ function computeCaps() {
   // removed the passive that fed it, so that key has no call sites left anywhere.
   for (var rs in caps) {
     if (CAP_MULT_EXEMPT[rs]) continue;
-    // v0.44 Part 2.2: Renown takes the SQUARE ROOT of Masonry, so the ceiling rises
-    // with the era without inheriting all ~22x of it and outrunning the ladder.
-    var line = SCHOLAR_CAPS[rs] ? scholarMult
-             : (rs === "renown" ? Math.sqrt(masonryMult) : masonryMult);
+    // v0.56 Part 5 retires v0.44 Part 2.2's `Math.sqrt(masonryMult)` for Renown. The square
+    // root was a reasonable heuristic when the alternative was inheriting all x22 of a chain
+    // that should not have existed; with the chain gone there is nothing to take the root of,
+    // and Renown is RR-ORIGINAL with no storage counterpart in the source. It moves to the
+    // "none" tier and its ceiling rises with buildings instead. Measured in BUILD REPORT §5.
+    var line = SCHOLAR_CAPS[rs] ? scholarMult : storageMultFor(rs, ratios);
     caps[rs] *= line;
   }
   if (S.upgrades.progressDayParade) caps.culture *= 1.35;
@@ -5467,6 +5645,18 @@ function effectLines(b) {
   for (r in b.caps || {}) {
     if (!ttResKnown(r)) continue;                      // v0.53, Jerry directive 2
     line("Max " + RES[r].name.toLowerCase(), "+" + ttNum(b.caps[r] * cm), "+" + ttNum(b.caps[r] * cm * n));
+  }
+  // v0.56 Part 5: a conditional cap is stated whether or not it is active, so the Warehouse
+  // advertises the Silos payoff BEFORE the player researches it rather than after.
+  if (b.capsIf) {
+    var gate = UPGRADES.find(function (u) { return u.id === b.capsIf.upgrade; });
+    for (r in b.capsIf.caps) {
+      if (!ttResKnown(r)) continue;
+      var on = !!S.upgrades[b.capsIf.upgrade];
+      out.push("Max " + RES[r].name.toLowerCase() + ": +" + ttNum(b.capsIf.caps[r] * cm) + " each" +
+        (on ? (n > 1 ? " (currently +" + ttNum(b.capsIf.caps[r] * cm * n) + ")" : "")
+            : " — once " + (gate ? gate.name : b.capsIf.upgrade) + " is researched"));
+    }
   }
   if (b.cultureCapPct && ttResKnown("culture")) line("Max culture", "+" + ttPct(b.cultureCapPct), "+" + ttPct(b.cultureCapPct * n));
   for (r in b.jobBoost || {})
