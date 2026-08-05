@@ -228,7 +228,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.54";
+var VERSION = "v0.55";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -1597,7 +1597,7 @@ var SCHOLAR_CAPS = { culture: 1, devotion: 1 };
 // knowledge off SCHOLAR_CAPS and it silently fell THROUGH to masonryMult (x22.4) —
 // a x3.99 line replaced by a x22.4 one, which is the opposite of the intent.
 // Vigor is exempt for a DIFFERENT and now separately sourced reason: Kittens'
-// addBarnWarehouseRatio (js/buildings.js) enumerates the resources storage upgrades
+// addBarnWarehouseRatio (js/resources.js) enumerates the resources storage upgrades
 // touch — catnip, wood, minerals, coal, iron, titanium, gold — and manpower is not
 // among them. So catpower takes no storage multiplier in the source either. Two
 // exemptions, two different sources; do not merge them.
@@ -2107,6 +2107,41 @@ function policyGlobalBonus() {
 // Traits and Promotion. Champions already own the leader role, and Promotion
 // existed only to feed leader rank.
 // ============================================================
+// ============================================================================
+// v0.55 PART 7 (directive 2) — THE EXPERIENCE RATE, AND WHAT I COULD NOT SOURCE.
+//
+// WHAT IS VERIFIED. Kittens' `getValueModifierPerSkill()` (js/village.js, read this round)
+// is seven tiers: <100 -> 0, 100 -> 0.0125, 500 -> 0.025, 1200 -> 0.045, 2500 -> 0.075,
+// 5000 -> 0.125, 9000+ -> 0.1875. The wiki names them Dabbling through Master and confirms
+// the same thresholds. RR's ladder is nine tiers topping at 11,500 with an IDENTICAL top
+// bonus of 0.1875 — the same shape, and exact at the top. **The thresholds are not the
+// problem and they are not touched**, per the spec's Part 7.
+//
+// WHAT I COULD NOT SOURCE, stated rather than invented. The skill INCREMENT is not in
+// `js/village.js` — the file reads `kitten.skills[kitten.job]` in updateResourceProduction()
+// and loads it in the save path, and contains no `skills[...] +=` anywhere. `js/game.js`
+// returns 404 from the raw host and from the blob view; the wiki's Kittens page gives the
+// thresholds and says only that kittens "slowly gather experience", with no rate. Under
+// STANDING-RULINGS §16 a proposal needs a source citation, and under the v0.55 spec's own
+// Part 7 the correct move when the increment cannot be located is to **ship a stated multiple
+// of today's rate as an interim, labelled UNVERIFIED — and not to invent a citation.**
+//
+// THE INTERIM, and the reason for its size. RR banked 1 xp per second worked. v0.54's
+// directive 8 made experience bank PER TRADE, which multiplied a wanderer's total time to
+// mastery by the number of trades they practise — a specialist was unaffected, a generalist
+// paid n times over. 2 xp/s restores a two-trade wanderer's aggregate mastery time to roughly
+// its pre-v0.54 value while leaving the per-trade specialisation intact.
+//
+//   time to Challenger in ONE trade:  11,500 xp / 1 per s = 3.19 real hours
+//                                     11,500 xp / 2 per s = 1.60 real hours
+//
+// One sourced observation that is NOT acted on, recorded so the next round has it: RR asks
+// 11,500 xp for the same 0.1875 top bonus Kittens grants at 9,000 — **27.8% more experience
+// for the same tier**. That is a real, citable divergence in the THRESHOLD, and it is left
+// alone because the spec says to keep the thresholds and because changing both would make
+// the rate change unmeasurable. It belongs in the ledger as parity debt.
+// ============================================================================
+var XP_PER_SECOND = 2;
 var RANKS = [
   { id: "bronze",      name: "Bronze",      xp: 0,     bonus: 0 },
   { id: "silver",      name: "Silver",      xp: 100,   bonus: 0.01 },
@@ -2388,18 +2423,58 @@ function campYieldMult(isLuxury) {
   sum += traitBonus("trailblazer");
   return (1 + limitedDR(sum, isLuxury ? LUXURY_CAMP_YIELD_LIMIT : CAMP_YIELD_LIMIT)) * campEmpowered;
 }
+// ============================================================================
+// v0.55 PART 8 (directive 8) — THE UNDO RE-ROLL, BOUNDED.
+//
+// `snapshotUndo()` gives a 10-second window that snapshots all of `S`. Because Math.random()
+// is re-rolled on the retried action, a player could undo and repeat a HUNT until the roll
+// was favourable. This is RR-ORIGINAL — Kittens has no undo at all — and it is the single
+// largest EASIER item in the game: it converts every probabilistic outcome into a best-of-N.
+//
+// Jerry's fix: on the next attempt after an undo, any % chance of failure is 100% and any %
+// chance to receive an item is 0%.
+//
+// THE MARKER MUST LIVE OUTSIDE `S`, and this is the one place this Part could silently do
+// nothing. `undoSnapshot = JSON.stringify(S)` and doUndo() replaces `S` wholesale, so a flag
+// stored inside `S` would be erased by the very action that sets it. It is a module-level
+// object, mirrored into serialize() and read back in loadFromString() so it survives a save.
+//
+// IT IS PER KIND, NOT GLOBAL. Undoing a champion recruit must not poison the next hunt.
+//
+// THREE ROLL KINDS, because "force a failure" means different things to different rolls:
+//   rerollHit(kind)  — "did the good thing happen?"   forced MISS  (returns 1)
+//   rerollFail(kind) — "did it fail?"                 forced FAIL  (returns 0)
+//   rerollAmt(kind)  — a variable amount              forced FLOOR (returns 0)
+// Deterministic amounts are untouched; only the rolls are. A hunt under penalty returns its
+// floor yield with no item drops, which is the pass condition stated as an outcome rather
+// than as a flag.
+//
+// ONE PRODUCTION PATH (STANDING-RULINGS §15): the marker is read inside the ordinary
+// resolution, so the offline/catch-up replay runs the identical code. Nothing here forks.
+// ============================================================================
+var rerollPenalty = {};
+function rerollHit(kind)  { return rerollPenalty[kind] ? 1 : Math.random(); }
+function rerollFail(kind) { return rerollPenalty[kind] ? 0 : Math.random(); }
+function rerollAmt(kind)  { return rerollPenalty[kind] ? 0 : Math.random(); }
+function clearRerollPenalty(kind, what) {
+  if (!rerollPenalty[kind]) return;
+  rerollPenalty[kind] = false;
+  // TELL THE PLAYER. A forced failure that looks like bad luck is worse than the exploit.
+  addLog("The " + what + " was rushed out again straight after the reversal, and it showed. " +
+    "Nothing extra came back.", "dark");
+}
 var EXPEDITIONS = [
   { id: "wolves", name: "Hunt Wolves", tech: "logistics", renown: 2,
     desc: "The pack circles the old grove. Cheap, quick, and reliable — the settlement's fur supply.",
     yield: "12–19 furs (scales weakly with camp yields)",
     cost: { vigor: 100 },
     run: function () {
-      var f = Math.round((12 + Math.floor(Math.random() * 8)) * campYieldMult(true));
+      var f = Math.round((12 + Math.floor(rerollAmt("hunt") * 8)) * campYieldMult(true));
       gain("furs", f);
       addLog("The wolf pack scatters into the trees. +" + f + " furs.", "event");
     } },
   // v0.54, DEV DIRECTIVE 4. The yield line advertised the stray poro to a player who
-  // cannot get one: the drop is `Math.random() < 0.05 && S.techs.abyss`, and Abyssal
+  // cannot get one: the drop is `rerollHit("hunt") < 0.05 && S.techs.abyss`, and Abyssal
   // Cartography is 2,000 knowledge away from Expedition Logistics. `yield` becomes a
   // function so it can describe what the run ACTUALLY does in the state it is read in —
   // the same rule directive 2 of the v0.53 round applied to building tooltips.
@@ -2409,10 +2484,10 @@ var EXPEDITIONS = [
       (s.techs.abyss ? " · rare stray poro" : ""); },
     cost: { vigor: 100 },
     run: function () {
-      var shrooms = Math.round((10 + Math.floor(Math.random() * 14)) * campYieldMult(true));
+      var shrooms = Math.round((10 + Math.floor(rerollAmt("hunt") * 14)) * campYieldMult(true));
       gain("mushrooms", shrooms);
       var msg = "Gromp is politely relocated. +" + shrooms + " mushrooms";
-      if (Math.random() < 0.05 && S.techs.abyss) { gain("poros", 1); msg += ". A stray poro follows you home!"; }
+      if (rerollHit("hunt") < 0.05 && S.techs.abyss) { gain("poros", 1); msg += ". A stray poro follows you home!"; }
       addLog(msg + ".", "event");
     } },
   { id: "raptors", name: "Hunt Raptors", tech: "logistics", renown: 3,
@@ -2420,10 +2495,10 @@ var EXPEDITIONS = [
     yield: "12–18 Raptor Plumes (scales weakly with camp yields) · may spot a Rift Scuttler",
     cost: { vigor: 100 },
     run: function () {
-      var p = Math.round((12 + Math.floor(Math.random() * 7)) * campYieldMult(true));
+      var p = Math.round((12 + Math.floor(rerollAmt("hunt") * 7)) * campYieldMult(true));
       gain("plumes", p);
       var msg = "The raptor flock is outfoxed. +" + p + " plumes";
-      if (!S.scuttlerActive && Math.random() < 0.3) {
+      if (!S.scuttlerActive && rerollHit("hunt") < 0.3) {
         S.scuttlerActive = true; S.scuttlerTimer = 60;
         document.getElementById("scuttler-banner").style.display = "block";
         msg += ". From the raptors' roost, your hunters spot a Scuttler surfacing!";
@@ -2436,11 +2511,11 @@ var EXPEDITIONS = [
     cost: { vigor: 150 },
     run: function () {
       var m = campYieldMult();
-      var o = Math.round((15 + Math.floor(Math.random() * 16)) * m), g = Math.round((20 + Math.floor(Math.random() * 21)) * m);
+      var o = Math.round((15 + Math.floor(rerollAmt("hunt") * 16)) * m), g = Math.round((20 + Math.floor(rerollAmt("hunt") * 21)) * m);
       gain("ore", o); gain("gold", g);
       var msg = "The krugs crumble, then crumble again. +" + o + " ore, +" + g + " gold";
-      if (Math.random() < 0.3) {
-        var cr = Math.round((2 + Math.floor(Math.random() * 3)) * m);
+      if (rerollHit("hunt") < 0.3) {
+        var cr = Math.round((2 + Math.floor(rerollAmt("hunt") * 3)) * m);
         gain("crystals", cr);
         msg += ". One of them splits along a seam of something clearer than stone (+" + cr + " hextech crystals)";
       }
@@ -2452,12 +2527,12 @@ var EXPEDITIONS = [
     cost: { vigor: 140 },
     run: function () {
       var m = campYieldMult();
-      var z = Math.round((40 + Math.floor(Math.random() * 31)) * m);
-      var c = Math.round((20 + Math.floor(Math.random() * 16)) * m);
+      var z = Math.round((40 + Math.floor(rerollAmt("hunt") * 31)) * m);
+      var c = Math.round((20 + Math.floor(rerollAmt("hunt") * 16)) * m);
       gain("zaunore", z); gain("coalgas", c);
       var msg = "The crawl team comes back up filthy and pleased. +" + z + " Zaun Ore, +" + c + " Coalgas";
-      if (Math.random() < 0.25) {
-        var sh = Math.round((3 + Math.floor(Math.random() * 5)) * m);
+      if (rerollHit("hunt") < 0.25) {
+        var sh = Math.round((3 + Math.floor(rerollAmt("hunt") * 5)) * m);
         gain("shimmer", sh);
         msg += ". Somebody pocketed a vial nobody is asking about (+" + sh + " shimmer)";
       }
@@ -2469,7 +2544,7 @@ var EXPEDITIONS = [
     cost: { vigor: 175 },
     run: function () {
       S.insightUntil = simNow() + 10 * 60 * 1000;
-      var g = 15 + Math.floor(Math.random() * 11);
+      var g = 15 + Math.floor(rerollAmt("hunt") * 11);
       gain("gold", g);
       addLog("The Blue Sentinel kneels, and its light passes into your people. CREST OF INSIGHT — thought comes easily now. (+" + g + " gold in old offerings)", "champion");
     } },
@@ -2479,7 +2554,7 @@ var EXPEDITIONS = [
     cost: { vigor: 175 },
     run: function () {
       S.cinderUntil = simNow() + 10 * 60 * 1000;
-      var g = 15 + Math.floor(Math.random() * 11);
+      var g = 15 + Math.floor(rerollAmt("hunt") * 11);
       gain("gold", g);
       addLog("The Brambleback collapses into embers your smiths carry home. CREST OF CINDERS — the fires burn hotter. (+" + g + " gold in fused ore)", "champion");
     } },
@@ -2488,14 +2563,14 @@ var EXPEDITIONS = [
     yield: "1–3 poros · 20% chance of True Ice",
     cost: { vigor: 120, provisions: 500 },   // provisions x10, v0.55 Part 3.3
     run: function () {
-      var p = 1 + Math.floor(Math.random() * 3);
+      var p = 1 + Math.floor(rerollAmt("hunt") * 3);
       gain("poros", p);
       // v0.54, DEV DIRECTIVE 12. Poros stopped paying morale when the luxury/comfort system
       // replaced the old flat happiness bonus; the line was still promising a morale swing
       // that no code delivers. What a poro is actually worth is the Pasture's `eatCut` — a
       // settlement with poros in it eats less — so that is what the line now says.
       var msg = "You cross the Howling Abyss and return with " + p + " poro" + (p > 1 ? "s" : "") + ". The cooks report that a meal goes further with one under the table";
-      if (Math.random() < 0.2) { gain("trueice", 1); msg += " — and a shard of True Ice, pried from the bridge itself"; }
+      if (rerollHit("hunt") < 0.2) { gain("trueice", 1); msg += " — and a shard of True Ice, pried from the bridge itself"; }
       addLog(msg + ".", "event");
     } },
   // v0.54, DEV DIRECTIVE 3. This is a TRADE action, not a hunt: it finds trading partners,
@@ -2516,7 +2591,7 @@ var EXPEDITIONS = [
         addLog("The scouts walk to the edge of every map you own and find only weather. There is nobody left out there to meet.", "event");
         return;
       }
-      if (Math.random() < 0.25) {
+      if (rerollHit("hunt") < 0.25) {
         addLog("The scouting party returns thin and cold, with one thing worth saying: smoke on the eastern horizon, and it was not a wildfire.", "event");
         return;
       }
@@ -2530,8 +2605,8 @@ var EXPEDITIONS = [
     yield: "75% success — one random drake essence, a permanent settlement-wide bonus",
     cost: { vigor: 350, steel: 25, provisions: 4000 },   // provisions x10, v0.55 Part 3.3
     run: function () {
-      if (Math.random() < 0.75) {
-        var d = DRAKE_TYPES[Math.floor(Math.random() * DRAKE_TYPES.length)];
+      if (rerollHit("hunt") < 0.75) {
+        var d = DRAKE_TYPES[Math.floor(rerollAmt("hunt") * DRAKE_TYPES.length)];
         S.drakes[d.id] = (S.drakes[d.id] || 0) + 1;
         addLog("The " + d.name + " falls! Its essence seeps into the land. (" + d.desc + ")", "champion");
         var types = DRAKE_TYPES.filter(function (t) { return S.drakes[t.id] > 0; }).length;
@@ -2546,11 +2621,11 @@ var EXPEDITIONS = [
     cost: { vigor: 500, focusedHex: 2, provisions: 2000 },   // provisions x10, v0.55 Part 3.3
     run: function () {
       var failChance = Math.max(0.05, 0.20 - affinityBonus("voidleader") * 0.004);
-      if (Math.random() < failChance) {
+      if (rerollHit("hunt") < failChance) {
         addLog("The expedition returns early, fewer supplies, no essence, and nobody will describe the color they saw.", "bad");
         return;
       }
-      var amt = Math.round((3 + Math.floor(Math.random() * 4)) * (1 + affinityBonus("voidleader") / 100));
+      var amt = Math.round((3 + Math.floor(rerollAmt("hunt") * 4)) * (1 + affinityBonus("voidleader") / 100));
       gain("voidessence", amt);
       addLog("The expedition returns from Icathia, jars sealed and triple-wrapped. +" + amt + " Void Essence. Don't hold them to your ear.", "dark");
     } },
@@ -2559,7 +2634,7 @@ var EXPEDITIONS = [
     yield: "60% success — HAND OF BARON: +25% all production for 20 minutes",
     cost: { vigor: 1200, steel: 100, provisions: 20000, knowledge: 200 },   // provisions x10, v0.55 Part 3.3
     run: function () {
-      if (Math.random() < 0.6) {
+      if (rerollHit("hunt") < 0.6) {
         S.baronUntil = simNow() + 20 * 60 * 1000;
         addLog("BARON NASHOR FALLS. Purple light crowns every worker's hands — the Hand of Baron empowers the settlement.", "dark");
       } else {
@@ -2894,12 +2969,12 @@ function tradeCaravan(fid) {
   if (!canAfford(tradeCost(f))) return;
   pay(tradeCost(f));
   var mult = tradeYieldMult(fid);
-  if (f.failChance && Math.random() < f.failChance()) f.fail();
+  if (f.failChance && rerollFail("trade") < f.failChance()) f.fail();
   else {
     withYieldFilter(function () { f.run(mult); });   // v0.47 Part 4.6
     (f.slots || []).forEach(function (b, i) {
       if (!slotUnlocked(fid, i)) return;
-      if (Math.random() >= slotChance(fid, i)) return;
+      if (rerollHit("trade") >= slotChance(fid, i)) return;
       var amt = slotAmount(fid, i, b.amt);
       if (!yieldAllowed(b.res)) return;    // v0.47 Part 4.6
       gain(b.res, amt);
@@ -2919,6 +2994,7 @@ function tradeCaravan(fid) {
   //
   // Twitch's lead is re-pointed in the same round for the same reason; see CHAMPS.
   if (leaderIs("caitlyn")) gainRenown(5); // Ace in the Hole: clean ledgers travel
+  clearRerollPenalty("trade", "caravan");   // v0.55 Part 8: one attempt, then the marker clears
   uiDirty = true;
 }
 
@@ -4083,8 +4159,8 @@ function step(dt, ticks) {
       if (!w.jx) w.jx = {};
       var top = RANKS[RANKS.length - 1].xp;
       var wasTop = (w.jx[w.j] || 0) >= top;
-      w.jx[w.j] = (w.jx[w.j] || 0) + dt;
-      w.xp = (w.xp || 0) + dt;
+      w.jx[w.j] = (w.jx[w.j] || 0) + dt * XP_PER_SECOND;
+      w.xp = (w.xp || 0) + dt * XP_PER_SECOND;
       if (!wasTop && w.jx[w.j] >= top) {
         var jn = JOBS.find(function (x) { return x.id === w.j; });
         addLog(w.nm + " reaches CHALLENGER as a " + (jn ? jn.name : w.j) +
@@ -4595,10 +4671,14 @@ function craftItem(id, times) {
 // reroll a bad caravan for free — the save-scumming trap the analyzer warned about.
 // A misclick that spends an hour of stock is what this is for.
 var undoSnapshot = null, undoLabel = "", undoUntil = 0, UNDO_SECONDS = 10;
-function snapshotUndo(label) {
+// v0.55 Part 8: which KIND of action the snapshot belongs to, so undoing a champion recruit
+// cannot poison the next hunt. null means "nothing probabilistic to re-roll".
+var undoKind = null;
+function snapshotUndo(label, kind) {
   try {
     undoSnapshot = JSON.stringify(S);
     undoLabel = label;
+    undoKind = kind || null;
     undoUntil = simNow() + UNDO_SECONDS * 1000;
     renderUndoToast();
   } catch (e) { undoSnapshot = null; }
@@ -4615,7 +4695,11 @@ function doUndo() {
     else fresh[k] = restored[k];
   }
   S = fresh;
-  addLog("Undone: " + undoLabel + ". The ledger is corrected.", "event");
+  // v0.55 Part 8: set the marker AFTER the restore. `S` has just been replaced wholesale, so
+  // a flag written before this line would be gone. `undoKind` is stamped by snapshotUndo().
+  if (undoKind) rerollPenalty[undoKind] = true;
+  addLog("Undone: " + undoLabel + ". The ledger is corrected." +
+    (undoKind ? " The next attempt will be a rushed one." : ""), "event");
   renderUndoToast();
   uiDirty = true; renderAll(); renderLog();
 }
@@ -4743,7 +4827,7 @@ function runExpedition(id) {
   if (campCooldownLeft(e) > 0) return;
   var ec = expCost(e);
   if (!canAfford(ec)) return;
-  snapshotUndo(e.name);
+  snapshotUndo(e.name, "hunt");   // v0.55 Part 8: hunts are the one undoable action with rolls
   pay(ec);
 
   // Spend a banked charge automatically if one is there — no second button.
@@ -4752,6 +4836,7 @@ function runExpedition(id) {
   campEmpowered = empowered ? CHARGE_BONUS : 1;
   try { withYieldFilter(function () { e.run(); }); } finally { campEmpowered = 1; }   // v0.47 Part 4.6
   if (empowered) addLog(CHARGE_FLAVOR[e.id] || "The camp was caught in the open.", "champion");
+  clearRerollPenalty("hunt", "war-band");   // v0.55 Part 8: one attempt, then the marker clears
 
   // Deceive: while Shaco leads, sometimes nobody actually went — yet the loot is here
   if (leaderIs("shaco") && e.cost.vigor && Math.random() < 0.3) {
@@ -4815,6 +4900,7 @@ var SAVE_KEY = "runeterraReclaimedSaveV2", OLD_KEY = "runeterraReclaimedSave";
 var storageOk = true;
 
 function serialize() {
+  S.rerollPenalty = rerollPenalty;   // v0.55 Part 8: mirrored in, since the marker lives outside S
   S.lastSaved = realNow();
   return btoa(unescape(encodeURIComponent(JSON.stringify(S))));
 }
@@ -4835,6 +4921,9 @@ function loadFromString(str) {
     if (typeof fresh[k] === "object" && fresh[k] !== null && !Array.isArray(fresh[k])) Object.assign(fresh[k], data[k]);
     else fresh[k] = data[k];
   }
+  // v0.55 Part 8: the re-roll marker is mirrored back out of the save into its module-level
+  // home. It cannot simply live in `S` — doUndo() replaces `S` wholesale.
+  if (data.rerollPenalty) rerollPenalty = data.rerollPenalty;
   // v0.54 → v0.55 Part 4: the Hunter's Lodge is DELETED and its yield redistributed into the
   // one-off upgrade chain. The count is NOT carried onto anything — there is nothing left it
   // is interchangeable with — so it is refunded at 50% of the ratio-1.15 geometric sum, the

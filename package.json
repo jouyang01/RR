@@ -1,6 +1,6 @@
 {
   "name": "runeterra-reclaimed",
-  "version": "0.54.0",
+  "version": "0.55.0",
   "private": true,
   "description": "A League of Legends-themed incremental game modelled on Kittens Game. The game is index.html; everything else is apparatus.",
   "type": "module",
@@ -8,6 +8,6 @@
     "syntax": "node -e \"const fs=require('fs');const m=fs.readFileSync('index.html','utf8').match(/<script>([\\s\\S]*)<\\/script>/);new Function(m[1]);console.log('syntax OK')\""
   },
   "devDependencies": {
-    "playwright": "*"
+    "playwright": "^1.62.1"
   }
 }
