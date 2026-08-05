@@ -11,9 +11,9 @@ do not re-litigate) and the latest `docs/HANDOFF-v0.NN.md` (the map of the shipp
 |---|---|
 | Last shipped build | **v0.56**, tagged `v0.56` |
 | Last consumed spec | `docs/specs/rr-analyzer-v056-spec.md` |
-| Current spec, awaiting a builder | **none — the cycle is at the analyzer** |
+| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.57** |
 | Live suites | **25 suites, 1,219 assertions, 0 failures** — re-run and confirmed 2026-08-05 |
-| Parity ledger | **208 rows — PARITY 50, EASIER 32, HARDER 2, UNVERIFIED 127** |
+| Parity ledger | **208 rows — PARITY 50, EASIER 29, HARDER 2, UNVERIFIED 127** (corrected: 32 does not sum to 208; the generated ledger says 29) |
 | Era 3 | **1,709.3 game-years, MEDIAN OF THREE SEEDS — inside the 1,400–2,300 target for the first time.** Spread 700.6 / 1,709.3 / 1,835.3 on the same build. |
 
 ## THE CHARTER — read this before any balance argument (STANDING-RULINGS §16, ruled by Jerry v0.55)
@@ -69,6 +69,67 @@ save/load only). RR's is `w.jx[w.j] += dt` — **1 xp per second worked, Challen
 hours of single-job work**. The rank *thresholds* are already close to source in shape and
 exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
 interim labelled UNVERIFIED — do not invent a citation.
+
+## v0.57 — the analyzer's verification pass
+
+**Everything reproduces, including the round's most surprising claim.** All 25 suites:
+**1,219 assertions, 0 failures**, `test-v32` included — the builder's diagnosis of it matches the
+analyzer's exactly and the fix holds. **Two independent 2,500-year runs reproduce the seed
+ensemble to the digit:** seed 1 → Sparks y200.7, Icathia y901.3, **Era 3 700.6**, 130 wanderers
+y750; seed 2 → Sparks y187.1, Icathia y1896.4, **Era 3 1,709.3**, 130 wanderers y1472.1. The
+**2.6× spread is independently confirmed**, and so is the claim that the non-chaotic figures
+agree across seeds: morale band **100%** on both, peak pop 180 / 185, Rites y72.7 / y72.5,
+Convergence 4.17% / 4.40%, culture at cap 97.3% / 97.2%, crystals 95.9% / 96.2%.
+
+Code probe, all exact: `CONSUMPTION 4.25` with farmer:eater **1.17647**, `XP_PER_SECOND 0.5`,
+`XP_CAP 25,556`, `LEONA_SEASON_RELIEF 0.5` giving winter ×0.625 and spring ×1.5 unchanged,
+Storehouse 5,000 / Harbor 2,500 / Warehouse `capsIf` 750, `BARN_LINE` Σ 4.35 and
+`WAREHOUSE_LINE` Σ 1.80, tiers ×14.98 / ×2.80 / ×2.0875 / ×1.00, the tenth champion at **9,611**,
+ladder 37/9/1.1111/1.2632/3.333, audits 0/0.
+
+### One number is wrong in four places
+
+BUILD REPORT §7 and §11, HANDOFF §4 and this file all quoted the ledger as *"PARITY 50, **EASIER
+32**, HARDER 2, UNVERIFIED 127"*. **That sums to 211.** `docs/PARITY-LEDGER.md` — the generated
+artefact `test-v56` asserts by enumeration — says **EASIER 29**, and 50 + 29 + 2 + 127 = **208**,
+the row count measured independently. **The ledger is right; the prose was wrong.** Corrected in
+the table above; v0.57 Part 7.1 corrects the other three and adds the missing guard — nothing
+checks the ledger's summary table against its own rows.
+
+### What the v0.57 spec does with Jerry's two directives
+
+**Directive 1 — Renown off the material line.** Right, and better grounded than the ruling it
+replaces: `addBarnWarehouseRatio` touches **seven material effect names and nothing else**, and
+Kittens relieves non-material ceilings by other machinery entirely (Ziggurats for culture,
+`libraryRatio` for science). **The measurement Jerry's conditional turns on, taken first:**
+Renown sits at cap **88.7% / 88.8%** — fourth-worst in the game; the tenth champion costs
+**9,611** in one lump; the ceiling is **14,815** at `broad` but only **≈12,274** at the 3-of-5
+Scholarship state the instrument actually reaches, so headroom falls 54% → 28%. **And the line it
+would join is the most cap-bound family in the game (culture 97.3%).** The spec moves it as
+directed, then ships the dedicated line on an objective trigger — and specifies it as a **per-copy
+building percentage on the Hall of Heroes**, matching Kittens' Ziggurat, not a fourth Discovery
+chain.
+
+**Directive 2 — farmers are not seasonal.** Consumption double-checked and correct. The
+seasonality half **reverses STANDING-RULINGS §17** and moves RR *toward* the source: v0.55 shipped
+seasonal farmers on a premise the builder then disproved, and labelled it RR-ORIGINAL / HARDER
+precisely so it could be revisited on the label. The row goes **HARDER → PARITY** and the
+project's HARDER count falls 2 → 1. Leona keeps her lead; its blast radius returns to seasonal
+buildings.
+
+### Two findings of the analyzer's own
+
+- **The Scholarship line is still a multiplicative chain** — `scholarMult *= u[1]` at
+  `index.html:3590`, ×3.9926 across five rungs. That is the identical shape §19 ruled out of
+  existence for the material line one round ago, surviving on the two resources with the worst
+  cap-out in the game. **Dated to v0.58 with the culture ceiling**, not shipped beside Part 1,
+  because converting it at its natural reading is a **cut** (×3.99 → ×2.60) applied to a resource
+  already at 97.3%.
+- **Ten dead numbers in `CHAMPS`.** `recruitCost()` builds the Renown price from
+  `RECRUIT_BASE × RECRUIT_RATIO^n` and copies only the **non-Renown** components of the
+  champion's own cost, so every `renown:` field in `CHAMPS` — Shaco 320 through Zilean 540,
+  summing to 4,140 — is never read anywhere. Delete them or wire them; do not leave ten numbers
+  that look like prices and are not.
 
 ## v0.56 — the analyzer's verification pass
 
