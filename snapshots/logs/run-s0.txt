@@ -1,0 +1,112 @@
+pacing: simulating 2500 game-years (seed 1)...
+(700.7s wall)
+
+MILESTONES
+  Void Studies (Era 1 complete)      year 72.8
+  Rites of Targon (Era 2 entry)      year 75.6
+  First Ascent                       year 82.6
+  Call to Arms                       year 113.1
+  First champion                     year 113.1
+  75 wanderers                       year 615
+  130 wanderers                      year 857.4
+  Sparks Beyond the Wall (Era 3)     year 215.6
+  The Chemtech Whisper               year 443
+  The Hexcore Conjecture             year 627.7
+  First Hextech Core crafted         year 765.2
+  The Deep Works                     year 832
+  The Doors of Icathia (Era 3 end)   year 1042.1
+  First trade completed              year 362.7
+  THE GLORIOUS EVOLUTION researched  year 775.3
+  First Augment Chamber built        year 781.9
+
+FINAL {"pop":200,"maxPop":200,"morale":100,"bardsHearths":109,"quarries":31,"campYieldMult":6.35,"luxCampYieldMult":1.99,"comfort":800,"worshipBonusPct":176.52,"vigorPerSec":52.6,"techs":36,"upgrades":72,"ascends":105,"worship":15668049,"champions":10,"policies":6,"caravans":100,"buildings":1664,"buildingCount":47}
+PEAK POPULATION: 200
+ERA 3 LENGTH: 826.5 game-years (v0.52 baseline 826.5; target 1,400-2,300; distance to minimum 573.5)
+catMonument @sparks: x1  
+  KNOWLEDGE MULT @sparks: delivered x9.7849 vs 1+Sigma x9.7849 — gap 0.000% (target <1%)  Sigma 8.7849 = {"buildings":8.4,"rites":0.1,"champion":0.2049,"policy":0.08}  counts {"archive":38,"academy":18,"observatory":4,"hexLab":0}
+  provisions -1.23/s (60 farmsteads, 31 irrigation) | steel 0.4811/s (9 forges, 0 bloomeries) | morale 113 (37 hearths, relief 42.5%)
+  TINKERER CHAIN @sparks: 1 tinkerers, 0 augment chambers, crystals 0.4479/s, held 1755/3213
+  Petricite Quarries @sparks: 0   Arcane Reactors: 0   Foundries: 0   Augment Chambers: 0   Shimmer Refineries: 0   shimmer 0/s
+catMonument @hexcore: x1  
+  KNOWLEDGE MULT @hexcore: delivered x23.1842 vs 1+Sigma x23.1842 — gap 0.000% (target <1%)  Sigma 22.1842 = {"buildings":21.75,"rites":0.1,"champion":0.2542,"policy":0.08}  counts {"archive":41,"academy":32,"observatory":45,"hexLab":0}
+  provisions 16.35/s (60 farmsteads, 60 irrigation) | steel 2.3445/s (37 forges, 0 bloomeries) | morale 118 (63 hearths, relief 71%)
+  TINKERER CHAIN @hexcore: 1 tinkerers, 0 augment chambers, crystals 4.6066/s, held 22623/22680
+  Petricite Quarries @hexcore: 13   Arcane Reactors: 0   Foundries: 0   Augment Chambers: 0   Shimmer Refineries: 26   shimmer 0/s
+catMonument @icathia: x1.15  arcaneReactor n=3 +5.00%/copy = +15.0%
+  KNOWLEDGE MULT @icathia: delivered x36.2087 vs 1+Sigma x36.2087 — gap 0.000% (target <1%)  Sigma 35.2087 = {"buildings":34.75,"rites":0.1,"champion":0.2787,"policy":0.08}  counts {"archive":53,"academy":46,"observatory":53,"hexLab":20}
+  provisions 137.229/s (60 farmsteads, 60 irrigation) | steel 17.5113/s (54 forges, 0 bloomeries) | morale 106 (98 hearths, relief 81%)
+  TINKERER CHAIN @icathia: 1 tinkerers, 1 augment chambers, crystals 28.7457/s, held 132771/132771
+  Petricite Quarries @icathia: 19   Arcane Reactors: 3   Foundries: 0   Augment Chambers: 1   Shimmer Refineries: 26   shimmer 19.5487/s
+
+v0.53 PART 1 — APPARATUS REACHABILITY
+  build order: 40 ids + 5 dedicated routines against 47 BUILDINGS
+  UNREACHABLE BY THE INSTRUMENT: poroPasture, hexcreteBastion
+  @sparks     hextechFoundry 0 | hexdraulicPlant 0 | chembarrel 0 | hexcreteBastion 0 | frostguardCairn 0
+              poro ladder: poroPasture 0 | frostguardCairn 0 | avarosanHold 0 | iceWroughtSpire 0 | frozenWatcher 0 | watchersEye 0  poros 499 tears 0 poroRatio x1.5
+              seenMax: hexgear 0 | hexcore 0 | alloy 0 | plating 0 | scaffold 67.72 | hexSlab 0 | voidessence 0 | poroTears 0 | trueice 46 | frostMegalith 0
+  @hexcore    hextechFoundry 0 | hexdraulicPlant 0 | chembarrel 0 | hexcreteBastion 0 | frostguardCairn 0
+              poro ladder: poroPasture 0 | frostguardCairn 0 | avarosanHold 0 | iceWroughtSpire 0 | frozenWatcher 0 | watchersEye 0  poros 3213 tears 0 poroRatio x1.5
+              seenMax: hexgear 2.46 | hexcore 0 | alloy 147.99 | plating 215.3 | scaffold 3315 | hexSlab 0 | voidessence 0 | poroTears 0 | trueice 197 | frostMegalith 0
+  @deepWorks  hextechFoundry 0 | hexdraulicPlant 0 | chembarrel 0 | hexcreteBastion 0 | frostguardCairn 0
+              poro ladder: poroPasture 0 | frostguardCairn 0 | avarosanHold 0 | iceWroughtSpire 0 | frozenWatcher 0 | watchersEye 0  poros 4648 tears 0 poroRatio x1.5
+              seenMax: hexgear 42.29 | hexcore 6.88 | alloy 147.99 | plating 3013.83 | scaffold 13092.66 | hexSlab 8099.11 | voidessence 0 | poroTears 0 | trueice 250 | frostMegalith 0
+  @icathia    hextechFoundry 0 | hexdraulicPlant 0 | chembarrel 0 | hexcreteBastion 0 | frostguardCairn 0
+              poro ladder: poroPasture 0 | frostguardCairn 0 | avarosanHold 0 | iceWroughtSpire 0 | frozenWatcher 0 | watchersEye 13  poros 7603 tears 0 poroRatio x1.5
+              seenMax: hexgear 46.44 | hexcore 529.96 | alloy 169.75 | plating 4597.05 | scaffold 30320.8 | hexSlab 21482.86 | voidessence 0 | poroTears 0 | trueice 321 | frostMegalith 911.96
+
+v0.53 PART 2 — CRYSTALS (income vs spend, per game-year)
+  @deepWorks: 6.5207/s = 5216.5/game-year; held 23184/23184 = 4.44 game-years of production
+  @icathia: 28.7457/s = 22996.6/game-year; held 132771/132771 = 5.77 game-years of production
+  Deep Works -> Icathia (210.1 game-years): crystals spent 153.5/game-year against income 22996.6/game-year = 0.7% (target 40-70%)
+  lifetime spend: crystals 102638 | voidessence 75 | hexgear 828892 | poroTears 0 | trueice 0
+
+v0.53 PART 4 — STOCK SERIES AFTER ICATHIA (target: NOT monotonically increasing)
+  crystals       n=1457  first 133217.3  last 465398.6  max 502304  monotonic-increasing: no (pass)
+  voidessence    n=1457  first 1  last 705.15  max 761.07  monotonic-increasing: no (pass)
+
+v0.53 PART 6 — EARLY VIGOR ECONOMY
+  y50: earned 24209.6 cumulative | spent 26511 on expeditions, 0 on trade | income 943/game-year | cheapest route costs 135 vigor
+  y100: earned 81764.1 cumulative | spent 86895 on expeditions, 0 on trade | income 1614.4/game-year | cheapest route costs 135 vigor
+
+v0.46 — COLD START (game-year each thing first becomes visible)
+  shelter              year 2.29
+  archive              year 2.39
+  craftingTab          year 8.53
+  loremaster           year 2.47
+  firstShelterBuilt    year 2.31
+  firstArchiveBuilt    year 2.47
+  first expedition     year 6.7
+
+VIGOR at cap: 0.5% of elapsed ticks   (target < 10%)
+CRYSTALS at cap: 96.5% of elapsed ticks   (v0.52 Part 3.1, measure only)
+TRADES/game-year: 0 up to Sparks, 0.45 across Era 3  (ratio ×n/a, target ≤ 3)
+TRADES total: 46630
+
+MORALE  min 90  max 133  (n=5000)
+  in the 90-140 band after y60: 100%   (target >=80%)
+  below 90 before y50:          0%  (target >0%)
+  above 140 after Era 3 entry:  0%   (target ~0%)
+  at 100+ wanderers: min 98 avg 100.9 max 115
+
+LUXURY STOCK / luxuryComfort()   (target 0.5x-3x, dry <5%)
+  furs       avg 0.48x   min 0.00x   max 3.55x   dry 0%
+  mushrooms  avg 3.58x   min 0.00x   max 4.43x   dry 0%
+  plumes     avg 3.69x   min 2.42x   max 4.38x   dry 0%
+
+CONVERGENCE  5.4% at Sparks (target 5-8%)   176.52% at end (worship 15668049)
+peak population: 200  (past-130 target: REACHED)
+TRADE AFFORDABILITY @sparks: demacia costs {"timber":600,"vigor":135,"gold":53} — AFFORDABLE; vigor income 2930.8/game-year = 21.71 trades a player could run
+TRADE AFFORDABILITY @hexcore: demacia costs {"timber":600,"vigor":135,"gold":53} — AFFORDABLE; vigor income 10574.6/game-year = 78.33 trades a player could run
+TRADE AFFORDABILITY @icathia: demacia costs {"timber":600,"vigor":135,"gold":53} — AFFORDABLE; vigor income 25228.7/game-year = 186.88 trades a player could run
+
+PASS CONDITIONS
+  FAIL  Rites of Targon before year 55  (year 75.6)
+  PASS  First Ascent occurs  (year 82.6)
+  PASS  First champion before year 120  (year 113.1)
+  FAIL  130 wanderers before year 600  (year 857.4)
+  PASS  Sparks before year 500  (year 215.6)
+  PASS  morale 90-140 band >=80% after y60
+  FAIL  morale dips below 90 before y50
+  PASS  morale not pinned above 140 after Era 3
+  PASS  Chemtech -> Hexcore gap under 400 years  (year 184.7)
+  PASS  cheapest trade AFFORDABLE at Sparks (state, not behaviour)

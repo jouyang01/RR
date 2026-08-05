@@ -1,3 +1,5 @@
 node_modules/
 tests/shots/
 *.log
+package-lock.json
+run-*.log

@@ -254,6 +254,79 @@ commits and tags — never again in the filename.
 
 ---
 
+## 11. `poroRatio` is unbounded on purpose — closed v0.53
+
+BUILD REPORT v0.52 §2.2 and HANDOFF v0.52 §7.1 both call `poroRatio` "RR-only content with no
+source counterpart, so there is nothing to be at parity *with*." **That is wrong**, and the
+correction is closed:
+
+> "It is Kittens' `unicornsRatioReligion` (`js/religion.js`, ziggurat ladder): unicornTomb 0.05
+> + ivoryTower 0.10 + ivoryCitadel 0.25 + skyPalace 0.50 + unicornUtopia 2.50 + sunspire 5.00 =
+> 8.40 → ×9.40, ADDITIVE within one category, UNBOUNDED, every rung at priceRatio 1.15. RR's
+> four rungs sum to 1.13 → ×2.13 — a rank-for-rank transliteration of the source's first four,
+> at **23% of the source's full stack**."
+> — v0.53 Part 3.1, recorded at `poroRatio()`
+
+**RR is not over the source; it is at less than a quarter of it, and it is missing the two
+largest rungs rather than carrying two invented ones.** `enhance-audit`'s "×41 at 500 copies,
+linearity 1.0000" is the correct answer for a category Kittens also runs unbounded — 500 copies
+of each of four buildings is not a state the game reaches.
+
+**Do not add a limit.** §2 above records two RR-invented rules already deleted for being
+heuristics the source contradicts; a bound here would be the third.
+
+**Note for whoever reads a zero here:** the whole `poroRatio` ladder was **unbuildable by the
+simulator** until v0.53 Part 1.2 taught the bot the Poro sacrifice. Every pre-v0.53 measurement
+of this category reads ×1.5 for that reason and for no other.
+
+---
+
+## 12. `audience` is kept as a conscious departure, with a tripwire — closed v0.53
+
+`bardsHearth` carries `audience: 0.05`, multiplying its culture by `1 + 0.05 × S.pop`. Kittens'
+Amphitheatre has **no population term at all** — `culturePerTickBase` is flat per copy
+(`js/buildings.js:1801–1830`). This is an RR invention with no source counterpart.
+
+**Ruling: keep it, flag it, do not bound it.** At RR's measured peak population (200 for four
+rounds, 222–224 on the v0.53 build) it is worth +22% culture on **one** building whose culture
+is capped anyway — an order of magnitude below the range where it would matter.
+
+The judgement is a **tripwire in code**, not a note in a comment:
+
+```js
+var AUDIENCE_REOPEN_POP = 600;
+```
+
+`test-v53` asserts the constant; the pacing harness prints peak population every run. **If peak
+population passes 600, this ruling re-opens by construction** — and until it does, a bound on a
+term that does not bind would be a third RR-invented rule.
+
+---
+
+## 13. Era 3 length is a difference of two milestones — recorded v0.53
+
+Not a ruling about the game; a ruling about how the project reads its own instrument, and it has
+already misled four rounds of reasoning.
+
+> "Era 3 is measured as `Icathia − Sparks`. The v0.53 apparatus fix moved Sparks 83.4 game-years
+> earlier and Icathia 61.2 earlier, so **Era 3 'grew' by 22.2 without one thing in Era 3 getting
+> longer.**"
+> — BUILD REPORT v0.53 §3
+
+**Any proposal aimed at Era 3 must state which edge it moves.** A change that accelerates the
+early game inflates Era 3 for free and tells you nothing.
+
+The companion finding, from the same round:
+
+> "**Demand lengthens Era 3 only when it is demand for something SCARCE.**  v0.53 shipped two
+> demand items and neither bit: crystals sit at cap 94.8% of every tick, and Void Essence cannot
+> be accumulated by the instrument at all. v0.52's Shimmer Refinery result (+172.6) was not 'add
+> a consumer' — it was 'add a consumer for coalgas and mana, which the late build order was
+> genuinely short of.'"
+> — BUILD REPORT v0.53 §10
+
+---
+
 ## Appendix — settled items an analyzer session should not re-open
 
 These are not separate rulings; they are the code-verified state as of v0.52, recorded so a
@@ -270,6 +343,13 @@ session does not re-flag them:
   branch.
 - **Deleted content, absent at grep level:** `tavern`, `bloomery`, `refinedMetallurgy`,
   `timberframeJoinery`, `petricite` (the Monument), `mw` (Masterwork Tools as a category).
+- **The bot's `BUILD_ORDER` and `DEDICATED_ROUTINES` live at module scope in `sim/simcore.mjs`
+  and `test-v53` fails if `BUILDINGS` minus the two is non-empty.** Added v0.53 Part 1.1 after
+  the Shimmer Refinery omission recurred four more times. **A new building must be added to one
+  of those two lists in the same commit that adds the building.**
+- **There is a `VERSION` constant** (`var VERSION = "v0.53"`) and the footer is rendered from it
+  by `stampVersion()` at boot. Before v0.53 there was none, despite §10 requiring one — the
+  version lived only inside the footer's prose. Bump the constant, not the prose.
 - **`test-v2` … `test-v31` are historical.** They were written against builds three to eight
   versions retired and **will fail against v0.52**. They live in `tests/historical/`, are shipped
   for archaeology, not for regression, and their failures are not defects. `test-v14` in
