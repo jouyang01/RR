@@ -11,8 +11,62 @@ do not re-litigate) and the latest `docs/HANDOFF-v0.NN.md` (the map of the shipp
 |---|---|
 | Last shipped build | **v0.54**, tagged `v0.54` |
 | Last consumed spec | `docs/specs/rr-analyzer-v053-spec.md` (produced v0.53; v0.54 had no spec) |
-| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.55** |
+| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.55, THE PARITY ROUND** |
 | Live suites | **23 suites, 1,098 assertions, 0 failures** — re-run and confirmed 2026-08-04 |
+
+## THE CHARTER — read this before any balance argument (STANDING-RULINGS §16, ruled by Jerry v0.55)
+
+**Kittens parity of timing and scale is now the project's primary goal.** Everything in RR
+should unlock at a comparable rung and run at a comparable scale to its Kittens counterpart.
+
+- **The source is the balance authority; the simulator is an instrument.** A proposal is
+  justified by a Kittens rung, cost, ratio or rate with a file citation — not by what the greedy
+  bot did with it. Pacing runs still ship and every milestone condition still stands, but a bot
+  measurement is **evidence about the instrument, not a balance argument**. "The bot never builds
+  it" remains a reason to check the apparatus; it is no longer a reason to change a price.
+- **Every RR-original item carries a parity label** — EASIER or HARDER, with the reason, in
+  `docs/PARITY-LEDGER.md` (v0.55 Part 1). Jerry's null hypothesis: RR-original content usually
+  makes the game easier or quicker, so an unlabelled RR-original item is a suspected speed-up.
+- **Port the mechanism and the rung; assign by role.** v0.52 Part 1.2 put Kittens' Aqueduct
+  figure on the wrong RR building and had to undo it.
+
+**The lookup that makes this cheap, established this pass: RR's tech ladder is a near-verbatim
+transliteration of Kittens' science costs** (30 / 100 / 300 / 500 / 500 / 900 / 1000 / 1300 /
+1500 / … / 12000 / 15000 / … / 65000 / 75000 / 100000 / 115000 / 135000). **Rung-matching is a
+lookup, not an estimate** — where a Kittens building unlocks at science N, its RR analogue
+belongs on RR's N-knowledge rung.
+
+### The headline finding of the v0.55 analysis
+
+**RR's food economy is exactly one-tenth of Kittens', and its internal ratio is already at
+perfect parity.** Kittens: farmer 5.000/s, consumption 4.250/s, ratio **1.17647**. RR: farmer
+0.500/s, `CONSUMPTION` 0.425/s, ratio **1.17647** — identical. **The one term off that scale is
+the Farmstead**: Kittens' catnip field is 0.625/s, RR's is 0.14/s where its own scale wants
+0.0625 — **2.24× too strong**, on the cheapest building in the game at ratio 1.12, of which the
+bot owns sixty. That, plus farmers being season-proof while the season table is already at exact
+parity (winter 0.25), is why Deepwinter does not bite. It was never the eating rate.
+
+### Two directives whose Kittens rung is now exact
+
+- **Petricite Masonry 9,500 → 65,000** — Kittens' `quarry` is unlocked by `archeology`
+  (65,000 science + 65 compedium). The quarry's *cost* is already at exact parity and is pinned
+  by STANDING-RULINGS §5; only the tech moves.
+- **The Irrigation Channel `mining` (500) → the 1,500 rung** — Kittens' `aqueduct` is unlocked
+  by `engineering` (1,500 science). RR already copies the cost, ratio and figure exactly.
+
+### Unresolved, and recorded as unresolved
+
+**Does Kittens' season modifier reach the farmer job's catnip, or only the field's
+`catnipPerTickBase`?** `js/village.js` shows no season term in the farmer's path; `js/game.js`
+404'd at the path tried; the wiki's skill page does not cover it. Jerry's directive stands
+either way — but the answer decides whether "farmers take the season" is a **parity fix** or
+RR's first item labelled **HARDER than source**. Resolve against the raw file.
+
+**Kittens' skill-experience increment could not be located** in `js/village.js` (reads and
+save/load only). RR's is `w.jx[w.j] += dt` — **1 xp per second worked, Challenger in 3.19 real
+hours of single-job work**. The rank *thresholds* are already close to source in shape and
+exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
+interim labelled UNVERIFIED — do not invent a citation.
 
 ## v0.55 — the analyzer's verification pass, and the storage-scope finding
 
@@ -160,12 +214,12 @@ Era 3 must say which edge it moves.
 
 | item | dated to | why |
 |---|---|---|
-| **The storage-scope restructure** | **v0.55, Part 1 — the round's spine** | one multiplicative chain across twelve resources becomes two additive accumulators and a scope table, ported from `addBarnWarehouseRatio`. Moves the Icathia edge only |
-| **The Chembarrel / save-for-a-visible-building fix** | **v0.55, Part 3** | dated to v0.54 and not actioned. `catMonument` is ×1.00 because Foundry, Reactor and Chembarrel are all 0 |
-| **The craft-depth tie-break** so Riftsteel can be forged at all | **v0.55, Part 4** | dated to v0.54 and not actioned. Two monotonicity conditions now fail, not one — voidessence accumulates with no consumer |
-| **A morale round** | **v0.55, Part 6** | band 61% against ≥80%, run minimum 88; `MORALE_RELIEF_LIMIT` saturates at 77.7% as population finally moves off 200 |
-| **Trade-banking policy** for `manageTrade()`, with its own baseline | **v0.55, Part 7.2 — ship or re-date with a reason** | deferred twice with reasons. The gap is now 150.33 trades a game-year affordable against 0.05 run |
-| **`libraryRatio` for the knowledge ceiling** | **v0.55 Part 2, conditional on Part 4** | knowledge is at cap 90.0% of the run; the exemption's stated reason was that eludium/unobtainium sit outside RR's era window, and v0.53 shipped both |
+| **The storage-scope restructure** | **v0.56, first slice — re-dated with a technical reason** | fully sourced and measured, but v0.55 Part 3 multiplies every provisions cost and cap by 10, and a round that changes both what multiplies a cap and the caps themselves is unattributable. Measurements carry forward unchanged |
+| **The Chembarrel / save-for-a-visible-building fix** | **v0.56** | dated to v0.54 and not actioned. `catMonument` is ×1.00 because Foundry, Reactor and Chembarrel are all 0 |
+| **The craft-depth tie-break** so Riftsteel can be forged at all | **v0.56** | dated to v0.54 and not actioned. Two monotonicity conditions now fail, not one — voidessence accumulates with no consumer |
+| **A morale round** | **v0.56** | band 61% against ≥80%, run minimum 88; `MORALE_RELIEF_LIMIT` saturates at 77.7% as population finally moves off 200 |
+| **Trade-banking policy** for `manageTrade()`, with its own baseline | **v0.56** | deferred twice with reasons. The gap is now 150.33 trades a game-year affordable against 0.05 run |
+| **`libraryRatio` for the knowledge ceiling** | **v0.56, conditional on the craft-depth fix** | knowledge is at cap 90.0% of the run; the exemption's stated reason was that eludium/unobtainium sit outside RR's era window, and v0.53 shipped both |
 | **Freljord rungs 5 and 6** — Kittens' `unicornUtopia` 2.50 and `sunspire` 5.00 | **v0.56 candidate** | rank-matched structural lengthener with the source's own numbers; deferred so v0.55's storage movement stays attributable |
 
 ---

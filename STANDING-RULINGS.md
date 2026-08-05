@@ -379,6 +379,46 @@ asynchronous for no reason.
 
 ---
 
+## 16. Kittens parity of TIMING and SCALE is the project's primary goal — ruled by Jerry, v0.55
+
+> "Let's make our primary goal with changes going forward to increase parity timing with
+> Kittens. Everything in this game should unlock in similar timing and scale with Kittens.
+> Having the bots is helpful but they do not play the game the same way a person does and
+> therefore building things based on their gameplay will not balance correctly. Keep the bots
+> so we have a loose year count, but ultimately, we should balance based off of Kittens. Where
+> this becomes difficult is RR original content, which typically will make things EASIER or
+> QUICKER — it will be important to call out when RR original content makes things easier or
+> harder compared to Kittens."
+> — Jerry, v0.55
+
+**This supersedes the balance authority every round since v0.44 has used.** Three consequences,
+and all three are binding:
+
+1. **The source is the balance authority; the simulator is an instrument.** A proposal is
+   justified by a Kittens rung, cost, ratio or rate — with a file citation — not by what the
+   greedy bot did with it. Pacing runs still ship every round, and every pass condition that
+   reads a milestone year still stands, but a bot measurement is now **evidence about the
+   instrument's playthrough, not a balance argument**. "The bot never builds it" is a reason to
+   check the apparatus (§8); it is no longer a reason to change a price.
+
+2. **Every RR-original item carries a parity label.** Anything with no Kittens counterpart —
+   drakes, champions, Renown, the Wilds, the undo window, poros, the Freljord line, morale — is
+   recorded as **EASIER** or **HARDER** than the source with the reason, in
+   `docs/PARITY-LEDGER.md`. Jerry's own observation is the null hypothesis: **RR-original
+   content usually makes the game easier or quicker**, so an unlabelled RR-original item should
+   be assumed to be a speed-up until measured.
+
+3. **Divergences are reported, not silently carried.** Where RR departs deliberately, say so
+   and say which direction. `claude/kittens-game-reference.md` has required this of new design
+   since v0.43; it now applies retroactively to everything already shipped.
+
+**What this does NOT do.** It does not reopen anything in §§1–15. It does not make "Kittens does
+X" sufficient grounds to transliterate a name onto a different building — v0.52 Part 1.2 put
+Kittens' Aqueduct figure on the wrong RR building and had to be undone. **Port the mechanism and
+the rung; assign by role.**
+
+---
+
 ## Appendix — settled items an analyzer session should not re-open
 
 These are not separate rulings; they are the code-verified state as of v0.52, recorded so a
