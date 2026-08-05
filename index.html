@@ -246,14 +246,80 @@ var SEASONS = [
 // 0.425 puts RR on Kittens' exact ratio and doubles the food pressure on growth.
 // trueIceCellars stays: catnipDemandRatio -0.005 per pasture (js/buildings.js) confirms
 // consumption-reduction upgrades are a legitimate Kittens mechanism. 0.425 x 0.8 = 0.34.
-var CONSUMPTION = 0.425, OFFLINE_CAP_HOURS = 12;
+// ============================================================
+// v0.55 PART 3 — THE FOOD ECONOMY AT THE SOURCE'S ABSOLUTE SCALE.
+//
+// THE FINDING THAT DROVE THIS ROUND, and it is worth stating before the numbers: RR's food
+// economy was EXACTLY ONE-TENTH of Kittens', and its internal ratio was already at perfect
+// parity. Kittens: farmer `catnip: 1`/tick x 5 ticks/s = 5.000/s; `catnipPerKitten: -0.85`
+// /tick = 4.250/s; ratio 1.17647. RR: farmer 0.500/s, CONSUMPTION 0.425/s; ratio 1.17647.
+// Identical to five decimal places.
+//
+// AND PROVISIONS WAS THE ONLY RESOURCE ON THAT SCALE. Every other job rate in this game is
+// already 1:1 with the source and has been since v0.45 Part 4 — woodcutter 0.09/s = wood
+// 0.018/tick x 5, miner 0.25/s = minerals 0.05/tick x 5, loremaster 0.175/s = science
+// 0.035/tick x 5, jungler 0.30/s = manpower 0.06/tick x 5. Provisions was a lone outlier,
+// which is why the x10 below touches provisions costs and caps and NOTHING ELSE: after it,
+// every resource in the game is at the source's scale.
+//
+// CONSUMPTION = 4, NOT 4.25, AND THE DISAGREEMENT IS ON THE RECORD (project practice, and
+// STANDING-RULINGS §16 asks for exactly this). The source is 4.250/s. Jerry's directive 7.2
+// says 4, and directives override the spec (HANDOFF §1), so 4 ships. The cost: the
+// farmer:eater ratio moves 1.17647 -> 1.250, a 6.2% RELAXATION of food pressure in a
+// directive whose stated goal is more pressure. 4.25 would have preserved the exact ratio the
+// game already had. Measured consequences in BUILD REPORT v0.55 §3.
+// ============================================================
+var CONSUMPTION = 4, OFFLINE_CAP_HOURS = 12;
+// The multiplier applied to every provisions COST and CAP in the same slice as the rate
+// change above. Without it, multiplying production and consumption by ten while every
+// provisions price stays fixed would make every provisions price one-tenth as expensive in
+// real time — silently trivialising the Storehouse, the Harbor, the Longhouse, the Training
+// Ground, the Bard's Hearth and two Discoveries. `test-v55` asserts the full enumeration, so
+// a provisions price added later cannot be left on the old scale.
+var PROVISIONS_SCALE = 10;
+// ============================================================
+// v0.55 Part 3.4 — THE EAT-CUT STACK NOW HAS TWO MEMBERS, so it needs a category and a
+// single shared bound rather than a per-building one.
+//
+// Kittens' `catnipDemandRatio` is ADDITIVE and UNBOUNDED across the pasture and the unicorn
+// pasture (js/buildings.js). RR bounds it, which is a deliberate divergence recorded in the
+// parity ledger — but the bound must be ONE bound over the SUM, not one per building, or
+// Kittens' Law (additive within a category, multiplicative between) is broken by having two
+// categories where the source has one. Before v0.55 there was exactly one carrier so the
+// distinction did not arise; it does now.
+//
+// THE VALUE IS RULED FROM A MEASUREMENT, not chosen — see BUILD REPORT v0.55 §3.4 for the
+// delivered figures at realistic counts of both buildings. The old 0.5 was sized for a single
+// member and is re-ruled here with two.
+// ============================================================
+// MEASURED THIS ROUND, at Sigma = 0.005 x granaries + 0.003 x pastures:
+//   granary/pasture     Sigma   delivered
+//        10/10           0.080     8.00%   linear
+//        40/30           0.290    29.00%   linear — the bound does not bite here
+//        60/40           0.420    40.81%   the curve starts
+//       100/60           0.680    46.37%
+//       500/500          4.000    49.58%   asymptote
+// RULING: KEEP 0.5. limitedDR is free below 0.75 x limit = 0.375, and 0.375 of Sigma needs
+// ~60 granaries and 40 pastures — beyond anything a measured run reaches. So the bound costs
+// the player nothing at any count the game arrives at and caps only the tail. What DID change
+// is that it went from decorative to real: with poroPasture alone at 0.003/copy the free band
+// needed 125 pastures, so the old 0.5 had never been approached by anything. Kittens leaves
+// catnipDemandRatio unbounded; RR's bound is a recorded divergence in the parity ledger, and
+// it is a tail-cap rather than a tax.
+var EAT_CUT_LIMIT = 0.5;
+function eatCutSum() {
+  var sum = 0;
+  BUILDINGS.forEach(function (b) { if (b.eatCut) sum += b.eatCut * count(b.id); });
+  return sum;
+}
+function eatCutDelivered() { return limitedDR(eatCutSum(), EAT_CUT_LIMIT); }
 
 // ============================================================
 // RESOURCES  (kind: capped | transient | loot)
 // ============================================================
 var RES = {
   mana:       { name: "Mana",       kind: "capped",    baseCap: 150 },
-  provisions: { name: "Provisions", kind: "capped",    baseCap: 200 },
+  provisions: { name: "Provisions", kind: "capped",    baseCap: 2000 },   // v0.55 Part 3.3: x10 sweep
   timber:     { name: "Timber",     kind: "capped",    baseCap: 150 },
   ore:        { name: "Ore",        kind: "capped",    baseCap: 100, hidden: function (s) { return !s.techs.mining; } },
   steel:      { name: "Steel",      kind: "capped",    baseCap: 50,  hidden: function (s) { return !s.techs.smelting; } },
@@ -328,7 +394,12 @@ var BUILDINGS = [
     // the cheapest starter at ratio 1.12 of which the bot builds sixty, and it measured
     // x4.40 on provisions. The figure moves to the Irrigation Channel below, which IS the
     // Aqueduct: same cost shape, same ratio, same 0.03.
-    cost: { mana: 15 }, ratio: 1.12, prod: { provisions: 0.14 }, seasonal: true },
+    // v0.55 Part 3.3: Kittens' `field` carries `catnipPerTickBase 0.125` = 0.625/s. RR had
+    // 0.14/s, which at RR's own tenth-scale was 0.0625 x 2.24 — THE STARTER FOOD BUILDING WAS
+    // 2.24x THE SOURCE'S, and it is the cheapest building in the game at ratio 1.12, of which
+    // the bot owns sixty. 0.625 is the source value exactly; the spec's 0.63 was a rounding
+    // of it and there is no reason to ship the rounding.
+    cost: { mana: 15 }, ratio: 1.12, prod: { provisions: 0.625 }, seasonal: true },
   // v0.52 Part 1.2. Kittens' aqueduct verbatim (js/buildings.js:399-410): minerals 75,
   // priceRatio 1.12, catnipRatio 0.03. On MINING, not Cultivation — the spec's own §1.2
   // catches this: Cultivation is rank 2 (100) and ore arrives with the Mine at rank 4
@@ -378,11 +449,11 @@ var BUILDINGS = [
   // alone gates it, which is Kittens' logHouse from `construction` exactly.
   { id: "longhouse", name: "Longhouse", group: "Village", tech: "carpentry",
     lore: "Room enough for one more family, and warmth enough to share.", effect: "Room for one more wanderer, and somewhere to rest between expeditions.",
-    cost: { timber: 220, ore: 260, provisions: 120 }, ratio: 1.15, pop: 1, caps: { vigor: 50 } },  // Kittens logHouse: manpowerMax 50
+    cost: { timber: 220, ore: 260, provisions: 1200 }, ratio: 1.15, pop: 1, caps: { vigor: 50 } },  // Kittens logHouse: manpowerMax 50; provisions x10 in v0.55 Part 3.3
   { id: "bardsHearth", name: "Bard's Hearth", group: "Village", tech: "songcraft",
     lore: "Every settlement gets the songs it deserves. Yours are improving.",
     effect: "Culture, and a ceiling to hold it. Bards need an audience, so the output rises with the settlement.",
-    cost: { timber: 80, provisions: 40 }, ratio: 1.10, prod: { culture: 0.02 }, caps: { culture: 40 },
+    cost: { timber: 80, provisions: 400 }, ratio: 1.10, prod: { culture: 0.02 }, caps: { culture: 40 },   // provisions x10, v0.55 Part 3.3
     // v0.53 Part 3.2 — RULED AND CLOSED. KEEP IT. RR-ONLY, and a conscious departure:
     // Kittens' Amphitheatre has NO population term at all — culturePerTickBase is flat
     // per copy (js/buildings.js:1801-1830), and kittens-game-reference.md records
@@ -412,6 +483,35 @@ var BUILDINGS = [
     // 0.0115 is the least-squares fit of limitedDR(x*nHearth, 0.88) to the old
     // limitedDR(0.05*nTavern, 0.88) across those three pairs. See BUILD REPORT v0.52.
     crowdRelief: 0.0115 },
+  // ============================================================================
+  // v0.55 PART 3.4 — THE GRANARY. Kittens has TWO pastures on `animal` (science 500) and RR
+  // had ported only one.
+  //
+  //   pasture:        prices [ {catnip 100}, {wood 10} ], priceRatio 1.15,
+  //                   effects { "catnipDemandRatio": -0.005 }
+  //   unicornPasture: prices [ {unicorns 2} ],            priceRatio 1.75,
+  //                   effects { "catnipDemandRatio": -0.0015 }
+  //   -- js/buildings.js; js/science.js `animal` unlocks BOTH
+  //
+  // RR ported `unicornPasture` -> `poroPasture` and never ported the plain one, so the
+  // ordinary route to eating less did not exist. Cost, ratio and figure are the source's
+  // verbatim — and they are verbatim in the same unit now, because Part 3.3's sweep put
+  // provisions at 1:1 with catnip and timber was already 1:1 with wood.
+  //
+  // RUNG: `logistics`, which is RR's 500-knowledge rung and therefore `animal`'s. `mining` is
+  // also 500; logistics is the better ROLE match — it already carries the Wilds and the camp
+  // line, and food storage is a logistics concern — which is the assignment rule §16's last
+  // clause asks for. auditRawGraph() confirmed 0 after the move.
+  //
+  // THE NAME IS A TRAP AND IT IS DELIBERATE: RR deleted a Granary in v0.10 and its prose
+  // survived in the Deepwinter forecast until v0.54 directive 9 removed it. The forecast now
+  // says "Stock provisions", so the name is free and it is the right one.
+  // ============================================================================
+  { id: "granary", name: "Granary", group: "Village", tech: "logistics",
+    lore: "Dry, dark, and rat-proof. The difference between a hard winter and a last one.",
+    effect: "Stored properly, a meal goes further — the settlement eats less.",
+    cost: { provisions: 100, timber: 10 }, ratio: 1.15,
+    eatCut: 0.005, eatCutLimit: EAT_CUT_LIMIT },
   { id: "poroPasture", name: "Poro Pasture", group: "Village",
     lore: "Built by poros, for poros, out of poros. Nobody asks how.", effect: "Poros, slowly. Their company makes a meal go further, so the settlement eats less.",
     // v0.54, DEV DIRECTIVE 13. Kittens' unicornPasture carries `unicornsPerTickBase: 0.001`
@@ -425,7 +525,7 @@ var BUILDINGS = [
     //   about production; those two are for the analyzer.
     cost: { poros: 5 }, ratio: 1.15, prod: { poros: 0.005 },
     unlock: function (s) { return s.seenMax.poros >= 1; },
-    eatCut: 0.003, eatCutLimit: 0.5 },
+    eatCut: 0.003, eatCutLimit: EAT_CUT_LIMIT },
   // v0.52 Part 2.3: the Tavern is DELETED. Its overcrowding relief moved onto the Bard's
   // Hearth, which is what Kittens' Amphitheatre always was — one building carrying both
   // culturePerTickBase and unhappinessRatio. Do not re-add a second crowdRelief carrier;
@@ -441,7 +541,7 @@ var BUILDINGS = [
     // term, which is where Kittens puts the early gold ceiling (Part 4.4b). provisions 750
     // STAYS: Kittens' catnip is one resource doing two jobs and RR splits it into provisions
     // and mana, so the barn's catnipMax 5000 has no single RR counterpart to transplant.
-    cost: { timber: 50 }, ratio: 1.75, caps: { provisions: 750, timber: 200, ore: 250, mana: 100, gold: 10 } },
+    cost: { timber: 50 }, ratio: 1.75, caps: { provisions: 7500, timber: 200, ore: 250, mana: 100, gold: 10 } },   // provisions cap x10, v0.55 Part 3.3
   // v0.47 Part 1.4(b): Carpentry, not Mining. It costs beam 2, and beams are a Carpentry
   // recipe now — at tech "mining" (rank 4) it would be visible for three ranks with an
   // uncraftable input. It is also parity: Kittens' `construction` unlocks warehouse AND
@@ -453,7 +553,7 @@ var BUILDINGS = [
   // "trade" (1,200) it was visible one rank before its input existed.
   { id: "harbor", name: "Harbor", group: "Storage", tech: "smelting", unlock: function (s) { return s.upgrades.deepwaterDocks; },
     lore: "Bilgewater hulls at anchor hold more than any cellar.", effect: "Bilgewater hulls at anchor hold more than any cellar.",
-    cost: { stoneSlab: 50, gear: 20, beam: 30 }, ratio: 1.15, caps: { provisions: 1000, timber: 700, ore: 500, steel: 150, gold: 200, mana: 150, crystals: 20 } },
+    cost: { stoneSlab: 50, gear: 20, beam: 30 }, ratio: 1.15, caps: { provisions: 10000, timber: 700, ore: 500, steel: 150, gold: 200, mana: 150, crystals: 20 } },   // provisions cap x10, v0.55 Part 3.3
   { id: "archive", name: "Archive", group: "Industry",
     lore: "What survived the wars, shelved.", effect: "Somewhere to keep what you know, and scholars who gather it faster.",
     cost: { timber: 40, mana: 50 }, ratio: 1.15, caps: { knowledge: 250 }, boost: { knowledge: 0.10 } },
@@ -504,7 +604,7 @@ var BUILDINGS = [
     campBoost: 0.15 },
   { id: "trainingGround", name: "Training Ground", group: "Industry", tech: "logistics",
     lore: "Wanderers learn the spear, and someone writes down who won.", effect: "Somewhere to hold Vigor and to earn a name — and Vigor accrues faster.",
-    cost: { timber: 120, ore: 150, provisions: 50 }, ratio: 1.15, caps: { vigor: 150, renown: 60 }, boost: { vigor: 0.10 } },
+    cost: { timber: 120, ore: 150, provisions: 500 }, ratio: 1.15, caps: { vigor: 150, renown: 60 }, boost: { vigor: 0.10 } },   // provisions x10, v0.55 Part 3.3
   // ---- Era 3: Piltover & Zaun ----
   // Era 3 raws are AUTOPROD, not worker-driven (Kittens' Smelter/Calciner tier).
   // No job feeds them: they consume banked Era 0-2 resources and produce on their own,
@@ -764,7 +864,10 @@ var BUILDINGS = [
 // JOBS — morale multiplies worker output; farmers ignore seasons
 // ============================================================
 var JOBS = [
-  { id: "farmer",     name: "Farmer",     desc: "+0.5 provisions/s (ignores seasons)", prod: { provisions: 0.5 } },
+  // v0.55 Part 3.3: `catnip: 1`/tick x 5 ticks/s = 5.000/s, the source's exact value.
+  // v0.55 directive 5: farmers now take the season, so the parenthetical had to go — it was
+  // the only place the old exemption was documented.
+  { id: "farmer",     name: "Farmer",     desc: "+5 provisions/s (the harvest follows the calendar)", prod: { provisions: 5 } },
   // v0.45 Part 4 — worker base rates at Kittens parity. Kittens ticks 5/s, so per-second
   // is perTick x 5, read from js/village.js: woodcutter wood 0.018 -> 0.09/s (RR was
   // 3.33x over), scholar science 0.035 -> 0.175/s (1.71x over), priest faith 0.0015 ->
@@ -1683,7 +1786,7 @@ var UPGRADES = [
   // categories this round measures (ore, timber, knowledge, population, morale, food)
   // so the branches cannot confound the parity read they were added alongside.
   // --- v0.46 Part 3: Kittens' two trade-cost discounts, same subtractive shape ---
-  { id: "caravanserai", name: "Caravanserai", cost: { timber: 500, provisions: 300 }, tech: "trade",
+  { id: "caravanserai", name: "Caravanserai", cost: { timber: 500, provisions: 3000 }, tech: "trade",   // provisions x10, v0.55 Part 3.3
     lore: "A walled yard, a well, and somewhere to leave the animals — the road gets shorter when the stops get better.",
     effect: "Every caravan costs 40 less Vigor."},
   { id: "letterOfMarque", name: "Letter of Marque", cost: { gold: 450, culture: 120 }, tech: "masquerade",
@@ -1709,7 +1812,7 @@ var UPGRADES = [
   { id: "bankedCoals", name: "Banked Coals", cost: { steel: 80, stoneSlab: 20 }, tech: "kindling",
     lore: "A fire you never let die is a fire you never rebuild.",
     effect: "Forge and Refinery output +15%."},
-  { id: "pastureRotation", name: "Pasture Rotation", cost: { provisions: 800, poros: 40 }, tech: "abyss",
+  { id: "pastureRotation", name: "Pasture Rotation", cost: { provisions: 8000, poros: 40 }, tech: "abyss",   // provisions x10, v0.55 Part 3.3
     lore: "Move them before they eat the field, which they will.",
     effect: "Poro Pastures produce 50% more poros."},
   { id: "tributeReliquaries", name: "Tribute Reliquaries", cost: { crystals: 80, gold: 1200 }, tech: "voidStudies",
@@ -2250,7 +2353,7 @@ var EXPEDITIONS = [
   { id: "abyssJourney", name: "Journey to the Howling Abyss", tech: "abyss", renown: 5,
     desc: "A frozen bridge, an old war, and the fluffiest creatures alive.",
     yield: "1–3 poros · 20% chance of True Ice",
-    cost: { vigor: 120, provisions: 50 },
+    cost: { vigor: 120, provisions: 500 },   // provisions x10, v0.55 Part 3.3
     run: function () {
       var p = 1 + Math.floor(Math.random() * 3);
       gain("poros", p);
@@ -2292,7 +2395,7 @@ var EXPEDITIONS = [
   { id: "drakeHunt", name: "Drake Hunt", tech: "drakeLore", renown: 15, cooldown: 600,
     desc: "Face an elemental drake in its own lair.",
     yield: "75% success — one random drake essence, a permanent settlement-wide bonus",
-    cost: { vigor: 350, steel: 25, provisions: 400 },
+    cost: { vigor: 350, steel: 25, provisions: 4000 },   // provisions x10, v0.55 Part 3.3
     run: function () {
       if (Math.random() < 0.75) {
         var d = DRAKE_TYPES[Math.floor(Math.random() * DRAKE_TYPES.length)];
@@ -2307,7 +2410,7 @@ var EXPEDITIONS = [
   { id: "voidExpedition", name: "Void Expedition", tech: "icathia", cooldown: 300, renown: 25,
     desc: "Through the doors of Icathia, where the map gives up. Veterans of stranger journeys (Zilean, Poppy, Shaco) steady the crossing.",
     yield: "3–6 Void Essence · risk of returning empty-handed",
-    cost: { vigor: 500, focusedHex: 2, provisions: 200 },
+    cost: { vigor: 500, focusedHex: 2, provisions: 2000 },   // provisions x10, v0.55 Part 3.3
     run: function () {
       var failChance = Math.max(0.05, 0.20 - affinityBonus("voidleader") * 0.004);
       if (Math.random() < failChance) {
@@ -2321,7 +2424,7 @@ var EXPEDITIONS = [
   { id: "baron", name: "Challenge Baron Nashor", tech: "voidStudies", renown: 40, cooldown: 900,
     desc: "The great Void-worm beneath the river.",
     yield: "60% success — HAND OF BARON: +25% all production for 20 minutes",
-    cost: { vigor: 1200, steel: 100, provisions: 2000, knowledge: 200 },
+    cost: { vigor: 1200, steel: 100, provisions: 20000, knowledge: 200 },   // provisions x10, v0.55 Part 3.3
     run: function () {
       if (Math.random() < 0.6) {
         S.baronUntil = simNow() + 20 * 60 * 1000;
@@ -3049,7 +3152,9 @@ function luxuryTypes() {
 // exactly when you are short, and it can never push morale past the stated ceiling.
 var FESTIVAL_MINUTES = 10;
 function festivalCost() {
-  return { mushrooms: Math.round(4 * luxuryComfort()), provisions: Math.round(6 * Math.max(1, S.pop)), culture: 40 };
+  // v0.55 Part 3.3: the provisions term is x10 with the rest of the sweep. It is per-head, so
+  // it scales with the settlement exactly as it did — only the unit changed.
+  return { mushrooms: Math.round(4 * luxuryComfort()), provisions: Math.round(60 * Math.max(1, S.pop)), culture: 40 };
 }
 function festivalActive() { return simNow() < (S.festivalUntil || 0); }
 // v0.41 §2.5: a research, not a tech-plus-sighting check. Kittens gates festivals
@@ -3399,9 +3504,26 @@ function computeRates(bdRes) {
     var mult = (jobMult[j.id] || 1) * (1 + (jobBoosts[j.id] || 0)) * mor * policyMult("worker") * skillMult(j.id);
     for (var r in j.prod) {
       if (r === "hexore" && !S.techs.hexcore) continue; // prospectors can't quarry what nobody has conjectured
+      // v0.55, DIRECTIVE 5 — FARMERS TAKE THE SEASON. This is the round's real Deepwinter
+      // lever: at farmMult 0.25 the settlement's entire job-based food supply drops 75% for a
+      // quarter of every year, which is what winter is supposed to do. Until now `farmMult`
+      // reached buildings ONLY (`if (b.seasonal && r === "provisions")` above), so a
+      // settlement fed by farmers was season-proof and Deepwinter was a rounding error.
+      //
+      // LABEL, AND IT IS THE FIRST `HARDER` IN THE PARITY LEDGER: this is an RR-ORIGINAL
+      // DIVERGENCE, NOT A PARITY FIX. Resolved against source this round, which the v0.55
+      // spec Part 0.1 left open: `js/village.js updateResourceProduction()` applies skill,
+      // rank, leader and happiness to a job's output and NO season or weather term;
+      // `getWeatherMod` lives in `js/calendar.js` and is not called from the job path; and the
+      // Kittens wiki's Game Mechanics page states it outright — "Seasons affect catnip
+      // production from catnip fields, but do not affect production from farmers."
+      // Jerry's directive stands and ships. It makes RR HARDER than the source, deliberately.
       var jv = j.prod[r] * n * mult * (1 + (boosts[r] || 0));
+      if (r === "provisions") jv *= farmMult;
       rates[r] += jv;
-      track(r, n + "× " + j.name + " (morale " + Math.round(mor * 100) + "%" + (skillMult(j.id) > 1.0005 ? ", skill +" + Math.round((skillMult(j.id) - 1) * 100) + "%" : "") + ")", jv);
+      track(r, n + "× " + j.name + " (morale " + Math.round(mor * 100) + "%" +
+        (r === "provisions" ? ", " + season.name.toLowerCase() + " ×" + farmMult.toFixed(2) : "") +
+        (skillMult(j.id) > 1.0005 ? ", skill +" + Math.round((skillMult(j.id) - 1) * 100) + "%" : "") + ")", jv);
     }
   });
 
@@ -3556,7 +3678,9 @@ function computeRates(bdRes) {
   // Consumption (never multiplied by production bonuses)
   var eat = S.pop * CONSUMPTION * (S.upgrades.trueIceCellars ? 0.8 : 1);
   eat *= 1 + Math.max(0, morale() - 100) * 0.002;
-  eat *= 1 - limitedDR(bfield("poroPasture", "eatCut") * count("poroPasture"), bfield("poroPasture", "eatCutLimit")); // poros make meals feel bigger (Kittens: unicorn pastures)
+  // v0.55 Part 3.4: ONE category, summed over every carrier, bounded once. Kittens' pasture
+  // and unicornPasture both write catnipDemandRatio and it is additive between them.
+  eat *= 1 - eatCutDelivered();
   if (simNow() < S.honeyUntil) eat *= 0.8; // honeyfruit: wanderers snack
   rates.provisions -= eat;
   track("provisions", S.pop + " wanderers eating", -eat);
@@ -3724,11 +3848,13 @@ function step(dt, ticks) {
   tickChampXp(dt);
 
   // Arrivals: 1 per 20s while housing + food allow
-  if (S.pop < maxPop() && S.res.provisions > 8) {
+  // v0.55 Part 3.3: the arrival threshold is a PROVISIONS quantity and moves with the sweep.
+  // Left at 8 it would have meant "a settlement with two seconds of food keeps recruiting".
+  if (S.pop < maxPop() && S.res.provisions > 80) {
     S.arrivalTimer += dt;
     // v0.47 Part 4A: a day-long step can earn several arrivals, so this is a WHILE, not an
     // if. Live (dt = 0.2 s) it runs at most once and behaves exactly as before.
-    while (S.arrivalTimer >= (leaderIs("jarvan") ? 12 : 20) && S.pop < maxPop() && S.res.provisions > 8) {
+    while (S.arrivalTimer >= (leaderIs("jarvan") ? 12 : 20) && S.pop < maxPop() && S.res.provisions > 80) {
       S.arrivalTimer -= (leaderIs("jarvan") ? 12 : 20); S.pop++;
       syncRoster();
       var newcomer = S.wanderers[S.wanderers.length - 1];
@@ -5123,8 +5249,11 @@ function effectLines(b) {
       bfield("hexgateBuilding", "tradeBoost") * count("hexgateBuilding"), 1.0)) + ", ceiling +100%)");
   if (b.sumpBoost) out.push("Sump Mine, Coalgas Vent & Hexcrystal Quarry: +" + ttPct(b.sumpBoost) +
     " each (diminishing, currently +" + ttPct(autoprodMult() - 1) + ", ceiling +" + ttPct(AUTOPROD_LIMIT) + ")");
-  if (b.eatCut) out.push("Wanderers eat: −" + ttPct(b.eatCut) + " each (currently −" +
-    ttPct(limitedDR(b.eatCut * n, b.eatCutLimit)) + ", ceiling −" + ttPct(b.eatCutLimit) + ")");
+  // v0.55 Part 3.4: the line reports the SHARED stack, because the bound is shared. Showing a
+  // per-building figure would have been the fourth storage-style tooltip in this file to drift
+  // away from the maths it describes.
+  if (b.eatCut) out.push("Wanderers eat: −" + ttPct(b.eatCut) + " each (all granaries and pastures together, currently −" +
+    ttPct(eatCutDelivered()) + ", ceiling −" + ttPct(EAT_CUT_LIMIT) + ")");
   if (b.crowdRelief) out.push("Overcrowding unhappiness: −" + ttPct(b.crowdRelief) + " each (currently −" +
     ttPct(limitedDR(b.crowdRelief * n, MORALE_RELIEF_LIMIT)) + ", ceiling −" + ttPct(MORALE_RELIEF_LIMIT) + ")");
   if (b.poroSacrifice) out.push("Unlocks the Poro sacrifice: " + PORO_SACRIFICE_COST +
