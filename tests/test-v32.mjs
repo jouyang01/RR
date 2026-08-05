@@ -178,8 +178,24 @@ check("charges regenerate independently", charges.oneBack === 1);
 // ============ CAMP-YIELD + SCRIPTORIUM DISCOVERIES ============
 const disc = await page.evaluate(() => {
   const o = {};
+  // v0.56 Part 6 — THE FIXTURE, not the box.
+  //
+  // This block cleared three containers and took `base` with the LIVE ROSTER still in `S`.
+  // campYieldMult()'s seventh member is `traitBonus("trailblazer")` (v0.55 Part 4), so with
+  // 10 wanderers and one Trailblazer left over from an earlier block the baseline was
+  // base = 1.005 and the assertion measured 5.005 / 1.005 = 4.980 instead of 5.000. Two
+  // Trailblazers gave 4.960. The trait roll is random, so the check passed only when the
+  // roster happened to hold none — and HANDOFF v0.55 §8.6's remedy, "re-run on an idle box",
+  // worked BY LUCK and hid a real defect across three rounds.
+  //
+  // THE STANDING RULE THIS EARNS: a test that captures a baseline from live state must reset
+  // the state it is baselining. This is the third instance — after test-offline-v54's
+  // saturated-cap check and test-v42's free-band check, both found in v0.55.
   S.upgrades = {}; S.jobs = {}; S.buildings = {};
+  S.wanderers = []; S.champs = {}; S.policies = {};
+  if (typeof _traitCounts !== "undefined") _traitCounts = null;
   const base = campYieldMult();
+  o.base = +base.toFixed(6);
   S.upgrades.trappersCraft = true; S.upgrades.beastLore = true; S.upgrades.masterOfTheHunt = true;
   o.campLine = campYieldMult() / base;              // 1.25*1.25*1.5 = 2.34
   S.upgrades = {};
@@ -205,6 +221,11 @@ const disc = await page.evaluate(() => {
 // (steelArmor + alloyArmor) — so the line they add is 4.00, not 1.00. The property under
 // test is that they are ADDITIVE (Kittens Law 2), and it still holds: 1 + 1.0 + 2.0 + 1.0 = 5.00
 // delivered through limitedDR, not (1.25 x 1.25 x 1.5). Superseded by: v0.55 Part 4.
+// v0.56 Part 6: the baseline is asserted to BE 1.000 as well, so a future member of the camp
+// stack that leaks in through an unreset container fails loudly here rather than shifting the
+// ratio by half a percent and being blamed on CPU contention.
+check("the camp-yield baseline is a clean 1.000 — the fixture resets what it baselines",
+  Math.abs(disc.base - 1) < 1e-9, String(disc.base));
 check("camp-yield line: additive at all three, at Kittens' own figures (Kittens Law 2)",
   Math.abs(disc.campLine - 5.0) < 0.01, disc.campLine.toFixed(3));
 // v0.42 Part 4 supersedes the magnitudes: RR's scribal stack ran to x9.375 against
@@ -291,10 +312,21 @@ const fac = await page.evaluate(() => {
   // civilisation cost 1,311 vigor and 2,505 provisions — a wall in front of content the
   // Trade tab had already told the player about. The assertion is inverted rather than
   // deleted: a future round that re-adds an escalator has to come back here and say so.
+  // v0.56 Part 6 FIXTURE SWEEP: `expCost()` multiplies by policyVigorMult() and by two
+  // Discoveries, none of which this block clears, so the "flat 500" reading was hostage to
+  // whatever earlier blocks had left in S.policies and S.upgrades. Found by
+  // tools/fixture-sweep.mjs, which re-runs every suite on a deliberately dirty roster.
+  // The property under test is that the cost does not ESCALATE with civilisations found;
+  // a policy discount is legitimate and is asserted separately below.
+  S.policies = {}; S.upgrades = {};
   S.factionsFound = { demacia: true };
   const c1 = expCost(EXPEDITIONS.find(e => e.id === "scouting"));
   S.factionsFound = { demacia: 1, freljord: 1, bilgewater: 1, piltover: 1 };
   const c4 = expCost(EXPEDITIONS.find(e => e.id === "scouting"));
+  // ...and the discount that DOES apply is a policy, not an escalator
+  S.upgrades = { surveyedApproaches: 1 };
+  o.discounted = expCost(EXPEDITIONS.find(e => e.id === "scouting")).vigor;
+  S.upgrades = {};
   o.flat = c1.vigor === c4.vigor && !c1.provisions && !c4.provisions;
   o.tab = EXPEDITIONS.find(e => e.id === "scouting").tab;
   o.c1 = c1; o.c4 = c4;
@@ -307,6 +339,8 @@ check("trading with an undiscovered faction is refused", fac.tradeBlocked);
 check("scouting parties eventually find everyone", fac.allFound, `${fac.rounds} attempts`);
 check("v0.54 directive 3 — scouting is a FLAT 500 vigor, no escalator, no provisions, and it lives in the Trade tab",
   fac.flat && fac.c1.vigor === 500 && fac.tab === "trade", JSON.stringify([fac.c1, fac.c4, fac.tab]));
+check("...and the only thing that moves it is a Discovery discount, not the count of civilisations",
+  fac.discounted === 425, `${fac.c1.vigor} -> ${fac.discounted} with Surveyed Approaches`);
 
 // ============ TRADE PAYOUTS ============
 const pay = await page.evaluate(() => {

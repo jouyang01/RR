@@ -211,8 +211,16 @@ check("8 — a Challenger MINER farms like a Bronze farmer until they have farme
   d8.minerXpDoesNotPayTheFarmer);
 check("8 — every trade a wanderer has practised is listed, best first",
   JSON.stringify(d8.ranked) === JSON.stringify(["miner", "jungler"]), JSON.stringify(d8.ranked));
+// v0.56 Part 1(b) RE-POINT: the migration block gained a second job. It still seeds `w.jx`
+// from a pre-v0.54 single-`xp` save, but it no longer EARLY-RETURNS when `w.jx` exists,
+// because every loaded roster now also has to be clamped to XP_CAP -- a v0.55 save can hold
+// banks in the millions (1,335,491 measured at Icathia) since RR had no cap until this round.
+// The `if (w.jx) return;` guard became an `if (!w.jx) {...}` block for exactly that reason.
+// Superseded by: v0.56 Part 1(b).
 check("8 — old single-`xp` saves are migrated into the trade they were holding",
-  /w\.jx\[w\.j\] = w\.xp/.test(CODE) && /if \(w\.jx\) return;/.test(CODE));
+  /w\.jx\[w\.j\] = w\.xp/.test(CODE) && /if \(!w\.jx\) \{/.test(CODE));
+check("8 — ...and every loaded bank is clamped to XP_CAP, so an uncapped v0.55 save is safe",
+  /for \(var jk in w\.jx\) if \(w\.jx\[jk\] > XP_CAP\) w\.jx\[jk\] = XP_CAP;/.test(CODE));
 
 // ============================================================================
 // 9 — the Deepwinter forecast names the thing you actually stock
@@ -277,10 +285,18 @@ check("12 — ...and what it says instead is what poros actually do: the Pasture
 const d13 = await page.evaluate(() => {
   const b = BUILDINGS.find(x => x.id === "poroPasture");
   loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
+  // v0.56 Part 6 FIXTURE SWEEP: `poroRatio` takes champion passives and policies, so "ten
+  // pastures deliver 0.05/s" was true only on a state whose roster and champion list happened
+  // to be empty. freshState() is not a guarantee of that -- it is a guarantee about the SAVE
+  // format, not about what a test seeded before it. Cleared explicitly, and the floor the
+  // assertion depends on is asserted rather than assumed.
+  S.champs = {}; S.policies = {}; S.upgrades = {}; S.wanderers = []; S.drakes = {}; S.wtechs = {};
+  if (typeof _traitCounts !== "undefined") _traitCounts = null;
   S.buildings.poroPasture = 10;
   const rate = computeRates().poros;
+  const ratioAtFloor = typeof poroRatio === "function" ? +poroRatio().toFixed(6) : null;
   loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
-  return { per: b.prod.poros, tenCopies: rate };
+  return { per: b.prod.poros, tenCopies: rate, ratioAtFloor };
 });
 // Kittens: js/buildings.js unicornPasture, unicornsPerTickBase 0.001, and Kittens ticks 5/s
 // -> 0.005 per SECOND. RR carried 0.001/s, the per-tick figure read as if it were per-second.
