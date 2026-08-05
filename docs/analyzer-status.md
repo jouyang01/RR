@@ -9,10 +9,53 @@ do not re-litigate) and the latest `docs/HANDOFF-v0.NN.md` (the map of the shipp
 
 | | |
 |---|---|
-| Last shipped build | **v0.53**, tagged `v0.53`, 390,283 bytes |
-| Last consumed spec | `docs/specs/rr-analyzer-v053-spec.md` (titled v0.53, produced v0.53 — the titles finally agree) |
-| Current spec, awaiting an analyzer | **none — `current-build-spec.md` is consumed** |
-| Live suites | **21 suites, 1,013 assertions, 0 failures** |
+| Last shipped build | **v0.54**, tagged `v0.54` |
+| Last consumed spec | `docs/specs/rr-analyzer-v053-spec.md` (produced v0.53) |
+| Current spec, awaiting an analyzer | **none — the next round should be a spec round** |
+| Live suites | **23 suites, 1,098 assertions, 0 failures** |
+
+## v0.54 — no spec, two workstreams
+
+v0.54 answers a supplied **offline-progression audit** (`docs/OFFLINE-AUDIT-v0.52.md`) and
+**seventeen of Jerry's numbered directives**. No analyzer spec, so no cumulative prefixes and
+no predicted-vs-measured table — that apparatus belongs to spec rounds.
+
+**The audit's defect 1 is the headline and it was the worst kind of bug: `tick()` advanced a
+fixed dt and never consulted the wall clock, so a browser-throttled background tab lost ~80%
+of its production. Closing the tab was strictly better than leaving it open.** Measured after
+the fix: 100% of real rate. Defect 2: `runCatchUpChunked()` had been complete, correct and
+never called since v0.47, while the v0.47 build report claimed the feature shipped chunked.
+
+**Pacing cost of the directives, measured once at the end** (2,500-year seed-1, against
+v0.53's shipped build): Era 3 **810.5 → 641.2**, Icathia y966.6 → y790.2, and **trades ×2.00**
+— the last is directive 10, which deleted merchant fatigue, and it is the largest identifiable
+cause. None of the seventeen was a pacing item. Era 3 is now **758.8 short** of the 1,400
+minimum.
+
+**Two figures moved that never had before:** Hexdraulic Plants at Icathia 0 → **2** (gold
+reaches 219,277 against a 254,676 ceiling), and Frostguard Cairns 6 → **12** (directive 13's
+×5 poro production feeding the sacrifice that feeds the ladder).
+
+### Closed in v0.54 — STANDING-RULINGS §§14–15
+
+- **Merchant fatigue is deleted.** The THIRD RR-invented rule ruled out of existence, after
+  the 1.25 price band and the effect-to-ratio proportionality bound. Caitlyn's and Twitch's
+  leads were re-pointed onto cargo slots in the same round — Twitch's had become a leader slot
+  that did nothing at all.
+- **The live loop reconciles against the wall clock.** Consequence for every future test:
+  anything driving `tick()` in a loop must virtualise `Date.now` and advance it by `TICK_MS`
+  per fire. Two shipped suites had to be re-pointed for this.
+
+### New for the analyzer from v0.54
+
+- **The Poro Pasture is still two divergences from source** — priceRatio 1.15 against
+  Kittens' **1.75**, and `eatCut` 0.003 against `catnipDemandRatio` **−0.0015**. Directive 13
+  fixed production only, and at ×5 production the price ratio is now the one that matters.
+- **Caitlyn's two lead clauses compound** — the tier discount raises the `over` term the slot
+  ladder is computed from, so +10 points of slot chance reads as +25 at five caravans.
+- **`w.xp` is now a lifetime total nothing reads but the Census sort.**
+- **The 12-hour offline cap has never been questioned**, and is now a single tunable enforced
+  identically on both routes.
 
 **Workflow.** Two Claude sessions. The **analyzer** verifies the tagged build against Kittens'
 real source and writes `current-build-spec.md` at the repo root. The **builder** implements

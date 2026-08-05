@@ -327,6 +327,58 @@ The companion finding, from the same round:
 
 ---
 
+## 14. Merchant fatigue is deleted — closed v0.54
+
+> "It charged a running −8% per recent trade with the same civilisation, to a floor of ×0.15,
+> recovering over 90 seconds. It has **no Kittens counterpart** — the source's trade has a
+> season modifier, a race standing/embassy ladder and a failure chance, and no per-partner
+> cooldown penalty of any kind. And it punished the only interaction the Trade tab has: the
+> counter-play was to stop playing for ninety seconds, and waiting is not a decision."
+> — v0.54, directive 10
+
+**This is the THIRD RR-invented rule ruled out of existence**, after the 1.25 price band
+(v0.50) and the effect-to-ratio proportionality bound (v0.52 Part 2.6). Do not re-derive any
+of the three as a heuristic.
+
+`tradeFatigue()`, `fatigueMult()`, `FATIGUE_RECOVER_S`, `FATIGUE_PENALTY`, `FATIGUE_MAX` and
+the "· weary −N%" line are all absent at grep level. **`S.tradeFatigue` survives in
+`freshState()` and in one read inside `loadFromString()`** — it is how an old save's met
+civilisations are inferred, and deleting the key would lose that. Nothing writes it.
+
+Two leader effects were re-pointed in the same round because they referenced the deleted
+mechanic; Twitch's had already become a leader slot that did nothing at all:
+
+- **Caitlyn** — +5 Renown per caravan, every cargo tier opens five caravans early, +10 points
+  of slot chance.
+- **Twitch** — +15 points of slot chance on every route.
+
+---
+
+## 15. The live loop reconciles against the wall clock — closed v0.54
+
+`tick()` advanced a **fixed** 0.2 s and never consulted the clock, so a browser-throttled
+background tab lost ~80% of its production with nothing to recover it. **Closing the tab was
+strictly better than leaving it open.**
+
+> "Ticks delivered at 1/second for 10 real seconds advanced 2,000 ms of game time — 20% of
+> the real rate." — OFFLINE AUDIT v0.52, defect 1
+
+**Consequence for every future test:** anything that drives `tick()` in a loop must
+**virtualise `Date.now` and advance it by `TICK_MS` per fire**. A tight loop against the real
+clock now advances no game time at all. `test-v35`, `test-v47` and `test-offline-v54` all do
+this; two of them had to be re-pointed in v0.54 for exactly this reason.
+
+The large-gap branch routes through `runCatchUp()` — **the same replay the closed-tab route
+uses** — and is clamped to the same `OFFLINE_CAP_HOURS`. There is still ONE production path,
+and `test-v47` asserts it.
+
+`runCatchUpChunked()` was complete, correct and **never called** from v0.47 until v0.54,
+while the v0.47 build report claimed the feature shipped chunked. It is wired up now, and it
+runs as a single blocking pass below `CHUNK_MIN_DAYS` so a 200 ms replay does not become
+asynchronous for no reason.
+
+---
+
 ## Appendix — settled items an analyzer session should not re-open
 
 These are not separate rulings; they are the code-verified state as of v0.52, recorded so a
@@ -350,6 +402,12 @@ session does not re-flag them:
 - **There is a `VERSION` constant** (`var VERSION = "v0.53"`) and the footer is rendered from it
   by `stampVersion()` at boot. Before v0.53 there was none, despite §10 requiring one — the
   version lived only inside the footer's prose. Bump the constant, not the prose.
+- **Wanderer rank is PER TRADE** (v0.54 directive 8). Experience banks in `w.jx[job]`;
+  `w.xp` survives only as the lifetime total the Census sorts on. A Challenger miner farms
+  like a Bronze farmer until they have farmed.
+- **Do not pin a literal version string in a suite.** `test-v53` did and became a check
+  designed to fail every subsequent round. Assert the shape; pin the value in the round's own
+  suite.
 - **`test-v2` … `test-v31` are historical.** They were written against builds three to eight
   versions retired and **will fail against v0.52**. They live in `tests/historical/`, are shipped
   for archaeology, not for regression, and their failures are not defects. `test-v14` in
