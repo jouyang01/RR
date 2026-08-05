@@ -86,3 +86,49 @@ This is not a bug tracker and not a spec. It is the input to one.
 - ~~**Offline progression: a backgrounded tab loses ~80% of production, and
   `runCatchUpChunked()` is dead code.**~~ — **v0.54**, both fixed, both asserted in
   `tests/test-offline-v54.mjs`. See `docs/OFFLINE-AUDIT-v0.52.md`.
+
+---
+
+## v0.55 — Jerry's directive, and the eight the analyzer sourced from it
+
+- ~~**"Kitten's farmers are affected by seasonality."**~~ — **v0.55, Part 3.2.** Shipped, and
+  the premise is factually wrong about the source: `js/village.js updateResourceProduction()`
+  applies skill, rank, leader and happiness and **no season term**, `getWeatherMod()` lives in
+  `js/calendar.js` and feeds the catnip *field*, and the Kittens wiki says it in a sentence.
+  The change is good on its own merits — Deepwinter now cuts the settlement's entire job-based
+  food supply 75% for a quarter of every year — so it ships as **RR-ORIGINAL, HARDER**, the
+  first HARDER label under the charter. **STANDING-RULINGS §17. Do not revert it to parity.**
+- ~~**The Hunter's Lodge feels abusable; move hunt yield to a discovery chain; the Jungler
+  should not increase camp yield.**~~ — **v0.55, Part 4.** Both halves correct against source:
+  Kittens' hunt yield is seven workshop upgrades (Σ 5.10 → ×6.10), its hunter job produces
+  manpower and boosts nothing, and it has no hunt building at all. Lodge deleted, old saves
+  refunded 50%, `campYieldMult()` rebuilt on the source's seven members. **§18.**
+- ~~**Petricite Masonry unlocks far too early.**~~ — **v0.55, Part 2.1.** 9,500 → **65,000 +
+  65 Morellonomica**, which is Kittens' `archeology` exactly, and `archeology` is what unlocks
+  `quarry`. The Quarry's own cost and id untouched.
+- ~~**Irrigation arrives too early.**~~ — **v0.55, Part 2.2.** It is Kittens' `aqueduct` to the
+  digit (`minerals 75`, ratio 1.12, `catnipRatio 0.03`) and `aqueduct` unlocks at
+  `engineering` 1,500. Moved from RR's 500 rung to its 1,500 rung.
+- ~~**The food economy feels off.**~~ — **v0.55, Part 3.1/3.3.** It was running at **exactly
+  one-tenth of Kittens'**, and it was the only resource that was. Farmer 0.5 → **5.0/s**,
+  Farmstead 0.14 → **0.625/s** (it had been ×2.24 the source at RR's own scale), and a
+  thirteen-site ×10 sweep across every provisions cost and cap. Consumption shipped at Jerry's
+  **4** rather than the source's 4.25 — a 6.2% relaxation, reported.
+- ~~**There should be a second food-storage building.**~~ — **v0.55, Part 3.4.** Kittens has
+  **two** pastures and RR had ported one. The **Granary** ships at `provisions 100 + timber 10`,
+  ratio 1.15, `eatCut 0.005`, on RR's 500 rung. `eatCutLimit` re-ruled from measurement and
+  **kept at 0.5** — it is a tail-cap, not a tax, and it went from decorative to real.
+- ~~**The Poro Pasture is too cheap to spam.**~~ — **v0.55, Part 5.** Ratio 1.15 → **1.75**,
+  Kittens' `unicornPasture`. The bot's count went 60 → **18**.
+- ~~**Drakes stop mattering too slowly.**~~ — **v0.55, Part 6.** `limitedDR` is linear below
+  75% of its limit, so a player reached three-quarters of every drake cap with **no diminishing
+  return at all**. New `strictDR` bites from the first kill: 25% of cap at 5 kills, 50% at 10,
+  75% at 50, 90% at 100.
+- ~~**Wanderers rank up too slowly.**~~ — **v0.55, Part 7.** `XP_PER_SECOND = 2`; Challenger
+  goes 3.19 → 1.60 real hours. **The source figure could not be located and no citation was
+  invented — it is UNVERIFIED**, and it turned out to be the round's largest pacing lever
+  (Era 3 −193.6 game-years).
+- ~~**Undo lets you re-roll a bad hunt.**~~ — **v0.55, Part 8.** The next roll of the same kind
+  fails outright. Marker lives outside `S` (which `doUndo()` replaces wholesale) and survives
+  save/load. Asserted by forced-fail outcome: 57 furs → undo → 36 → 57.
+

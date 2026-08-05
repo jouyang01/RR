@@ -419,6 +419,59 @@ the rung; assign by role.**
 
 ---
 
+## 17. Kittens' farmers are NOT seasonal — closed v0.55, and the divergence ships anyway
+
+Jerry's v0.55 directive was stated as a parity claim: *"Kitten's farmers are affected by
+seasonality."* **They are not.** Resolved against the raw source this round:
+
+- `js/village.js updateResourceProduction()` — the job production path applies **skill, rank,
+  leader and happiness** and nothing else. There is no season term and no call to
+  `getWeatherMod()`.
+- `js/calendar.js` — `getWeatherMod()` exists and is real, but it is applied to the **catnip
+  field** line, not to the job line.
+- The Kittens wiki's Game Mechanics page states it outright: *"Seasons affect catnip production
+  from catnip fields, but do not affect production from farmers."*
+
+**The directive shipped regardless, because directives override the spec.** What §16 forbids is
+shipping it as PARITY. It is recorded in `docs/PARITY-LEDGER.md` as **RR-ORIGINAL, HARDER** —
+the first HARDER label the charter has produced, and the ruling that proves the labelling
+machinery does something. Deepwinter now cuts the settlement's entire job-based food supply by
+75% for a quarter of every year, which is what winter was always advertised to do and never did.
+
+**Do not "fix" this back to parity in a later round without a directive.** It is deliberate, it
+is labelled, and its cost is measured (see BUILD REPORT v0.55 §6). Equally, **do not cite it as
+precedent for guessing at the source** — the reason it is a clean divergence rather than a bug
+is that somebody read `js/village.js` before shipping it.
+
+---
+
+## 18. `hunterLodge` is deleted — closed v0.55
+
+The Hunter's Lodge is gone from `BUILDINGS`, and `campYieldMult()` no longer reads **any** job
+count or **any** building count. Kittens' hunt yield comes entirely from workshop upgrades
+(`js/workshop.js`, Σ 5.10 → ×6.10 across seven members); its hunter *job* produces `manpower`
+and boosts nothing, and it has no hunt building at all. RR carried two RR-original members —
+`0.15 per Lodge` and `0.05 per Jungler` — which together were why the stack could not be read
+against the source at any investment level.
+
+The seven members that remain map one-for-one onto the source: five hunt Discoveries
+(1.0 + 2.0 + 1.0 + 0.5 + 0.5) onto Kittens' six armour/bolas upgrades, and the **Open Range**
+policy (0.1) onto `rationing`. Σ **5.10**, delivered **×5.9286** through `limitedDR(_, 6)`
+against the source's unbounded ×6.10 — a 2.8% cost for the bound, which is why
+`CAMP_YIELD_LIMIT = 6` stays (Appendix).
+
+The **Trailblazer trait** is an eighth member and is RR-original. It is kept, not removed,
+because it is hard-bounded: `limitedDR(n × 0.005, TRAIT_LIMIT = 0.15)` can never add more than
+0.15 to Σ regardless of roster size. Labelled EASIER in the ledger with the ceiling stated.
+
+**A v0.54 save that owns Lodges is migrated on load** — the building is dropped and 50% of the
+ratio-1.15 geometric sum is refunded in timber, ore and furs. Do not delete that migration; it
+is asserted in `test-v55` against a synthetic ten-Lodge save.
+
+---
+
+---
+
 ## Appendix — settled items an analyzer session should not re-open
 
 These are not separate rulings; they are the code-verified state as of v0.52, recorded so a

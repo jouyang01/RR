@@ -9,10 +9,12 @@ do not re-litigate) and the latest `docs/HANDOFF-v0.NN.md` (the map of the shipp
 
 | | |
 |---|---|
-| Last shipped build | **v0.54**, tagged `v0.54` |
-| Last consumed spec | `docs/specs/rr-analyzer-v053-spec.md` (produced v0.53; v0.54 had no spec) |
-| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.55, THE PARITY ROUND** |
-| Live suites | **23 suites, 1,098 assertions, 0 failures** — re-run and confirmed 2026-08-04 |
+| Last shipped build | **v0.55**, tagged `v0.55` |
+| Last consumed spec | `docs/specs/rr-analyzer-v055-spec.md` (produced v0.55, THE PARITY ROUND) |
+| Current spec, awaiting a builder | **none — the cycle is at the analyzer** |
+| Live suites | **24 suites, 1,167 assertions, 0 failures** — re-run and confirmed 2026-08-05 |
+| Parity ledger | **188 rows — PARITY 50, EASIER 12, HARDER 2, UNVERIFIED 124** |
+| Era 3 | **660.6 game-years** (target 1,400–2,300). Parts 3–6 bought +213; Part 7 gave back −193.6. |
 
 ## THE CHARTER — read this before any balance argument (STANDING-RULINGS §16, ruled by Jerry v0.55)
 
@@ -67,6 +69,66 @@ save/load only). RR's is `w.jx[w.j] += dt` — **1 xp per second worked, Challen
 hours of single-job work**. The rank *thresholds* are already close to source in shape and
 exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
 interim labelled UNVERIFIED — do not invent a citation.
+
+## v0.55 SHIPPED — what the builder found, and what the next analysis owes
+
+**All ten parts shipped. All twenty pass conditions asserted in `tests/test-v55.mjs`.** Full
+argument in `docs/BUILD-REPORT-v0.55.md`; the map is `docs/HANDOFF-v0.55.md`.
+
+### The two open questions above are now closed
+
+**Are Kittens' farmers seasonal? NO.** Resolved against the raw file:
+`js/village.js updateResourceProduction()` applies skill, rank, leader and happiness and no
+season term; `getWeatherMod()` is in `js/calendar.js` and feeds the catnip *field*; the wiki's
+Game Mechanics page states it outright. **Jerry's directive shipped anyway and is labelled
+RR-ORIGINAL / HARDER — the charter's first HARDER label. STANDING-RULINGS §17.**
+
+**The skill increment could NOT be located.** `js/game.js` and `js/core.js` **404 from
+raw.githubusercontent.com, the GitHub blob view AND jsdelivr**. No citation was invented.
+`XP_PER_SECOND = 2` ships as a stated interim, labelled UNVERIFIED in the ledger. **This is now
+the project's highest-value open lookup** — see below.
+
+### The finding the next analysis must absorb
+
+**The spec predicted the XP/undo slice would move pacing by ≈ 0. It moved Era 3 by −193.6
+game-years**, entirely on the late edge (Icathia y1010.8 → y837.7). Wanderer rank is a per-trade
+*production multiplier*; doubling the accrual rate makes every wanderer reach every rank twice as
+fast. Median XP bank at Icathia went 46,905 → 176,750 (×3.77).
+
+**Generalise it: any change to rank, skill, trait or champion progression is a pacing item**, and
+it gets its own slice. "It is experience, not economy" is not a classification.
+
+### Two more predictions that missed, and why
+
+- **Sparks moved +37.6 on the food slice against a ±15 diagnostic.** The diagnostic's stated
+  cause — *"the ×10 sweep missed a cost"* — **is ruled out by enumeration**: the sweep is
+  thirteen sites, read out of the live game after the fact, all at ×10. The real cause is that
+  the rescale was never neutral: the Farmstead went from ×2.24 of the source's rate to ×1.00, a
+  55.4% cut to the starter food building, plus the seasonal farmer on top. Era 1 got harder on
+  purpose and the prediction assumed it would not.
+- **The rungs/hunt slice undershot (+44.3 against +80–250) and moved Sparks EARLIER by 22.3.**
+  Pushing the Quarry out of reach leaves the bot's ore going into Forges and Mines, which is a
+  better Era-2 investment than the Quarry was. And deleting the Lodge *raised* the camp
+  multiplier at Sparks (×3.24 → ×5.75), because the five Discoveries are unconditional now and
+  arrive long before forty Lodges would have.
+
+### What the next analysis owes, in priority order
+
+1. **Find the Kittens skill increment.** It is worth ~190 game-years of Era 3 if the real figure
+   is below 2, and it is the only UNVERIFIED item in the game that is also a first-order lever.
+2. **Rule on 130 wanderers at y1013** — the worst reading in the project's history, up from
+   y758.8. Correct consequence of a correct food scale, or over-correction? The cheapest dial is
+   `CONSUMPTION`: shipped at Jerry's **4** against the source ratio's **4.25**, a 6.2%
+   relaxation in the wrong direction.
+3. **The storage-scope restructure, v0.56 first slice** — unchanged, fully sourced, measurements
+   intact (see the v0.55 pass below). It could not ship beside the ×10 provisions sweep.
+4. **Work the ledger's 124 UNVERIFIED rows** by subsystem, ten to fifteen a round.
+5. **Convergence is 3.87% at Sparks** against 5–8% — improved from 2.33% and **now has a pass
+   condition attached** (v0.55 Part 9), so it will not go unnoticed again.
+6. **Trades never call `snapshotUndo()`**, so Part 8's trade guard protects a path that does not
+   exist. Wire trades in or delete that half.
+
+---
 
 ## v0.55 — the analyzer's verification pass, and the storage-scope finding
 
