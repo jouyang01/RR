@@ -61,43 +61,93 @@ const r = await page.evaluate(() => {
 
   // ---- boost: knowledge (4 science buildings), provisions, devotion (Sanctum), vigor ----
   // Measured END TO END through a JOB's output, which is the path Jerry asked about.
-  function jobOut(job, res, buildings, n) {
+  function jobOut(job, res, buildings, workers) {
     bare();
     S.buildings = Object.assign({}, buildings);
     S.pop = 20; S.wanderers = []; syncRoster();
-    S.jobs = {}; S.jobs[job] = 20;
+    S.jobs = {}; if (workers) S.jobs[job] = workers;
     return computeRates()[res];
   }
-  function boostDelivered(job, res, bid, n) {
-    const base = jobOut(job, res, {}, 0);
-    const b = {}; b[bid] = n;
-    const with_ = jobOut(job, res, b, n);
-    bare();
-    return base > 0 ? with_ / base : null;
+  // ============================================================================
+  // v0.53 Part 5.2 — THE READER WAS NOT MEASURING A MULTIPLIER.
+  //
+  // The old boostDelivered() returned with_/base where both are NET rates. For every
+  // resource the settlement consumes, net = gross x mult - consumption, and the constant
+  // consumption sits in the denominator:
+  //
+  //     net(n)/net(0) = (G*m(n) - E) / (G*m(0) - E)
+  //
+  // which is unbounded in E and has nothing to do with m. That is the whole of HANDOFF
+  // v0.52 §8.3's unexplained `boost_provisions_irrigation x6.56`. Decomposed exactly by
+  // the v0.53 spec's Part 0.3(c): for provisions, G = 10.0000/s and E = 8.5000/s, and
+  // `net = trueMult x 10 - 8.5` reproduces all four measured rows to the digit. The bound
+  // was always working — it saturates at 2.4902 against its 2.5 asymptote.
+  //
+  // The reader now does two things:
+  //
+  //  (1) REMOVES CONSUMPTION, end to end and without mirroring the game's eat formula:
+  //      the same state with ZERO workers produces no output at all, so that reading IS
+  //      -E. Subtracting it from both sides turns two net rates into two GROSS rates.
+  //      This is general — it costs one extra computeRates() and it is correct for any
+  //      resource whose consumption does not depend on the building under test.
+  //
+  //  (2) ANCHORS THE QUOTIENT. A gross ratio is still only m(Sigma0+sigma*n)/m(Sigma0),
+  //      and Sigma0 is not zero for every resource — `bare()` turns every tech on, so
+  //      provisions carries Cultivation's +0.10 before a single Irrigation Channel is
+  //      built. Sigma0 is SOLVED FOR rather than enumerated from source lines (which is
+  //      what would go stale): the gross ratio at the widest n is monotone decreasing in
+  //      Sigma0, so one bisection recovers it, and the absolute multiplier is then read
+  //      through the game's own limitedDR(). `predicted` re-derives the gross ratios at
+  //      the narrower n from that solution — if those do not match `grossRatio`, the
+  //      model is wrong and the audit says so instead of printing a number.
+  // ============================================================================
+  function boostMult(res, sigma) {
+    const L = BOOST_LIMIT[res];
+    return 1 + (L === undefined ? sigma : limitedDR(sigma, L));
   }
-  out.measured.boost_knowledge_observatory = {
-    at5: boostDelivered("loremaster", "knowledge", "observatory", 5),
-    at50: boostDelivered("loremaster", "knowledge", "observatory", 50),
-    at500: boostDelivered("loremaster", "knowledge", "observatory", 500)
-  };
-  out.measured.boost_devotion_sanctum = {
-    at5: boostDelivered("acolyte", "devotion", "sanctum", 5),
-    at50: boostDelivered("acolyte", "devotion", "sanctum", 50),
-    at500: boostDelivered("acolyte", "devotion", "sanctum", 500)
-  };
-  out.measured.boost_vigor_trainingGround = {
-    at5: boostDelivered("jungler", "vigor", "trainingGround", 5),
-    at50: boostDelivered("jungler", "vigor", "trainingGround", 50),
-    at500: boostDelivered("jungler", "vigor", "trainingGround", 500)
-  };
+  function boostDelivered(job, res, bid, n) {
+    const b = {}; b[bid] = n;
+    const zero = jobOut(job, res, {}, 0);        // = -E : no workers, no output, eating only
+    const base = jobOut(job, res, {}, 20);       // = G*m(Sigma0) - E
+    const with_ = jobOut(job, res, b, 20);       // = G*m(Sigma0 + sigma*n) - E
+    bare();
+    const G0 = base - zero;
+    if (!(G0 > 0)) return null;
+    return { grossRatio: +((with_ - zero) / G0).toFixed(4), netRatioOld: +(with_ / base).toFixed(4) };
+  }
+  // One solve per (res, building) line, using the widest n, then applied to every n.
+  function boostLine(job, res, bid, ns) {
+    const bdef = BUILDINGS.find(x => x.id === bid);
+    const sigmaPer = (bdef && bdef.boost && bdef.boost[res]) || 0;
+    const rows = ns.map(n => Object.assign({ n }, boostDelivered(job, res, bid, n)));
+    const wide = rows[rows.length - 1];
+    if (!wide || !sigmaPer) return { sigmaPerCopy: sigmaPer, rows };
+    // bisect Sigma0 in [0, 10]: ratio(Sigma0) = m(Sigma0 + sigma*N) / m(Sigma0), decreasing
+    const f = s0 => boostMult(res, s0 + sigmaPer * wide.n) / boostMult(res, s0) - wide.grossRatio;
+    let lo = 0, hi = 10;
+    for (let i = 0; i < 100; i++) {
+      const mid = (lo + hi) / 2;
+      if (f(mid) > 0) lo = mid; else hi = mid;
+    }
+    const sigma0 = +((lo + hi) / 2).toFixed(6);
+    rows.forEach(r2 => {
+      r2.delivered = +boostMult(res, sigma0 + sigmaPer * r2.n).toFixed(4);
+      r2.predictedGrossRatio = +(boostMult(res, sigma0 + sigmaPer * r2.n) / boostMult(res, sigma0)).toFixed(4);
+      r2.modelError = +Math.abs(r2.predictedGrossRatio - r2.grossRatio).toFixed(5);
+    });
+    return { sigmaPerCopy: sigmaPer, sigma0Solved: sigma0,
+             asymptote: BOOST_LIMIT[res] !== undefined ? 1 + BOOST_LIMIT[res] : null, rows };
+  }
+  const NS = [5, 50, 500];
+  out.measured.boost_knowledge_observatory = boostLine("loremaster", "knowledge", "observatory", NS);
+  out.measured.boost_devotion_sanctum = boostLine("acolyte", "devotion", "sanctum", NS);
+  out.measured.boost_vigor_trainingGround = boostLine("jungler", "vigor", "trainingGround", NS);
   // v0.52 Part 1.2: the Farmstead's `boost` moved onto the new Irrigation Channel, so the
   // provisions BOOST reader has to follow it — pointing at the Farmstead now measures its
   // `prod`, which is linear by construction and says nothing about the bound.
-  out.measured.boost_provisions_irrigation = {
-    at5: boostDelivered("farmer", "provisions", "irrigation", 5),
-    at50: boostDelivered("farmer", "provisions", "irrigation", 50),
-    at500: boostDelivered("farmer", "provisions", "irrigation", 500)
-  };
+  // v0.53 Part 5.2: this is the line HANDOFF v0.52 §8.3 left unexplained. It now reads
+  // 1.25 / 2.3346 / 2.4902 against a 2.5 asymptote.
+  out.measured.boost_provisions_irrigation = boostLine("farmer", "provisions", "irrigation", NS);
 
   // ---- the science stack at Kittens' own end-of-tree counts, and at RR's measured ones ----
   function scienceStack(counts) {
@@ -217,9 +267,17 @@ console.log("  linear ≈ 1.0000 means the delivered multiplier grows exactly wi
   console.log(`  ${k.padEnd(24)} ${j(r.measured[k])}`));
 
 console.log("\n=== MECHANISM 2: boost -> (1 + boosts[res]), measured END TO END through a JOB ===");
+console.log("  v0.53 Part 5.2: `delivered` is the MULTIPLIER, 1+limitedDR(Σ, BOOST_LIMIT[res]).");
+console.log("  `grossRatio` is what the run measured after consumption was removed; `netRatioOld`");
+console.log("  is what the pre-v0.53 reader printed — kept so the ×6.56 artefact stays visible.");
 ["boost_knowledge_observatory", "boost_devotion_sanctum", "boost_vigor_trainingGround",
- "boost_provisions_irrigation"].forEach(k =>
-  console.log(`  ${k.padEnd(28)} ${j(r.measured[k])}`));
+ "boost_provisions_irrigation"].forEach(k => {
+  const v = r.measured[k];
+  console.log(`  ${k}  σ/copy ${v.sigmaPerCopy}  Σ0 solved ${v.sigma0Solved ?? "n/a"}  asymptote ${v.asymptote ?? "UNBOUNDED"}`);
+  v.rows.forEach(row => console.log(`      n=${String(row.n).padStart(3)}  delivered ×${row.delivered ?? "?"}` +
+    `   grossRatio ×${row.grossRatio}   predicted ×${row.predictedGrossRatio ?? "?"}` +
+    `   model err ${row.modelError ?? "?"}   (old net reader ×${row.netRatioOld})`));
+});
 
 console.log("\n=== The science stack against Kittens ===");
 console.log("  Kittens' end-of-tree 30/30/25/13 :", j(r.kittensEndOfTree));

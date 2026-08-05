@@ -1,3 +1,22 @@
+// ============================================================================
+// ARCHAEOLOGY — NOT A REGRESSION SUITE. Added v0.53 Part 5.5.
+//
+// This file is in `tests/historical/` and is NOT in the live loop. It was written
+// against a build many versions retired and it WILL fail against the shipped game.
+// Its failures are not defects (STANDING-RULINGS.md, Appendix).
+//
+// Specifically, and this is why it earned its own spec item: this suite asserts the
+// definition of the **Tavern** — its tech, priceRatio, overcrowding relief and its
+// 400/800/200 cost table. **The Tavern was DELETED in v0.52 Part 2.3.** Kittens'
+// Amphitheatre carries both culturePerTickBase and unhappinessRatio from one building,
+// so RR's split across the Bard's Hearth and the Tavern was reunified onto the Hearth
+// and the Tavern's definition was removed from `BUILDINGS` entirely. It survives only
+// inside the save-migration block.
+//
+// A reader deserves to know which of the assertions below describe a building that no
+// longer exists before they read a failure as a finding. Do not "fix" these assertions;
+// do not re-add the Tavern to make them pass.
+// ============================================================================
 import { chromium } from "playwright";
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());

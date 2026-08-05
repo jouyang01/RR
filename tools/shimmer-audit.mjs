@@ -39,9 +39,26 @@ console.log(JSON.stringify(out, null, 1));
 
 // ---- the arithmetic, outside the page ----
 const YEAR = out.yearSec;                                  // seconds per game-year
-const M_ICATHIA = 6.27, M_DEEPWORKS = 6.27;                // measured campYieldMult (log)
+// v0.53 Part 5.3. campYieldMult was HARDCODED at 6.27 from a run log. The shipped v0.52
+// run's final state reports 6.35, so the v0.52 Refinery recost was sized on a figure that
+// had already gone stale by 1.3% — silently, which is the whole objection. The figures are
+// now read from a live run and only fall back to the logged constants if one is not
+// supplied, with the fallback announced rather than assumed.
+//   --camp <x>            campYieldMult, from the pacing run's FINAL block
+//   --vigor-deep <x> --vigor-icathia <x>   vigor per game-year at each milestone
+const argNum = (flag, dflt) => {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 && process.argv[i + 1] !== undefined ? +process.argv[i + 1] : dflt;
+};
+const STALE_CAMP = 6.27, STALE_DEEP = 15235.4, STALE_ICATHIA = 27464.2;
+const M_LIVE = argNum("--camp", null);
+const M_ICATHIA = M_LIVE ?? STALE_CAMP, M_DEEPWORKS = M_LIVE ?? STALE_CAMP;
+if (M_LIVE === null) console.log(`\n!! campYieldMult NOT SUPPLIED — falling back to the v0.52 log figure ${STALE_CAMP}.` +
+  `\n!! Pass --camp <value> from the run's FINAL block. (v0.53 Part 5.3)`);
+else console.log(`\ncampYieldMult read live: ${M_LIVE}`);
 const crawlShimmer = m => 0.25 * 5 * m;                    // 25% chance, 3..7 uniform mean 5
-const VIGOR_PER_YEAR = { deepWorks: 15235.4, icathia: 27464.2 };   // measured, run-counts.log
+const VIGOR_PER_YEAR = { deepWorks: argNum("--vigor-deep", STALE_DEEP),
+                         icathia: argNum("--vigor-icathia", STALE_ICATHIA) };
 for (const [k, v] of Object.entries(VIGOR_PER_YEAR)) {
   const crawls = v / out.crawlCost.vigor;
   const sh = crawls * crawlShimmer(k === "icathia" ? M_ICATHIA : M_DEEPWORKS);

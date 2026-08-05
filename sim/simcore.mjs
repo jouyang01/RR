@@ -46,6 +46,40 @@ export async function runSim(page, years, seed = 1) {
     const tradeMarks = {};              // cumulative trade count at each milestone
     const firstVisible = {};            // cold-start visibility years (Part 8)
     const markVis = k => { if (firstVisible[k] === undefined) firstVisible[k] = +yearNow().toFixed(2); };
+    // ---- v0.53 instrumentation, ALL of it written BEFORE the first run of the round
+    // (HANDOFF v0.52 §6, "instrument before launching"; the v0.50 round paid two re-runs
+    // for not doing this). Every metric Parts 1-6 of the v0.53 spec name is below.
+    //
+    // 1. SPEND. pay() is the single choke point through which every building, tech,
+    //    discovery, craft, trade and recruitment leaves the stock, so wrapping it once
+    //    measures spend for EVERY resource without touching the game. Part 2.2 needs
+    //    crystal spend per game-year; Part 6 needs vigor spend split by cause; Part 4.3
+    //    needs the new craft's stock to stop rising, which is a spend question.
+    const spendTotal = {};              // cumulative spend, by resource, whole run
+    const spendMarks = {};              // cumulative spend snapshot at each milestone
+    const _origPay = pay;
+    pay = function (cost) {
+      for (const r in cost) spendTotal[r] = (spendTotal[r] || 0) + cost[r];
+      return _origPay(cost);
+    };
+    const spendSnap = () => Object.assign({}, spendTotal);
+    // 2. Vigor, split by cause. vigorSpent below already counts expeditions; trade is
+    //    the other half and Part 6 asks for the split at y50 and y100 explicitly.
+    let vigorOnTrade = 0;
+    const vigorSplit = {};              // { y50: {...}, y100: {...} }
+    // 3. seenMax for the crafted intermediates. Part 1.3's whole finding is that
+    //    hexgear's STOCK never accumulates while hexcore's does; that is a peak-stock
+    //    question and nothing in the harness recorded peaks.
+    const seenMaxOf = r => +(S.seenMax[r] || 0).toFixed(2);
+    // 4. Yearly series for the three resources whose accumulation is the question:
+    //    crystals (Part 2), voidessence and the new tier-5 craft (Part 4.3).
+    const stockSeries = [];             // { year, crystals, voidessence, <newCraft> }
+    // 5. The five buildings that measured zero, tracked at every milestone rather than
+    //    only at the three that snapshot().
+    const ZERO_FIVE = ["hextechFoundry", "hexdraulicPlant", "chembarrel",
+                       "hexcreteBastion", "frostguardCairn"];
+    const PORO_LADDER = ["poroPasture", "frostguardCairn", "avarosanHold",
+                         "iceWroughtSpire", "frozenWatcher", "watchersEye"];
     // v0.44 Part 4 asks for two named numbers at Sparks and at Icathia: the full
     // multiplier product per raw line, category by category, and the science building
     // counts. Both are read off live state at the instant the tech lands.
@@ -159,22 +193,56 @@ export async function runSim(page, years, seed = 1) {
         // Part 0: the knowledge multiplier the four science buildings actually deliver,
         // and the counts behind it. The claim under test is that the overshoot in counts
         // was a SYMPTOM of the bound, so both have to be on the same line.
+        // v0.53 Part 5.1. THE OLD READER COMPARED TWO DIFFERENT THINGS and the gap was
+        // read as a x3 overshoot for two rounds. Two defects, not one:
+        //   (a) Sigma summed the four science BUILDINGS only, while boosts.knowledge is
+        //       also written by the Rites of Insight worship tech (+0.10), by Swain's
+        //       knowledge passive, and by policyBoost("knowledge"). The spec calls these
+        //       "the Scholarship-ladder Discoveries"; verified from source this round,
+        //       NO Discovery writes to boosts.knowledge at all — Scholarship is a CAP
+        //       multiplier (scholarMultOf), not a rate boost. The missing terms are the
+        //       worship tech, the champion passive and the policy. Reported in §7.
+        //   (b) `delivered` set S.buildings = {} to get its denominator, which removes
+        //       the whole GLOBAL-production category (Foundries, Hexdraulic amplifier,
+        //       Arcane Reactors) and changes morale() by deleting every Bard's Hearth.
+        //       Neither belongs to the knowledge-boost category. That, not a missing
+        //       Sigma, is most of the x105-vs-x35.75 gap.
+        // The reader now neutralises EXACTLY the terms that feed boosts.knowledge and
+        // nothing else, by zeroing the four science buildings' counts and stubbing the
+        // three non-building contributors, so `delivered` is 1 + Sigma by construction
+        // and the two halves of the line are finally comparable.
         science: (() => {
           const counts = { archive: count("archive"), academy: count("academy"),
                            observatory: count("observatory"), hexLab: count("hexLab") };
-          let sigma = 0;
+          let sigmaBuildings = 0;
           for (const id in counts) {
             const b = BUILDINGS.find(x => x.id === id);
-            if (b && b.boost && b.boost.knowledge) sigma += b.boost.knowledge * counts[id];
+            if (b && b.boost && b.boost.knowledge) sigmaBuildings += b.boost.knowledge * counts[id];
           }
-          // delivered = what a Loremaster's output is actually multiplied by
+          const sigmaRites = (S.wtechs && S.wtechs.ritesOfInsight) ? 0.10 : 0;
+          const sigmaChamp = champPassive("knowledge") / 100;
+          const sigmaPolicy = policyBoost("knowledge");
+          const sigma = sigmaBuildings + sigmaRites + sigmaChamp + sigmaPolicy;
           const saveJobs = S.jobs, savePop = S.pop, saveB = S.buildings;
+          const saveRites = S.wtechs && S.wtechs.ritesOfInsight;
           S.jobs = { loremaster: 20 }; S.pop = Math.max(20, S.pop);
           const withB = computeRates().knowledge;
-          S.buildings = {};
+          // neutralise the four boost carriers only — every other building stays, so
+          // catMonument, crowd relief and morale are identical on both sides
+          S.buildings = Object.assign({}, saveB);
+          for (const id in counts) S.buildings[id] = 0;
+          if (S.wtechs) S.wtechs.ritesOfInsight = false;
+          const origChamp = champPassive, origPolicy = policyBoost;
+          champPassive = k => (k === "knowledge" ? 0 : origChamp(k));
+          policyBoost = k => (k === "knowledge" ? 0 : origPolicy(k));
           const bareB = computeRates().knowledge;
+          champPassive = origChamp; policyBoost = origPolicy;
+          if (S.wtechs) S.wtechs.ritesOfInsight = saveRites;
           S.buildings = saveB; S.jobs = saveJobs; S.pop = savePop;
-          return { counts, sigma: +sigma.toFixed(3), kittensWouldGive: +(1 + sigma).toFixed(3),
+          return { counts, sigma: +sigma.toFixed(4),
+                   sigmaParts: { buildings: +sigmaBuildings.toFixed(4), rites: sigmaRites,
+                                 champion: +sigmaChamp.toFixed(4), policy: +sigmaPolicy.toFixed(4) },
+                   kittensWouldGive: +(1 + sigma).toFixed(4),
                    delivered: bareB > 0 ? +(withB / bareB).toFixed(4) : null };
         })(),
         // Part 1.2: the Irrigation Channel replaces the Farmstead's boost
@@ -192,6 +260,33 @@ export async function runSim(page, years, seed = 1) {
         tinkerers: S.jobs.tinkerer || 0,
         crystalsPerSec: +computeRates().crystals.toFixed(4),
         crystalsHeld: Math.round(S.res.crystals), crystalsCap: Math.round(computeCaps().crystals),
+        // ---- v0.53, instrumented before the first run ----
+        // SEC_PER_GAME_YEAR: TICK_MS 200 x TICKS_PER_DAY 10 x DAYS_PER_SEASON 100 x 4 = 800 s.
+        // Part 2.2 asks for crystal income and crystal spend in the SAME unit, which is
+        // per game-year, and Part 2.4's "held < 3 game-years of production" needs both.
+        crystalIncomePerGameYear: +(computeRates().crystals * 800).toFixed(1),
+        crystalsHeldInGameYears: computeRates().crystals > 0
+          ? +(S.res.crystals / (computeRates().crystals * 800)).toFixed(2) : null,
+        // Part 4.2/4.3: the Void Essence income the tier-5 craft must be sized against.
+        voidessencePerSec: +computeRates().voidessence.toFixed(4),
+        voidessenceIncomePerGameYear: +(computeRates().voidessence * 800).toFixed(1),
+        voidessenceHeld: +(S.res.voidessence || 0).toFixed(1),
+        voidessenceCap: Math.round(computeCaps().voidessence || 0),
+        // Part 1: the five buildings that measured exactly zero, and the Freljord ladder
+        // whose whole category has never been built in a measured run.
+        zeroFive: Object.fromEntries(ZERO_FIVE.map(id => [id, count(id)])),
+        poroLadder: Object.fromEntries(PORO_LADDER.map(id => [id, count(id)])),
+        poros: +(S.res.poros || 0).toFixed(1),
+        poroTears: +(S.res.poroTears || 0).toFixed(1),
+        poroRatioDelivered: +poroRatio().toFixed(4),
+        // Part 1.3: the hexgear starvation is a PEAK-STOCK claim. Nothing recorded peaks.
+        seenMaxIntermediates: { hexgear: seenMaxOf("hexgear"), hexcore: seenMaxOf("hexcore"),
+                                alloy: seenMaxOf("alloy"), plating: seenMaxOf("plating"),
+                                scaffold: seenMaxOf("scaffold"), hexSlab: seenMaxOf("hexSlab"),
+                                voidessence: seenMaxOf("voidessence"), poroTears: seenMaxOf("poroTears"),
+                                trueice: seenMaxOf("trueice"), frostMegalith: seenMaxOf("frostMegalith") },
+        spendToDate: spendSnap(),
+        stocks: Object.fromEntries(Object.keys(RES).map(r => [r, +(S.res[r] || 0).toFixed(2)])),
         // v0.49 Part 6: catMonument decomposed by building. This is the category Part 1.7
         // just cut from five members to Kittens' two, and nobody has ever measured it.
         catMonument: (() => {
@@ -250,7 +345,11 @@ export async function runSim(page, years, seed = 1) {
       if (milestones[k] !== undefined) return;
       milestones[k] = +yearNow().toFixed(1);
       tradeMarks[k] = tradeCount;
-      if (k === "sparks" || k === "icathia" || k === "hexcore") snaps[k] = snapshot();
+      spendMarks[k] = spendSnap();
+      // v0.53 Part 2.2 requires crystal income and spend measured "at Deep Works and at
+      // Icathia", and Deep Works has never been a snapshot point. Adding it costs one
+      // snapshot() call in a 2,500-year run.
+      if (k === "sparks" || k === "icathia" || k === "hexcore" || k === "deepWorks") snaps[k] = snapshot();
     };
 
     const samples = [];      // objectives + luxury samples, twice per year
@@ -324,6 +423,32 @@ export async function runSim(page, years, seed = 1) {
       if (idleCount() > 0) assignJob("farmer", 1);
     }
 
+    // v0.53 Part 1.1. The build order was a `const` INSIDE manageBuildings, which is
+    // exactly why nothing could assert against it: a list nothing outside the function
+    // can read cannot be enumerated, and the omission of the Shimmer Refinery survived
+    // three rounds and four more omissions survived this one. It is hoisted here and
+    // returned in the run result so `test-v53` can subtract it from BUILDINGS and fail
+    // on a non-empty remainder. A comment saying "tavern and bloomery removed" did not
+    // stop this happening again; an assertion will.
+    //
+    // DEDICATED_ROUTINES: the ids manageBuildings() handles by name above the loop.
+    // They are legitimately absent from `order` and the assertion has to know that.
+    const DEDICATED_ROUTINES = ["longhouse", "skyrise", "shelter", "harbor", "hallOfHeroes"];
+    const BUILD_ORDER = ["manaWell", "farmstead", "archive", "lumberMill", "mine", "academy",
+      "bardsHearth", "storehouse", "forge", "shrine", "observatory", "workshop",
+      "tradeDock", "hunterLodge", "sanctum", "trainingGround", "warehouse",
+      "refinery", "marus", "hexLab", "sumpMine", "coalgasVent", "hexQuarry",
+      // v0.52 Part 1.2: the Irrigation Channel; Part 3.2: the SHIMMER REFINERY, which
+      // was never in this list at all — the reason its measured count was 0 at every
+      // milestone in every prior round is that the bot never considered it, NOT that it
+      // was overpriced. Apparatus defect, reported in BUILD REPORT v0.52 §3.2.
+      "irrigation", "shimmerRefinery",
+      "hextechFoundry", "hexdraulicPlant", "arcaneReactor", "chembarrel",
+      "piltoverSpire", "vault", "watchersEye",
+      "frostguardCairn", "avarosanHold", "iceWroughtSpire", "frozenWatcher",
+      "quarry", "augmentChamber", "hexgateBuilding", "wardOfWatchers"];
+      // v0.52 Part 2.3/2.4: "tavern" and "bloomery" removed — both buildings deleted.
+
     function manageBuildings() {
       // Morale multiplies ALL worker output, so a player buys the thing that fixes it
       // before anything else. v0.41 raised the Tavern to 400/800/200, which pushed it
@@ -378,20 +503,7 @@ export async function runSim(page, years, seed = 1) {
       if (S.techs.callToArms && pinned("renown") && tryBuild("hallOfHeroes")) return;
 
       // steady economic build-out, cheapest useful thing first
-      const order = ["manaWell", "farmstead", "archive", "lumberMill", "mine", "academy",
-        "bardsHearth", "storehouse", "forge", "shrine", "observatory", "workshop",
-        "tradeDock", "hunterLodge", "sanctum", "trainingGround", "warehouse",
-        "refinery", "marus", "hexLab", "sumpMine", "coalgasVent", "hexQuarry",
-        // v0.52 Part 1.2: the Irrigation Channel; Part 3.2: the SHIMMER REFINERY, which
-        // was never in this list at all — the reason its measured count was 0 at every
-        // milestone in every prior round is that the bot never considered it, NOT that it
-        // was overpriced. Apparatus defect, reported in BUILD REPORT v0.52 §3.2.
-        "irrigation", "shimmerRefinery",
-        "hextechFoundry", "hexdraulicPlant", "arcaneReactor", "chembarrel",
-        "piltoverSpire", "vault", "watchersEye",
-        "frostguardCairn", "avarosanHold", "iceWroughtSpire", "frozenWatcher",
-        "quarry", "augmentChamber", "hexgateBuilding", "wardOfWatchers"];
-        // v0.52 Part 2.3/2.4: "tavern" and "bloomery" removed — both buildings deleted.
+      const order = BUILD_ORDER;
       for (const id of order) {
         const b = buildingByIdVisible(id);
         if (!b) continue;
@@ -494,7 +606,14 @@ export async function runSim(page, years, seed = 1) {
         // tradeCost() only exists from v0.46; isolation builds cut from earlier
         // versions do not have it, and the sim must still run against them.
         const tc = (typeof tradeCost === "function") ? tradeCost(f) : f.cost;
-        if (canAfford(tc) && surplus(tc)) { tradeCaravan(f.id); tradeCount++; mark("firstTrade"); }
+        // v0.53 Part 6: vigor spend has to be split by CAUSE. Expeditions were already
+        // counted (vigorSpent, above); trade was not, so "the cheapest early sink" could
+        // not be checked against the +75% route-vigor rise the spec attributes it to.
+        if (canAfford(tc) && surplus(tc)) {
+          const vB = S.res.vigor;
+          tradeCaravan(f.id); tradeCount++; mark("firstTrade");
+          vigorOnTrade += Math.max(0, vB - S.res.vigor);
+        }
       }
       // v0.41: embassies are the primary culture sink and the slot ladder runs to 15,
       // so a player who cares about a chain keeps buying past the old cap of 9.
@@ -720,6 +839,34 @@ export async function runSim(page, years, seed = 1) {
       if (count("shelter") > 0) markVis("firstShelterBuilt");
       if (count("archive") > 0) markVis("firstArchiveBuilt");
 
+      // v0.53 Part 6: the early vigor economy, measured at the two years the spec names.
+      // Cumulative income and cumulative spend split expeditions/trade, so the ratio is
+      // readable rather than inferred from a rate at one instant.
+      if (vigorSplit.y50 === undefined && yearNow() >= 50) {
+        vigorSplit.y50 = { year: 50, earned: +vigorEarned.toFixed(1), onExpeditions: +vigorSpent.toFixed(1),
+                           onTrade: +vigorOnTrade.toFixed(1), ratePerSec: +computeRates().vigor.toFixed(4),
+                           perGameYear: +(computeRates().vigor * 800).toFixed(1),
+                           cheapestRouteVigor: Math.min.apply(null, FACTIONS.map(f =>
+                             ((typeof tradeCost === "function" ? tradeCost(f) : f.cost).vigor) || 0)) };
+      }
+      if (vigorSplit.y100 === undefined && yearNow() >= 100) {
+        vigorSplit.y100 = { year: 100, earned: +vigorEarned.toFixed(1), onExpeditions: +vigorSpent.toFixed(1),
+                            onTrade: +vigorOnTrade.toFixed(1), ratePerSec: +computeRates().vigor.toFixed(4),
+                            perGameYear: +(computeRates().vigor * 800).toFixed(1),
+                            cheapestRouteVigor: Math.min.apply(null, FACTIONS.map(f =>
+                              ((typeof tradeCost === "function" ? tradeCost(f) : f.cost).vigor) || 0)) };
+      }
+      // v0.53 Part 4.3: "the new craft's stock does not monotonically increase after
+      // Icathia" is a SERIES question, so the series has to exist. Sampled yearly with
+      // the crystal and Void Essence stocks beside it, because Part 2 asks the same
+      // question of crystals in a different sentence.
+      if (i % TICKS_PER_YEAR === 0) {
+        const row = { year: +yearNow().toFixed(0), crystals: +(S.res.crystals || 0).toFixed(1),
+                      voidessence: +(S.res.voidessence || 0).toFixed(2) };
+        CRAFTS.forEach(c => { if (c.tier5) row[c.out] = +(S.res[c.out] || 0).toFixed(2); });
+        stockSeries.push(row);
+      }
+
       if (i % SAMPLE_EVERY === 0) {
         const o = countObjectives();
         samples.push({
@@ -754,6 +901,18 @@ export async function runSim(page, years, seed = 1) {
       campRuns,
       trades: { total: tradeCount, atMilestone: tradeMarks },
       firstVisible,
+      // ---- v0.53 instrumentation, returned so the report can quote it rather than infer it ----
+      // Part 1.1: the enumeration `test-v53` subtracts. Exported from the run rather than
+      // re-parsed out of the source, so the assertion reads the list the bot actually used.
+      buildOrder: BUILD_ORDER.slice(),
+      dedicatedRoutines: DEDICATED_ROUTINES.slice(),
+      unreachableBuildings: BUILDINGS.map(b => b.id)
+        .filter(id => BUILD_ORDER.indexOf(id) < 0 && DEDICATED_ROUTINES.indexOf(id) < 0),
+      spend: spendTotal,                 // Part 2.2, Part 4.3
+      spendAtMilestone: spendMarks,
+      vigorSplit,                        // Part 6
+      stockSeries,                       // Part 4.3 monotonicity, Part 2 crystal accumulation
+      seenMaxFinal: Object.fromEntries(Object.keys(RES).map(r => [r, seenMaxOf(r)])),
       vigorAtCapPct: +(100 * vigorAtCapTicks / (tickCount || 1)).toFixed(1),
       crystalsAtCapPct: +(100 * crystalsAtCapTicks / (tickCount || 1)).toFixed(1),
       vigor: { onLuxuryCamps: Math.round(vigorOnLuxury), onAllCamps: Math.round(vigorSpent), earned: Math.round(vigorEarned) },
@@ -773,7 +932,8 @@ export async function runSim(page, years, seed = 1) {
         champions: CHAMPS.filter(d => S.champs[d.id] && S.champs[d.id].r).length,
         policies: Object.keys(S.policies || {}).length,
         caravans: FACTIONS.reduce((a, f) => a + caravanCount(f.id), 0),
-        buildings: BUILDINGS.reduce((a, b) => a + count(b.id), 0)
+        buildings: BUILDINGS.reduce((a, b) => a + count(b.id), 0),
+        buildingCount: BUILDINGS.length
       }
     };
   }, { years, seed });

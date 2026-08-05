@@ -43,6 +43,12 @@ row("gloriousEvolution", "THE GLORIOUS EVOLUTION researched");
 row("firstAugmentChamber", "First Augment Chamber built");
 console.log("\nFINAL", JSON.stringify(r.final));
 console.log("PEAK POPULATION:", r.peakPop);
+// v0.53 Part 7: Era 3 length is the number the whole round steers by. It was computed by
+// hand from two milestone rows in every prior report. It is printed.
+if (m.sparks !== undefined && m.icathia !== undefined)
+  console.log(`ERA 3 LENGTH: ${(m.icathia - m.sparks).toFixed(1)} game-years ` +
+    `(v0.52 baseline 826.5; target 1,400-2,300; distance to minimum ${(1400 - (m.icathia - m.sparks)).toFixed(1)})`);
+else console.log("ERA 3 LENGTH: n/a (Sparks or Icathia not reached)");
 // v0.49 Part 6 — the category Part 1.7 cut from five members to Kittens' two.
 ["sparks", "hexcore", "icathia"].forEach(k => {
   const s = r.snaps && r.snaps[k];
@@ -50,9 +56,15 @@ console.log("PEAK POPULATION:", r.peakPop);
   const cm = s.catMonument;
   console.log(`catMonument @${k}: x${cm ? cm.total : "?"}` +
     (cm ? "  " + Object.entries(cm.parts).map(([id, p]) => `${id} n=${p.n} +${(p.perCopy*100).toFixed(2)}%/copy = +${(p.contrib*100).toFixed(1)}%`).join(" | ") || "(none owned)" : ""));
-  if (s.science) console.log(`  KNOWLEDGE MULT @${k}: delivered x${s.science.delivered} ` +
-    `(Kittens would give x${s.science.kittensWouldGive} at the same Sigma ${s.science.sigma}) ` +
-    `counts ${JSON.stringify(s.science.counts)}`);
+  // v0.53 Part 5.1: the two halves are now the same quantity, so the gap between them is
+  // a defect report on the reader rather than a finding about the game. Printed with the
+  // gap as a percentage so the <1% pass condition is read off the line, not computed.
+  if (s.science) {
+    const d = s.science.delivered, kw = s.science.kittensWouldGive;
+    const gap = (d && kw) ? (100 * Math.abs(d - kw) / kw).toFixed(3) : "n/a";
+    console.log(`  KNOWLEDGE MULT @${k}: delivered x${d} vs 1+Sigma x${kw} — gap ${gap}% (target <1%)` +
+      `  Sigma ${s.science.sigma} = ${JSON.stringify(s.science.sigmaParts)}  counts ${JSON.stringify(s.science.counts)}`);
+  }
   console.log(`  provisions ${s.provisionsPerSec}/s (${s.farmsteads} farmsteads, ${s.irrigation} irrigation) ` +
     `| steel ${s.steelPerSec}/s (${s.forge} forges, ${s.bloomery} bloomeries) ` +
     `| morale ${s.morale} (${s.bardsHearths} hearths, relief ${s.crowdReliefPct}%)`);
@@ -62,6 +74,61 @@ console.log("PEAK POPULATION:", r.peakPop);
     `   Arcane Reactors: ${s.arcaneReactor ?? "?"}   Foundries: ${s.hextechFoundry ?? "?"}` +
     `   Augment Chambers: ${s.augmentChamber ?? "?"}   Shimmer Refineries: ${s.shimmerRefinery ?? "?"}` +
     `   shimmer ${s.shimmerPerSec ?? "?"}/s`);
+});
+
+// ---- v0.53 Part 1: THE APPARATUS SWEEP, printed first because every number above it
+// is measured on an instrument that could not buy a fifth of the late game. ----
+console.log("\nv0.53 PART 1 — APPARATUS REACHABILITY");
+console.log(`  build order: ${r.buildOrder.length} ids + ${r.dedicatedRoutines.length} dedicated routines ` +
+  `against ${r.final.buildingCount ?? "?"} BUILDINGS`);
+console.log(`  UNREACHABLE BY THE INSTRUMENT: ${r.unreachableBuildings.length ? r.unreachableBuildings.join(", ") : "none (target: none)"}`);
+["sparks", "hexcore", "deepWorks", "icathia"].forEach(k => {
+  const s = r.snaps && r.snaps[k];
+  if (!s || !s.zeroFive) return;
+  console.log(`  @${k.padEnd(10)} ` + Object.entries(s.zeroFive).map(([id, n]) => `${id} ${n}`).join(" | "));
+  console.log(`   ${" ".padEnd(10)} poro ladder: ` + Object.entries(s.poroLadder).map(([id, n]) => `${id} ${n}`).join(" | ") +
+    `  poros ${s.poros} tears ${s.poroTears} poroRatio x${s.poroRatioDelivered}`);
+  console.log(`   ${" ".padEnd(10)} seenMax: ` + Object.entries(s.seenMaxIntermediates).map(([k2, v]) => `${k2} ${v}`).join(" | "));
+});
+// ---- v0.53 Part 2: the crystal sink, in the unit Part 2.2 asks for ----
+console.log("\nv0.53 PART 2 — CRYSTALS (income vs spend, per game-year)");
+["deepWorks", "icathia"].forEach(k => {
+  const s = r.snaps && r.snaps[k];
+  if (!s) return;
+  console.log(`  @${k}: ${s.crystalsPerSec}/s = ${s.crystalIncomePerGameYear}/game-year; ` +
+    `held ${s.crystalsHeld}/${s.crystalsCap} = ${s.crystalsHeldInGameYears} game-years of production`);
+});
+if (m.deepWorks !== undefined && m.icathia !== undefined && r.spendAtMilestone.icathia) {
+  const a = r.spendAtMilestone.deepWorks || {}, b = r.spendAtMilestone.icathia || {};
+  const dy = m.icathia - m.deepWorks;
+  const spentPerYear = res => dy > 0 ? +(((b[res] || 0) - (a[res] || 0)) / dy).toFixed(1) : 0;
+  const inc = r.snaps.icathia ? r.snaps.icathia.crystalIncomePerGameYear : 0;
+  const cs = spentPerYear("crystals");
+  console.log(`  Deep Works -> Icathia (${dy.toFixed(1)} game-years): crystals spent ${cs}/game-year ` +
+    `against income ${inc}/game-year = ${inc ? (100 * cs / inc).toFixed(1) : "n/a"}% (target 40-70%)`);
+}
+console.log(`  lifetime spend: ` + ["crystals", "voidessence", "hexgear", "poroTears", "trueice"]
+  .map(x => `${x} ${Math.round(r.spend[x] || 0)}`).join(" | "));
+// ---- v0.53 Part 4: the tier-5 craft must not merely accumulate ----
+if (r.stockSeries && r.stockSeries.length && m.icathia !== undefined) {
+  const after = r.stockSeries.filter(s => s.year >= m.icathia);
+  const keys = Object.keys(after[0] || {}).filter(k => k !== "year");
+  console.log("\nv0.53 PART 4 — STOCK SERIES AFTER ICATHIA (target: NOT monotonically increasing)");
+  keys.forEach(k => {
+    const v = after.map(s => s[k] || 0);
+    let mono = true;
+    for (let i = 1; i < v.length; i++) if (v[i] < v[i - 1] - 1e-9) { mono = false; break; }
+    console.log(`  ${k.padEnd(14)} n=${v.length}  first ${v[0]}  last ${v[v.length - 1]}  ` +
+      `max ${Math.max(...v, 0)}  monotonic-increasing: ${mono ? "YES (FAIL)" : "no (pass)"}`);
+  });
+}
+// ---- v0.53 Part 6: the early vigor economy, measured rather than guessed ----
+console.log("\nv0.53 PART 6 — EARLY VIGOR ECONOMY");
+["y50", "y100"].forEach(k => {
+  const v = r.vigorSplit[k];
+  if (!v) return console.log(`  ${k}: not reached`);
+  console.log(`  ${k}: earned ${v.earned} cumulative | spent ${v.onExpeditions} on expeditions, ` +
+    `${v.onTrade} on trade | income ${v.perGameYear}/game-year | cheapest route costs ${v.cheapestRouteVigor} vigor`);
 });
 
 // ---- v0.46 Part 8 additions ----

@@ -221,7 +221,17 @@ const p35 = await page.evaluate(() => {
     refCost: ref.cost, refRaw: raw(ref.cost), refConvert: ref.convert, refRatio: ref.ratio,
     rollCost: roll.cost, rollTech: roll.tech,
     songcraft: TECHS.find(t => t.id === "songcraft").cost.knowledge,
-    censusLocked: /Keeping the Rolls/.test(lockedCensus) && !/census-row|data-w=/.test(lockedCensus),
+    // v0.53 Part 5.4 — RE-POINTED, and the old selector is recorded in BUILD REPORT §7.
+    // HANDOFF v0.52 §8.5 flagged that `census-row|data-w=` was written without confirming
+    // the renderer emits those selectors. Confirmed this round: it does not, and never
+    // did. renderCensus() emits `census-trait`, `data-trait=` and `data-census=`. The old
+    // negative therefore matched nothing in EITHER state and passed for free — decorative
+    // coverage, which is worse than none because it gets cited. The assertion now names
+    // selectors the renderer actually emits, and asserts them on BOTH sides so a renderer
+    // change that drops them fails loudly instead of silently passing.
+    censusLocked: /Keeping the Rolls/.test(lockedCensus) &&
+                  !/census-trait|data-census=/.test(lockedCensus),
+    censusOpenSelectors: /census-trait/.test(openCensus) && /data-census=/.test(openCensus),
     censusOpen: openCensus.length > lockedCensus.length,
     jobsUngated: !/keepingTheRolls/.test(villageSrc.slice(0, villageSrc.indexOf("renderCensus()")))
   };
@@ -236,8 +246,8 @@ check("3.2 — ...and its conversion and ratio are UNTOUCHED, so only the price 
 check("5.1 — Keeping the Rolls is a BRANCH on Songcraft's own rung: 1,300 knowledge + 60 culture",
   p35.rollCost.knowledge === 1300 && p35.rollCost.culture === 60 &&
   p35.rollTech === "songcraft" && p35.songcraft === 1300, JSON.stringify(p35.rollCost));
-check("5.1 — the roster detail is hidden until researched",
-  p35.censusLocked && p35.censusOpen);
+check("5.1 — the roster detail is hidden until researched (selectors confirmed, v0.53 Part 5.4)",
+  p35.censusLocked && p35.censusOpen && p35.censusOpenSelectors);
 check("5.1 — ...and job assignment is NOT gated on it", p35.jobsUngated);
 
 // ============================================================================
