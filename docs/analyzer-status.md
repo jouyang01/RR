@@ -10,9 +10,58 @@ do not re-litigate) and the latest `docs/HANDOFF-v0.NN.md` (the map of the shipp
 | | |
 |---|---|
 | Last shipped build | **v0.54**, tagged `v0.54` |
-| Last consumed spec | `docs/specs/rr-analyzer-v053-spec.md` (produced v0.53) |
-| Current spec, awaiting an analyzer | **none — the next round should be a spec round** |
-| Live suites | **23 suites, 1,098 assertions, 0 failures** |
+| Last consumed spec | `docs/specs/rr-analyzer-v053-spec.md` (produced v0.53; v0.54 had no spec) |
+| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.55** |
+| Live suites | **23 suites, 1,098 assertions, 0 failures** — re-run and confirmed 2026-08-04 |
+
+## v0.55 — the analyzer's verification pass, and the storage-scope finding
+
+**Everything BUILD REPORT v0.54 §6 claims reproduces to the digit** on a fresh clone: Rites
+y73.9, Sparks y149.0, Icathia y790.2, Era 3 641.2, 130 wanderers y758.8, peak pop 222, morale
+band 61%, trades 69,930, crystals at cap 94.8%, Hexdraulic Plants 2, Frostguard Cairns 12. All
+23 suites re-run, every per-suite count matching §8. The v0.53 spec was verified shipped part
+by part by grep on comment-stripped source; nothing was skipped.
+
+**The round's finding is a measurement nobody had taken — time at cap, per resource.** Over a
+1,200-game-year seed-1 run: culture **93.8%**, knowledge **90.0%**, crystals **89.8%**, renown
+**76.6%**, shimmer 64.2%, ore 56.0%, zaunore 33.8% (**52.6% inside Era 3**), and then a long
+tail — provisions 12.3%, mana 2.6%, hexore 0.2%, timber 0.1%, coalgas and voidessence **0.0%**.
+
+**The three most cap-bound resources in the game are the three Masonry does not touch**
+(knowledge exempt, culture on Scholarship, renown on the square root), while the twelve that
+take the full multiplier average 17.7% and five are at cap essentially never. **A uniform
+multiplier cannot fix a distribution that unequal**, and the source has the missing dimension:
+`addBarnWarehouseRatio` (`js/resources.js`, quoted verbatim in the spec) runs **two additive
+accumulators with different scope per resource** and touches **seven effect names and no
+others** — oil, uranium, unobtainium and starcharts get nothing and are relieved by buildings.
+RR runs one *multiplicative* chain across twelve resources, which is a Kittens'-Law violation
+(additive within a category) on top of a scope error.
+
+**And the ×22 figure this project has quoted since the v0.39 spec has never been reached.**
+`voidwardStores` costs `voidglass 8 + hexcrete 8`, voidessence is held at **0 at every
+milestone**, and the Discovery has never been researched in a measured run. The real stack is
+**×12.6**.
+
+### New this pass, beyond the report
+
+- **`catMonument` is ×1.00 at all three milestones** — Foundry 0, Reactor 0, Chembarrel 0. The
+  global-production category is inert. Carried open from BUILD REPORT v0.53 §11, not new, but
+  `seenMax.hexgear` has risen ~51 → **155.61** against the Foundry's 200: **22% short, not 75%**.
+- **`hexdraulicPlant` reaching 2 is not the amplifier path.** That block gates on
+  `count("hextechFoundry") >= 3` (`simcore.mjs:494`) and the Foundry is 0; the two copies came
+  through `BUILD_ORDER` (`:465`). Grepped and resolved — **not a defect, do not flag it.**
+- **Two of v0.53 Part 4's monotonicity conditions fail, not one** — `voidessence` accumulates
+  0 → 70,124 after Icathia with no consumer, alongside `riftsteel` at 0.
+- **Convergence at Sparks measures 2.33% against its 5–8% target** (5.4% at v0.52) and has no
+  pass condition attached, so nothing catches it.
+- **Crystal spend is 18.9% of income** against the v0.53 target band of 40–70%.
+- **HANDOFF v0.54 §4's claim that `BUILD_ORDER` and `DEDICATED_ROUTINES` are "at module scope
+  and exported" is false** — both are declared inside `runSim`'s `page.evaluate` at
+  `simcore.mjs:441–442` and neither is exported. `test-v53`'s check 1.1 asserts module scope but
+  tests it with `src.indexOf("const BUILD_ORDER = [")` on the file text, which matches at any
+  scope. **The reachability guard itself is real and works**; the scope half is decorative.
+- **`index.html:1447` cites `addBarnWarehouseRatio` as `js/buildings.js`.** It is defined in
+  `js/resources.js`.
 
 ## v0.54 — no spec, two workstreams
 
@@ -111,11 +160,13 @@ Era 3 must say which edge it moves.
 
 | item | dated to | why |
 |---|---|---|
-| **Trade-banking policy** for `manageTrade()`, with its own baseline | **v0.54, first slice** | scheduled for v0.53 by v0.52 Part 3.3 and deferred with a stated reason: v0.53's Part 1 already re-baselined every pacing number by changing what the bot can buy |
-| **The craft-depth tie-break** so Riftsteel can be forged at all | **v0.54, with Part 1's slice** | `hexcore` and `riftsteel` are both depth 2 and Cores win the tie; the tier-5 craft shipped inert. BUILD REPORT v0.53 §5.2 |
-| **The Chembarrel / save-for-a-visible-building fix** | **v0.54** | `manageBuildings()` runs before `manageCrafts()`, so a building priced in a contested intermediate is never affordable at the instant it is tested |
-| **A morale round** | **v0.54 or v0.55** | band 100% → 61%; `MORALE_RELIEF_LIMIT` saturates at 77–81% while peak population finally moved off 200 |
-| **Freljord rungs 5 and 6** — Kittens' `unicornUtopia` 2.50 and `sunspire` 5.00 | **v0.54 candidate** | rank-matched structural lengthener with the source's own numbers, and **now measurable for the first time** |
+| **The storage-scope restructure** | **v0.55, Part 1 — the round's spine** | one multiplicative chain across twelve resources becomes two additive accumulators and a scope table, ported from `addBarnWarehouseRatio`. Moves the Icathia edge only |
+| **The Chembarrel / save-for-a-visible-building fix** | **v0.55, Part 3** | dated to v0.54 and not actioned. `catMonument` is ×1.00 because Foundry, Reactor and Chembarrel are all 0 |
+| **The craft-depth tie-break** so Riftsteel can be forged at all | **v0.55, Part 4** | dated to v0.54 and not actioned. Two monotonicity conditions now fail, not one — voidessence accumulates with no consumer |
+| **A morale round** | **v0.55, Part 6** | band 61% against ≥80%, run minimum 88; `MORALE_RELIEF_LIMIT` saturates at 77.7% as population finally moves off 200 |
+| **Trade-banking policy** for `manageTrade()`, with its own baseline | **v0.55, Part 7.2 — ship or re-date with a reason** | deferred twice with reasons. The gap is now 150.33 trades a game-year affordable against 0.05 run |
+| **`libraryRatio` for the knowledge ceiling** | **v0.55 Part 2, conditional on Part 4** | knowledge is at cap 90.0% of the run; the exemption's stated reason was that eludium/unobtainium sit outside RR's era window, and v0.53 shipped both |
+| **Freljord rungs 5 and 6** — Kittens' `unicornUtopia` 2.50 and `sunspire` 5.00 | **v0.56 candidate** | rank-matched structural lengthener with the source's own numbers; deferred so v0.55's storage movement stays attributable |
 
 ---
 
