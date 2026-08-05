@@ -287,6 +287,11 @@ export async function runSim(page, years, seed = 1) {
                                 trueice: seenMaxOf("trueice"), frostMegalith: seenMaxOf("frostMegalith") },
         spendToDate: spendSnap(),
         stocks: Object.fromEntries(Object.keys(RES).map(r => [r, +(S.res[r] || 0).toFixed(2)])),
+        // v0.53. EVERY building count, not a hand-picked five. Three rounds running, a
+        // report has wanted a count that the snapshot did not carry (v0.50 the Refinery,
+        // v0.52 the Foundry, this round the Vault and the Spire for Part 2.4's own
+        // prediction) and the only remedy has been another 20-minute run. 47 integers.
+        buildingCounts: Object.fromEntries(BUILDINGS.map(b => [b.id, count(b.id)])),
         // v0.49 Part 6: catMonument decomposed by building. This is the category Part 1.7
         // just cut from five members to Kittens' two, and nobody has ever measured it.
         catMonument: (() => {
@@ -458,7 +463,10 @@ export async function runSim(page, years, seed = 1) {
       //     with the other Storage tiers, after `vault`.
       "poroPasture",
       "hextechFoundry", "hexdraulicPlant", "arcaneReactor", "chembarrel",
-      "piltoverSpire", "vault", "hexcreteBastion", "watchersEye",
+      // v0.53 Part 4.3: the Rift Anchor, the tier-5 craft's repeatable consumer. Added in
+      // the SAME slice as the craft — a consumer the instrument cannot buy would reproduce
+      // the exact defect Part 1 exists to sweep.
+      "piltoverSpire", "vault", "hexcreteBastion", "riftAnchor", "watchersEye",
       "frostguardCairn", "avarosanHold", "iceWroughtSpire", "frozenWatcher",
       "quarry", "augmentChamber", "hexgateBuilding", "wardOfWatchers"];
       // v0.52 Part 2.3/2.4: "tavern" and "bloomery" removed — both buildings deleted.

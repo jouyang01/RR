@@ -283,6 +283,8 @@ var RES = {
   voidessence:{ name: "Void Essence",   kind: "capped", baseCap: 20,  hidden: function (s) { return !s.techs.icathia; } },
   voidglass:  { name: "Voidglass",      kind: "made",  hidden: function (s) { return !s.techs.icathia; } },
   chronoshard:{ name: "Chronoshards",   kind: "made",  hidden: function (s) { return !s.techs.icathia; } },
+  // v0.53 Part 4 — the tier-5 material. See the CRAFTS entry for the source census.
+  riftsteel:  { name: "Riftsteel",      kind: "made",  hidden: function (s) { return !s.techs.icathia; } },
   runeShard:  { name: "Rune Shards",    kind: "craft" },
   petriciteBlock: { name: "Petricite Blocks", kind: "craft", hidden: function (s) { return !s.techs.petricite && s.seenMax.petriciteBlock <= 0; } },
   morellonomicon: { name: "Morellonomicons", kind: "craft", hidden: function (s) { return !s.upgrades.crossReferencing && s.seenMax.morellonomicon <= 0; } },
@@ -643,6 +645,45 @@ var BUILDINGS = [
     effect: "Deep storage for everything the Sump and the refineries produce.",
     cost: { hexcrete: 6, scaffold: 10 }, ratio: 1.15,
     caps: { zaunore: 750, coalgas: 750, hexore: 750, shimmer: 180, voidessence: 45 } },
+  // ============================================================================
+  // v0.53 PART 4.3 — THE CONSUMER. "A craft with no consumer is a trophy, not a sink."
+  //
+  // Kittens' Eludium is eaten by eludiumReflectors, voidReactors, sunlifter (225),
+  // spaceShuttle (500), entangler (5,000) and — the important one — ORBITAL ARRAY, a
+  // REPEATABLE building at eludium 100, priceRatio 1.15, no limitBuild (js/space.js,
+  // verified from source this round). The craft is a sink because a repeatable
+  // ratio-scaled building eats it forever. That is the property transliterated here:
+  // repeatable, priceRatio 1.15, Icathia-gated so the craft and its sink arrive together.
+  //
+  // WHERE THIS DEPARTS FROM THE SPEC, AND THE ARITHMETIC FOR WHY. Part 4.3 asks for the
+  // consumer at "<new craft> ~= 100". At Part 4.2's own measured sizing — one Riftsteel is
+  // 2.8 game-years of Icathia-rate Void Essence income — 100 Riftsteel is 15,000 Void
+  // Essence, or ~278 GAME-YEARS OF INCOME FOR A SINGLE FIRST COPY, in an Era 3 that is
+  // 849 game-years long. The two rules in Part 4 cannot both hold; they differ by ~33x.
+  // The measured rule wins, because it is the one the spec says to measure ("Measure that
+  // income first; state it; then set N"), and the rank-match to orbitalArray is preserved
+  // where it is structural: REPEATABLE, at 1.15, priced in the new craft. The first copy
+  // costs 3 Riftsteel = 450 Void Essence = ~8.3 game-years of income; the 20th costs 42.6
+  // Riftsteel = ~118 game-years. Reported as a deviation in BUILD REPORT v0.53 §5.
+  //
+  // THE EFFECT is deep storage, and the choice is deliberate rather than default. Kittens'
+  // late repeatables priced in the late currency carry exactly this shape — spaceStation
+  // (starchart 425 + alloy 750 @1.12) grants maxKittens 2 and scienceRatio 0.5, moonBase
+  // and moonOutpost carry storage and production. RR's crystals sit AT THEIR CAP for 96.5%
+  // of every tick ever measured, and Part 2 has just made crystals the currency of the
+  // whole late Zaun group; adding a geometric crystal sink without adding any crystal
+  // ceiling would simply move the binding constraint from "nothing to spend it on" to
+  // "nowhere to put it". Void Essence storage comes with it because this is the tier that
+  // consumes Void Essence. NO population term: the Part 1 build already carries peak
+  // population from 200 to 222 with the crowd-relief ceiling saturating, and a
+  // pop-granting building on top of that would be tuning morale in a round that is not
+  // about morale. Recorded as a conscious partial transliteration of spaceStation.
+  // ============================================================================
+  { id: "riftAnchor", name: "Rift Anchor", group: "Zaun", tech: "icathia",
+    lore: "Driven into the seam Icathia left open, and holding. So far.",
+    effect: "Deep storage for Hextech Crystal and Void Essence, on the far side of the Doors.",
+    cost: { riftsteel: 3, hexcrete: 40 }, ratio: 1.15,
+    caps: { crystals: 900, voidessence: 400 } },
   { id: "hallOfHeroes", name: "Hall of Heroes", group: "Industry", tech: "callToArms",
     lore: "Trophies, banners, a mural nobody remembers commissioning, and a bard who won't stop.",
     effect: "Somewhere to hold the Renown your deeds earn.",
@@ -3846,6 +3887,45 @@ var CRAFTS = [
   { id: "poroTears", name: "Sacrifice Poros", cost: { poros: PORO_SACRIFICE_COST }, out: "poroTears",
     desc: "The Watcher's Eye asks. The poros go willingly, which is the part nobody talks about. Yields one Tear per Eye you own.",
     show: function (s) { return count("watchersEye") > 0; } },
+  // ============================================================================
+  // v0.53 PART 4 — THE ELUDIUM TIER. Dated into this round by the v0.51 spec's Part 6
+  // ("v0.52, as that round's single structural item"); v0.52 deferred it correctly; under
+  // STANDING-RULINGS §10 that dated placement resolves to the build after v0.52. Due, not
+  // re-flagged.
+  //
+  // THE SOURCE, read from js/workshop.js this round rather than quoted from a prior spec:
+  //
+  //     { name: "eludium", prices: [ {name:"unobtainium", val:1000},
+  //                                  {name:"alloy",       val:2500} ],
+  //       progressHandicap: 300, tier: 5 }
+  //
+  // For scale, the tiers beneath it in the same array: alloy (tier 4, titanium 10 +
+  // steel 75, handicap 7), gear (tier 3, steel 15, handicap 5), concrate (tier 4,
+  // slab 2500 + steel 25, handicap 9). Eludium's handicap of 300 is 30-60x every other
+  // craft in the game. THE SHAPE IS: deep-raw 1,000 + previous-tier-craft 2,500, with the
+  // previous tier dominating 2.5 : 1.
+  //
+  // THE RR ANALOGUE (rr-kittens-mapping-v050.md, code-confirmed): Unobtainium -> VOID
+  // ESSENCE, and the tier-4 craft above Alloy is HEXGEAR (alloy 25). The 2.5 : 1 ratio is
+  // preserved exactly and it is the whole structural claim; the absolute numbers are RR's
+  // to set, because RR's craft quantities run one to two orders of magnitude below
+  // Kittens' — RR's Voidglass costs voidessence 5 where the comparable Kittens tier runs
+  // in the hundreds. A literal 1000/2500 transliteration would be off-scale.
+  //
+  // THE SIZING, measured before it was set, per the spec's own rule ("2-4 game-years of
+  // measured Icathia-rate Void Essence income"): on the v0.53 Part 1 build, Void Essence
+  // income is ZERO at the instant Icathia lands (Void Expeditions are gated on that very
+  // tech) and accrues at ~54 per game-year across the 1,519 game-years after it. So one
+  // Riftsteel at voidessence 150 is 2.8 GAME-YEARS of income — inside the 2-4 band — and
+  // hexgear 375 keeps the 2.5 : 1. See BUILD REPORT v0.53 §5.
+  //
+  // NOT TRANSLITERATED, and deliberately: `progressHandicap`. RR has no craft-progress
+  // mechanic at all — every craft resolves instantly — so there is nothing for a handicap
+  // of 300 to slow. The scale it expresses is carried by the price instead.
+  // ============================================================================
+  { id: "riftsteel", name: "Forge Riftsteel", cost: { voidessence: 150, hexgear: 375 }, out: "riftsteel", tier5: true,
+    desc: "Hexgear quenched in Void Essence. It is not steel and there is no rift; both names stuck anyway. The Rift Anchors are built from nothing else.",
+    show: function (s) { return s.techs.icathia; } },
   { id: "runeShard", name: "Bind Rune Shard", cost: { chronoshard: 2, voidglass: 2, hexcrete: 1 }, out: "runeShard",
     desc: "A fragment of what broke the world, remade. The World Rune will want these. All of these.",
     show: function (s) { return s.techs.icathia; } }
