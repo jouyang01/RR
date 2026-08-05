@@ -487,8 +487,10 @@ var BUILDINGS = [
   // Hextech Foundry, which is itself a hexcore building, so they now arrive together.
   { id: "hexdraulicPlant", name: "Hexdraulic Plant", group: "Zaun", tech: "hexcore",
     lore: "Pressure, routed. The Foundries hum an octave higher and nobody sleeps.",
-    effect: "Makes every Hextech Foundry more effective.",
-    cost: { hexgear: 120, plating: 200, gold: 4000 }, ratio: 1.25,
+    effect: "Makes every Hextech Foundry more effective. The pressure vessels are cut from Hextech Crystal.",
+    // v0.53 Part 2.1: crystals 1,800, rank-matched to Kittens' orbitalArray (starchart
+    // 2,000 @ priceRatio 1.15). See the CRYSTAL SINK note at `vault`.
+    cost: { hexgear: 120, plating: 200, gold: 4000, crystals: 1800 }, ratio: 1.25,
     foundryBoost: 0.15 },
   { id: "arcaneReactor", name: "Arcane Reactor", group: "Zaun", tech: "greyReclamation",
     lore: "Contained, mostly. The Chem-Barons signed something they did not read.",
@@ -505,16 +507,59 @@ var BUILDINGS = [
     // v0.52 Part 1.1: the next x10. v0.51's x10 moved the count 21 -> 12 against a
     // predicted 5-8, so a x10 price bought a x0.57 reduction. Effective-raw ~6.26M against
     // the Foundry's 119,252 = separation ~x52, against Kittens' x181.
-    cost: { hexcore: 400, hexcrete: 800, focusedHex: 600 }, ratio: 1.15,
+    // v0.53 Part 2.1: crystals 3,000, the top rung of the four, rank-matched to Kittens'
+    // planetCracker (starchart 2,500 @ priceRatio 1.18). See the CRYSTAL SINK note at
+    // `vault`. NO other component moved — this round raises no price, it adds demand.
+    cost: { hexcore: 400, hexcrete: 800, focusedHex: 600, crystals: 3000 }, ratio: 1.15,
     globalBoost: 0.05 },
   { id: "piltoverSpire", name: "Piltover Spire", group: "Zaun", tech: "hexcore",
     lore: "Build up. Always up.",
-    effect: "Culture, and a ceiling to hold it.",
-    cost: { scaffold: 130, hexSlab: 80 }, ratio: 1.15, prod: { culture: 0.04 }, caps: { culture: 60 } },
+    effect: "Culture, and a ceiling to hold it. Every additional storey is set on Hextech Crystal.",
+    // v0.53 Part 2.1 — see the CRYSTAL SINK note above `vault` below. Rank-matched to
+    // Kittens' moonBase (starchart 700 @ priceRatio 1.12).
+    cost: { scaffold: 130, hexSlab: 80, crystals: 900 }, ratio: 1.15, prod: { culture: 0.04 }, caps: { culture: 60 } },
+  // ============================================================================
+  // v0.53 PART 2 — THE CRYSTAL SINK. Read this once; the other three carriers point here.
+  //
+  // THE MEASUREMENT. `crystal-sinks.mjs`, re-run this round: the ENTIRE non-repeatable
+  // crystal demand across the whole game is 580 — ten Discoveries (495), the Hexcore
+  // Conjecture (60) and Convergence (25). The only repeatable consumers were the Aspect's
+  // Sanctum (8/copy) and Marus Omegnum (40/copy), both Era 1 Targon buildings the bot
+  // stops buying long before Era 3, plus the Petricite Block craft (15). Against that,
+  // the shipped v0.52 run at Icathia produces 28.7457 crystals/s = 22,996 per game-year
+  // and sits at its cap for 96.5% of every tick it has ever run.
+  //
+  //   The entire lifetime one-off crystal demand in Runeterra Reclaimed is 580, which is
+  //   TWENTY SECONDS of Icathia-rate production.
+  //
+  // THE PARITY ARGUMENT, and it comes before the pacing one. Kittens has no resource in
+  // this state. `starchart` is the structural twin of RR's crystals — passively accrued,
+  // capped, arcane-flavoured — and js/space.js gives it TEN repeatable price-ratio
+  // consumers (researchVessel 100 @1.15, sattelite 325 @1.08, spaceStation 425 @1.12,
+  // spiceRefinery 500 @1.15, moonOutpost 650 @1.12, moonBase 700 @1.12, hydrofracturer
+  // 750 @1.18, orbitalArray 2,000 @1.15, planetCracker 2,500 @1.18, spaceBeacon 25,000
+  // @1.15), none of them limitBuild-capped, plus thirteen one-off missions on top.
+  // Supply is linear; demand is geometric. That is the whole mechanism by which Kittens'
+  // late game takes real time, and it is why nothing in this round raises a price.
+  //
+  // THE FOUR CARRIERS, rank-ordered the way starchart is rank-ordered across the space
+  // tiers: The Vault 400 (~sattelite 325), Piltover Spire 900 (~moonBase 700), Hexdraulic
+  // Plant 1,800 (~orbitalArray 2,000), Arcane Reactor 3,000 (~planetCracker 2,500). All
+  // four are repeatable, all four are Era-3-or-later, all four are Zaun-group — crystals
+  // are a Hextech resource and the thematic fit is exact — and the crystal component sits
+  // INSIDE the ratio-scaled cost, so it escalates with copy count exactly as every other
+  // component does. The Hextech Foundry deliberately does NOT take crystals: v0.53 Part
+  // 1.3 has to prove the Foundry is buyable at its current price before its price moves.
+  //
+  // THE SCALE, stated the way v0.52 §3.2 stated the Shimmer Refinery's: the sizing scale
+  // is the DEEP WORKS -> ICATHIA WINDOW on the v0.53 Part 1 build, where the bot buys the
+  // Vault and the Spire in quantity and crystal income is 8,372/game-year. See BUILD
+  // REPORT v0.53 §4 for the measured spend-to-income share and the counts behind it.
+  // ============================================================================
   { id: "vault", name: "The Vault", group: "Zaun", tech: "hexcore",
     lore: "Reinforced, warded, and slightly smug about both.",
-    effect: "Somewhere to put what the Sump brings up.",
-    cost: { hexSlab: 100, plating: 160 }, ratio: 1.15,
+    effect: "Somewhere to put what the Sump brings up — warded with Hextech Crystal, which is the expensive part.",
+    cost: { hexSlab: 100, plating: 160, crystals: 400 }, ratio: 1.15,
     caps: { zaunore: 900, coalgas: 750, hexore: 840 } },
   { id: "augmentChamber", name: "Augment Chamber", group: "Zaun", tech: "gloriousEvolution",
     lore: "Volunteers only. There is a waiting list, which is the part that unsettles people.",
