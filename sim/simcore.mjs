@@ -443,8 +443,22 @@ export async function runSim(page, years, seed = 1) {
       // milestone in every prior round is that the bot never considered it, NOT that it
       // was overpriced. Apparatus defect, reported in BUILD REPORT v0.52 §3.2.
       "irrigation", "shimmerRefinery",
+      // v0.53 Part 1.1 — THE SWEEP. v0.52 fixed the Shimmer Refinery omission with one
+      // string and did not check for others. Two more ids were missing from this list
+      // and are added here, both of them load-bearing for the round's own thesis:
+      //   * `poroPasture` — without it the poro herd never grows, so PORO_SACRIFICE_COST
+      //     is never affordable, so no Poro Tears exist, so the ENTIRE Freljord
+      //     poroRatio ladder (Cairn -> Hold -> Spire -> Watcher) is unbuildable. That is
+      //     the category BUILD REPORT v0.52 §13.1 asked the analyzer to rule on: it had
+      //     never been built in any measured run of this project. Village block, beside
+      //     the other cheap Village producers.
+      //   * `hexcreteBastion` — the deep-storage tier for zaunore, coalgas, hexore,
+      //     shimmer and voidessence, i.e. exactly the resources Era 3 must bank. EVERY
+      //     Era 3 number in this project's history was measured with it absent. Placed
+      //     with the other Storage tiers, after `vault`.
+      "poroPasture",
       "hextechFoundry", "hexdraulicPlant", "arcaneReactor", "chembarrel",
-      "piltoverSpire", "vault", "watchersEye",
+      "piltoverSpire", "vault", "hexcreteBastion", "watchersEye",
       "frostguardCairn", "avarosanHold", "iceWroughtSpire", "frozenWatcher",
       "quarry", "augmentChamber", "hexgateBuilding", "wardOfWatchers"];
       // v0.52 Part 2.3/2.4: "tavern" and "bloomery" removed — both buildings deleted.
@@ -674,10 +688,75 @@ export async function runSim(page, years, seed = 1) {
         for (const r in rec.cost) if (CRAFTS.some(c => c.out === r)) d = Math.max(d, 1 + depth(r));
         return d;
       };
+      // ======================================================================
+      // v0.53 Part 1.3 — THE HEXGEAR STARVATION, and why it was not a price problem.
+      //
+      // Measured on v0.52: seenMax.hexgear peaks at 50.96 across 1,100 game-years while
+      // seenMax.hexcore reaches 610 and seenMax.scaffold reaches 30,320. The Hextech
+      // Foundry's first copy costs hexgear 200, so it was visible from y627.7 and
+      // unaffordable forever — 0 Foundries, 0 Hexdraulic Plants, 0 Chembarrels at every
+      // milestone in every run this project has ever measured.
+      //
+      // The cause is not the Foundry's price. It is that `wantIntermediate` records only
+      // the demand of the thing being BOUGHT, never the demand that thing's own recipe
+      // creates further down the chain. The Foundry wants 200 hexgear; a hexgear costs
+      // 25 alloy; nothing in this function ever asked for 5,000 alloy. Alloy's want
+      // topped out at the Chembarrel's 160, alloy stopped being crafted the moment it
+      // reached 160, and hexgear could therefore never be machined in quantity. Combined
+      // with deepest-first ordering — hexcore (depth 2) is crafted before hexgear
+      // (depth 1) — every hexgear made was consumed into the deeper chain in the same
+      // pass and the STOCK never accumulated.
+      //
+      // WHICH FIX, AND WHY (the spec's Part 1.3 asks for this explicitly):
+      //
+      //  * The spec's option (b), "reserve wantIntermediate[r] from consumption by
+      //    deeper crafts", DEADLOCKS and was rejected after tracing it: hexgear needs
+      //    alloy 25, alloy's want is 160, so hexgear may only be machined once alloy
+      //    exceeds 185 — but alloy STOPS being crafted at 160 because it has reached its
+      //    own want. Alloy then sits between 160 and 185 forever and the chain never
+      //    moves. A reservation without demand propagation is a deadlock, not a fix.
+      //
+      //  * The spec's option (a), raising the batch ceiling when the shortfall exceeds
+      //    it, is SHIPPED (see the batch line below) — but it cannot fix this on its own
+      //    either, because the shortfall it reads is against a want that was never
+      //    raised in the first place.
+      //
+      //  * So the actual fix is the missing step both options presuppose: PROPAGATE
+      //    DEMAND DOWN THE CRAFT TREE. For every wanted output, ask what its recipe
+      //    needs to close the shortfall and want that too, deepest-first so a want
+      //    propagates all the way to the shallowest craft in one pass. This is what a
+      //    player does — "the Foundry wants 200 Hexgear, so I need five thousand Alloy"
+      //    — and it is the same reasoning v0.39 §5 used when it routed storage through
+      //    crafted goods in the first place. Raw inputs are untouched: propagation stops
+      //    at anything no recipe makes, and the "never spend more than half of any raw
+      //    input in one go" guard below still holds, so this cannot starve the ore and
+      //    timber that housing and storage need.
+      // ======================================================================
+      const craftDepth = {};
+      CRAFTS.forEach(c => { craftDepth[c.out] = depth(c.out); });
+      const propagationOrder = Object.keys(craftDepth).sort((a, b) => craftDepth[b] - craftDepth[a]);
+      for (const r of propagationOrder) {
+        const want = wantIntermediate[r];
+        if (want === undefined) continue;
+        const need = want - (S.res[r] || 0);
+        if (need <= 0) continue;
+        const rec = CRAFTS.find(c => c.out === r && c.show(S));
+        if (!rec || rec.id === "poroTears") continue;   // its input is a live herd, see managePoroSacrifice
+        const actions = Math.ceil(need / (craftYield(rec.id) || 1));
+        for (const inp in rec.cost) {
+          if (!RES[inp] || (RES[inp].kind !== "made" && RES[inp].kind !== "craft")) continue;
+          wantIntermediate[inp] = Math.max(wantIntermediate[inp] || 0,
+                                           (S.res[inp] || 0) + rec.cost[inp] * actions);
+        }
+      }
       const wanted = Object.keys(wantIntermediate).sort((a, b) => depth(b) - depth(a));
       for (const r of wanted) {
         if (S.res[r] >= wantIntermediate[r]) continue;
         const rec = CRAFTS.find(c => c.out === r && c.show(S));
+        // v0.53 Part 1.2: the literal `poroTears` skip STAYS here and is now justified
+        // rather than unexplained — its input is a live population, not a stock, so it
+        // does not belong in a deepest-first stock-chasing loop. It is handled by
+        // managePoroSacrifice(), a dedicated call beside manageTargon()'s Ascent.
         if (!rec || rec.id === "poroTears") continue;
         if (rec.id === "parchment" && S.res.furs < craftCostOf("parchment").furs * 1.5) continue;
         const cst = craftCostOf(rec.id);
@@ -687,13 +766,66 @@ export async function runSim(page, years, seed = 1) {
         // 25 of them is 5,000; unbounded batching starves the ore that housing, storage
         // and the Observatory all need.
         const short = Math.ceil(wantIntermediate[r] - S.res[r]);
-        let batch = Math.max(1, Math.min(25, short));
+        // v0.53 Part 1.3, the spec's option (a), shipped as specified: the ceiling of 25
+        // is lifted for an intermediate whose OWN shortfall exceeds it. Without this the
+        // propagated 5,000-alloy want would be served 25 at a time and take a thousand
+        // decision passes to fill. The half-of-any-raw-input guard below is what actually
+        // bounds the spend, and it is unchanged.
+        const BATCH_CEILING = 25;
+        let batch = Math.max(1, short > BATCH_CEILING ? short : Math.min(BATCH_CEILING, short));
         for (const inp in cst) {
           if (!cst[inp]) continue;
           batch = Math.min(batch, Math.max(1, Math.floor(S.res[inp] * 0.5 / cst[inp])));
         }
         craftItem(rec.id, batch);
       }
+    }
+    // ========================================================================
+    // v0.53 Part 1.2 — THE PORO SACRIFICE, which no measured run of this project has
+    // ever performed.
+    //
+    // `manageCrafts()` carried a literal `if (rec.id === "poroTears") continue;`. It is
+    // correct that the sacrifice does not belong in that loop — its input is a live
+    // population that regrows, not a stock that is mined — but nothing anywhere else
+    // performed it, so `poroTears` was 0 for the whole run. The shipped v0.52 run builds
+    // 17 Watcher's Eyes and 0 Tears, which makes `frostguardCairn` (trueice 30 +
+    // poroTears 5) unbuildable, and with it `avarosanHold`, `iceWroughtSpire` and
+    // `frozenWatcher` — THE ENTIRE poroRatio CATEGORY. That category is the one BUILD
+    // REPORT v0.52 §13.1 and HANDOFF §7.1 both asked the analyzer to rule on. It has
+    // never been built.
+    //
+    // Shape: a dedicated call beside manageTargon()'s Ascent, exactly as the spec asks.
+    // Policy: sacrifice only from SURPLUS. The herd is the faucet, so the threshold is
+    // the spec's — poros >= PORO_SACRIFICE_COST x count("watchersEye") — and never more
+    // than half the herd in one pass, which is the same discipline the craft loop applies
+    // to every raw input. One action costs 60 poros and yields one Tear per Eye owned
+    // (craftYield's ziggurat gainMultiplier), so the Eye count is the lever, not the cost.
+    // ========================================================================
+    function managePoroSacrifice() {
+      const eyes = count("watchersEye");
+      if (eyes <= 0) return;
+      const rec = CRAFTS.find(c => c.id === "poroTears");
+      if (!rec || !rec.show(S)) return;
+      // "and a visible building wants Tears" — techs count too: The Watchers Below
+      // costs poroTears 40, and it gates the Ward.
+      let want = 0;
+      BUILDINGS.forEach(b => {
+        if (!buildingVisible(b)) return;
+        const c = buildingCost(b);
+        if (c.poroTears) want = Math.max(want, c.poroTears);
+      });
+      TECHS.forEach(t => {
+        if (S.techs[t.id] || !techVisible(t)) return;
+        const c = discCost(t.cost);
+        if (c.poroTears) want = Math.max(want, c.poroTears);
+      });
+      if (want <= 0) return;
+      if ((S.res.poroTears || 0) >= want) return;
+      if (S.res.poros < PORO_SACRIFICE_COST * eyes) return;      // surplus only; keep the herd
+      const short = want - (S.res.poroTears || 0);
+      let actions = Math.max(1, Math.ceil(short / eyes));
+      actions = Math.min(actions, Math.floor(S.res.poros * 0.5 / PORO_SACRIFICE_COST));
+      if (actions >= 1) craftItem("poroTears", actions);
     }
     function manageTargon() {
       if (!S.techs.ritesOfTargon) return;
@@ -804,6 +936,7 @@ export async function runSim(page, years, seed = 1) {
         }
         manageTrade();
         manageTargon();
+        managePoroSacrifice();          // v0.53 Part 1.2
         manageChampions();
         managePolicies();
 
