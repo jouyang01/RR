@@ -228,7 +228,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.55";
+var VERSION = "v0.56";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -240,6 +240,11 @@ var SEASONS = [
   { id: "autumn", name: "Harvestfall", farmMult: 1.0 },
   { id: "winter", name: "Deepwinter",  farmMult: 0.25 }
 ];
+// v0.56 Part 3 — declared here, beside the table it modifies, because Leona's lead PROSE is
+// generated from it at CHAMPS-definition time (~line 1240) and a `var` further down the file
+// would hoist as undefined and render NaN into the tooltip.
+var LEONA_SEASON_RELIEF = 0.5;   // halves the shortfall below 1.0; never raises above it
+
 // v0.45 Part 4 — Kittens' catnipPerKitten is -0.85/tick against a farmer's 1.0/tick,
 // i.e. consumption is 85% of ONE farmer's output (4.25/s vs 5.0/s). RR ran at 70%
 // (0.35 vs 0.50), so a farming head netted 30% surplus where Kittens nets 15%.
@@ -766,7 +771,19 @@ var BUILDINGS = [
     lore: "Reinforced, warded, and slightly smug about both.",
     effect: "Somewhere to put what the Sump brings up — warded with Hextech Crystal, which is the expensive part.",
     cost: { hexSlab: 100, plating: 160, crystals: 400 }, ratio: 1.15,
-    caps: { zaunore: 900, coalgas: 750, hexore: 840 } },
+    // v0.56 Part 5, COMPENSATING CAPS — sized from the s4 slice, not chosen. Part 5's pass
+    // condition wants the four Era-3 raws inside a 30-60% cap-out band. Measured on s4
+    // (everything but Leona, so within one non-economic slice of shipped):
+    //   zaunore 33.8%  IN BAND, untouched
+    //   hexore   3.2%  the ceiling is ~12x what the line can ever fill -> cut hard
+    //   shimmer 84.1%  the ceiling is far too tight -> raised, see the Bastion and Refinery
+    //   coalgas  0.0%  NOT A CAP PROBLEM. Held/cap reads 0% at all four milestones because
+    //                  coalgas is a converter INTERMEDIATE consumed as fast as it is produced
+    //                  -- a flow, not a stock. Cutting its ceiling cannot raise a cap-out
+    //                  fraction for something that never accumulates. The 30-60% band does not
+    //                  apply to it and it is reported as out of band rather than tuned into
+    //                  band. This is the stock-versus-flow class HANDOFF v0.55 §6 names.
+    caps: { zaunore: 900, coalgas: 750, hexore: 240 } },
   { id: "augmentChamber", name: "Augment Chamber", group: "Zaun", tech: "gloriousEvolution",
     lore: "Volunteers only. There is a waiting list, which is the part that unsettles people.",
     // v0.45 Part 2 E1: the Miner line is gone. Kittens has TWO minerals buildings, not
@@ -843,12 +860,15 @@ var BUILDINGS = [
     // 40 shimmer a copy makes in a year. plating 4 + alloy 3 is 580 zaunore + 90 coalgas,
     // sized so the 20th copy — the Deep Works matching scale — pays its raw back in
     // shimmer inside 5 game-years. THE SCALE IS 20 COPIES; see BUILD REPORT v0.52 §3.2.
-    cost: { plating: 4, alloy: 3 }, ratio: 1.15, convert: { input: { coalgas: 0.2, mana: 0.5 }, output: { shimmer: 0.05 } }, caps: { shimmer: 60 } },
+    cost: { plating: 4, alloy: 3 }, ratio: 1.15, convert: { input: { coalgas: 0.2, mana: 0.5 }, output: { shimmer: 0.05 } }, caps: { shimmer: 150 } },   // v0.56 Part 5: 60 -> 150, sized from s4's 84.1% cap-out
   { id: "hexcreteBastion", name: "Hexcrete Bastion", group: "Storage", tech: "deepWorks",
     lore: "Storage that will outlast the argument about whether it was necessary.",
     effect: "Deep storage for everything the Sump and the refineries produce.",
     cost: { hexcrete: 6, scaffold: 10 }, ratio: 1.15,
-    caps: { zaunore: 750, coalgas: 750, hexore: 750, shimmer: 180, voidessence: 45 } },
+    // v0.56 Part 5 compensating caps, sized from the s4 slice: hexore 750 -> 200 (cap-out 3.2%)
+    // and shimmer 180 -> 450 (cap-out 84.1%). See the Vault above for the derivation and for
+    // why coalgas is deliberately left alone.
+    caps: { zaunore: 750, coalgas: 750, hexore: 200, shimmer: 450, voidessence: 45 } },
   // ============================================================================
   // v0.53 PART 4.3 — THE CONSUMER. "A craft with no consumer is a trophy, not a sink."
   //
@@ -1173,6 +1193,8 @@ var CHAMPS = [
     skill: "Deceive — strikes from angles the jungle didn't know it had" },
   { id: "leona", name: "Leona", cls: "Tank", cost: { renown: 340, devotion: 900 },
     passive: { key: "devotion", base: 20, desc: "Solari Radiance: devotion production +20%" },
+    // v0.56 Part 3: the lead text is DERIVED from LEONA_SEASON_RELIEF below the CHAMPS array,
+    // because the old prose promised something the new clause deliberately does not do.
     lead: "Zenith Blade — Deepwinter and cold snaps never touch the harvest",
     flavor: "The dawn, armored and patient.",
     skill: "Zenith Blade — the sun does not miss" },
@@ -1232,6 +1254,19 @@ var CHAMPS = [
     skill: "Time Warp — the jungle's clocks run on his schedule" }
 ];
 function champDef(id) { return CHAMPS.find(function (c) { return c.id === id; }); }
+// v0.56 Part 3 — Leona's lead text, DERIVED. The prose said "Deepwinter and cold snaps never
+// touch the harvest" and that was accurate: the clause floored farmMult at 1 and deleted the
+// season. The clause now halves the shortfall, so the prose has to move with it -- and it is
+// generated from LEONA_SEASON_RELIEF and the SEASONS table so it cannot be the fifth string in
+// this file to drift away from the maths it describes. (SEASONS and LEONA_SEASON_RELIEF are
+// both declared above; seasonFarmMult() is not, so the arithmetic is inlined here.)
+(function () {
+  var l = champDef("leona"); if (!l) return;
+  var w = SEASONS.find(function (x) { return x.id === "winter"; });
+  var soft = w.farmMult + (1 - w.farmMult) * LEONA_SEASON_RELIEF;
+  l.lead = "Zenith Blade — Deepwinter and cold snaps lose half their bite: " + w.name +
+    " ×" + w.farmMult.toFixed(2) + " → ×" + soft.toFixed(3) + ". The harvest is shielded, not exempted.";
+})();
 function champLevel(id) { var c = S.champs[id]; return c ? (c.lvl || 0) : 0; }
 function leaderIs(id) { return S.leader === id && S.champs[id] && S.champs[id].r; }
 function passiveMult(id) {
@@ -2368,7 +2403,12 @@ function policyGlobalBonus() {
 // rate together would make neither measurable. It is parity debt and it is in the ledger.
 // ============================================================================
 var XP_PER_SECOND = 0.5;
-var XP_CAP = Math.round(11500 * 20001 / 9000);   // 25,556 — Kittens' 20,001 against its 9,000 top tier
+// The spec's pass condition states 25,556; the exact ratio-match is 11,500 x 20,001 / 9,000 =
+// 25,556.833, which ROUNDS to 25,557 and FLOORS to 25,556. The spec's figure is the floor, so
+// the floor ships. The difference is one point of experience against a 25,556-point ceiling —
+// it is recorded because a silently-different constant is how tables drift, not because it
+// matters. Reported in BUILD REPORT §6.
+var XP_CAP = Math.floor(11500 * 20001 / 9000);   // 25,556 — Kittens' 20,001 against its 9,000 top tier
 var RANKS = [
   { id: "bronze",      name: "Bronze",      xp: 0,     bonus: 0 },
   { id: "silver",      name: "Silver",      xp: 100,   bonus: 0.01 },
@@ -3851,6 +3891,52 @@ function autoprodMult() {
   if (S.upgrades.continuousDraw) sum += 0.25;   // v0.45 Part 6 — Shimmerworks
   return 1 + limitedDR(sum, AUTOPROD_LIMIT);
 }
+// ============================================================================
+// v0.56 PART 3 — LEONA SOFTENS THE SEASON; SHE NO LONGER DELETES IT.
+//
+// Jerry's directive 1 was "Farmer's are not affected by seasonality, adjust this." Seasonal
+// farmers SHIPPED in v0.55 Part 3.2 and the code is correct -- `if (r === "provisions") jv *=
+// farmMult;` is live in the job loop and test-v55 asserts all four seasons including winter's
+// exact 75.0% cut. What Jerry is seeing is this, and it is a real defect:
+//
+//     if (leaderIs("leona")) farmMult = Math.max(1, season.farmMult) * Math.max(1, weatherMult);
+//
+// Leona's lead -- "Zenith Blade: Deepwinter and cold snaps never touch the harvest" -- FLOORED
+// `farmMult` at 1 and therefore deleted seasonality outright. With Leona leading, Deepwinter's
+// x0.25 became x1.00 and a chilly snap's x0.5 became x1.00, so a farmer was exactly as
+// unaffected by the calendar as before v0.55 shipped.
+//
+// AND v0.55 SILENTLY MADE IT STRONGER. Before v0.55, `farmMult` reached only buildings with
+// `seasonal: true`; Part 3.2 extended it to the farmer JOB, so Leona's lead began cancelling
+// the season on the job path as well -- a scope expansion nobody decided on, in the round
+// whose whole purpose was making Deepwinter bite.
+//
+// THE RULING: bound it instead of nullifying it. A lead that sets a multiplier to max(1, x)
+// is not a bonus, it is the removal of a mechanic. Leona now HALVES the shortfall below 1.0
+// and never lifts anything above it:
+//
+//     Deepwinter  x0.25 -> x0.625     chilly x0.50 -> x0.750
+//     Firstbloom  x1.50 -> x1.500 (unchanged -- the clause only lifts values below 1)
+//
+// She stays the harvest champion and Deepwinter stays a season. Kittens has no leader, no lead
+// slot and nothing that cancels a season; the whole champion system is RR-ORIGINAL and the
+// ledger labels this row EASIER, bounded.
+//
+// ONE FUNCTION, TWO CALLERS. The forecast UI at renderVillage() used to recompute this by hand
+// and hard-code `winterFarm = leaderIs("leona") ? 1 : 0.25`, so the tooltip and the maths could
+// drift -- and did. Both now call seasonFarmMult(), and test-v56 greps stripped source to
+// assert there is no second copy of the expression anywhere.
+function seasonFarmMult(season, weatherMult) {
+  var m = season.farmMult * weatherMult;
+  // The `m < 1` guard is load-bearing and the spec's own code snippet omits it. Written as
+  //   m = m + (1 - m) * LEONA_SEASON_RELIEF
+  // unguarded, Firstbloom's x1.50 becomes x1.25 -- the clause would PULL DOWN a good season
+  // as eagerly as it lifts a bad one, which is the opposite of a harvest champion's lead and
+  // contradicts the spec's own pass condition that "spring measures 1.5 unchanged". The
+  // condition states the intent; the snippet states it wrongly. Reported in BUILD REPORT §6.
+  if (leaderIs("leona") && m < 1) m = m + (1 - m) * LEONA_SEASON_RELIEF;
+  return m;
+}
 function computeRates(bdRes) {
   var rates = {};
   for (var r in RES) rates[r] = 0;
@@ -3858,9 +3944,7 @@ function computeRates(bdRes) {
   function track(r, label, amt) { if (bdRes === r && amt) bd.push({ label: label, amt: amt }); }
   var season = currentSeason();
   var weatherMult = S.weather === "warm" ? 1.15 : S.weather === "chilly" ? 0.5 : 1;
-  var farmMult = season.farmMult * weatherMult;
-  // Zenith Blade: while Leona leads, no season or sky may dim the harvest
-  if (leaderIs("leona")) farmMult = Math.max(1, season.farmMult) * Math.max(1, weatherMult);
+  var farmMult = seasonFarmMult(season, weatherMult);
   var mor = morale() / 100;
 
   var boosts = { knowledge: 0, gold: 0, vigor: 0, crystals: 0, devotion: 0, culture: 0, mana: 0, provisions: 0 };
@@ -6239,9 +6323,13 @@ function renderVillage(el) {
     var provBd = computeRates("provisions");
     var farmAmt = 0;
     (provBd._bd || []).forEach(function (e) { if (e.label && e.label.indexOf("Farmstead") !== -1) farmAmt += e.amt; });
-    var curMult = currentSeason().farmMult * (S.weather === "warm" ? 1.15 : S.weather === "chilly" ? 0.5 : 1);
-    if (leaderIs("leona")) curMult = Math.max(1, currentSeason().farmMult);
-    var winterFarm = leaderIs("leona") ? 1 : 0.25; // Zenith Blade shields the harvest
+    // v0.56 Part 3: both figures come from seasonFarmMult() now. The old code recomputed the
+    // multiplier by hand AND hard-coded `winterFarm = leaderIs("leona") ? 1 : 0.25`, so the
+    // forecast could disagree with computeRates() -- and after v0.55 extended farmMult to the
+    // job path, it did. Deepwinter is looked up by id rather than by its literal 0.25, so a
+    // future change to the SEASONS table cannot leave a stale number in this tooltip.
+    var curMult = seasonFarmMult(currentSeason(), S.weather === "warm" ? 1.15 : S.weather === "chilly" ? 0.5 : 1);
+    var winterFarm = seasonFarmMult(SEASONS.find(function (x) { return x.id === "winter"; }), 1);
     var winterNet = provBd.provisions - farmAmt + (curMult > 0 ? farmAmt * (winterFarm / curMult) : 0);
     html += '<div style="font-size:11px;margin-bottom:10px">Deepwinter forecast (a cold snap can halve this again): <b style="color:' + (winterNet >= 0 ? "var(--green)" : "var(--red)") + '">' + (winterNet >= 0 ? "+" : "") + fmtRate(winterNet) + '/s provisions</b>' +
       (winterNet >= 0 ? " — this settlement will hold through the cold." : " — stores will drain in winter. Stock provisions, or your farmers may be too few.") + "</div>";

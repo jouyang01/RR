@@ -175,6 +175,41 @@ const UPGRADE_V = {
   pastureRotation:["js/workshop.js unicorn husbandry", "UNVERIFIED", "adds 0.5 to poroRatio, which STANDING-RULINGS §11 rules unbounded and at parity"],
 };
 
+// ============================================================================
+// v0.56 PART 7.6 — THE CHAMPION AND LEADER BLOCK.
+//
+// Kittens has NO champions, NO leader slot, NO permanent per-hero production multiplier and no
+// Renown. There is one structural analogue and it is worth naming precisely so the rows below
+// are not read as arbitrary: Kittens' `leader` kitten carries a single trait bonus through
+// `getLeaderBonus()`, and its magnitude is a few per cent. RR's leader carries a NAMED, often
+// mechanic-altering clause. Every row here is therefore RR-ORIGINAL, and under §16's null
+// hypothesis an RR-original row is a suspected speed-up until measured — so the default
+// verdict for this block is EASIER, and a row only escapes it when the clause is bounded or
+// when it costs the player something.
+const CHAMP_V = {
+  poppy:    ["none — Kittens has no champions", "EASIER", "permanent passive plus a leader clause; the lead was rescoped to material caps only in v0.45 Part 8.1, which is the only thing keeping it bounded"],
+  leona:    ["none", "EASIER", "harvest passive; the LEAD is the round's Part 3 and is now bounded rather than nullifying (see the -lead row)"],
+  caitlyn:  ["none", "EASIER", "reworked v0.54 directive 11; the two lead clauses COMPOUND — the tier discount raises the `over` term the slot ladder is computed from, so +10 points of slot chance reads as +25 at five caravans. Largest untested number v0.54 shipped and still untested"],
+  swain:    ["none", "EASIER", "knowledge +12% permanently, and a lead cutting Research and Discovery cost 20% — a compounding discount on the ladder the whole game is paced by"],
+  bard:     ["none", "EASIER", "culture +20% permanently"],
+  twitch:   ["none", "EASIER", "reworked v0.54 directive 11 after the lead was found to do nothing; a leader slot that does nothing is its own defect"],
+  zilean:   ["none", "EASIER", "camp respawn; interacts with CHARGE_REGEN_S, which is itself RR-original"],
+  jarvan:   ["none", "EASIER", "arrival timer 20 s -> 12 s while leading — a 40% cut to the settlement's growth clock"],
+  shaco:    ["none", "EASIER", "30% of expeditions refund their vigor while leading; a probabilistic discount on the game's main sink"],
+  ekko:     ["none", "UNVERIFIED", "no citation on file and no measurement taken this round"]
+};
+const LEAD_V = {
+  "leona-lead":   ["none — no source counterpart of any kind", "EASIER", "**BOUNDED IN v0.56 PART 3.** It previously FLOORED farmMult at 1 and therefore deleted seasonality outright, and v0.55 silently widened it from buildings to buildings + jobs. It now halves the shortfall below 1.0 (Deepwinter x0.25 -> x0.625) and never lifts a season above 1"],
+  "poppy-lead":   ["none", "EASIER", "material storage caps +8%; rescoped v0.45 Part 8.1 so Knowledge, the Scholarship lines, Renown and Vigor are excluded"],
+  "caitlyn-lead": ["none", "EASIER", "two clauses that compound; see the champion row"],
+  "swain-lead":   ["none", "EASIER", "-20% on Research and Discoveries"],
+  "bard-lead":    ["none", "UNVERIFIED", "not measured this round"],
+  "twitch-lead":  ["none", "EASIER", "cargo slots"],
+  "zilean-lead":  ["none", "EASIER", "camp regeneration -25%"],
+  "jarvan-lead":  ["none", "EASIER", "arrival interval 20 s -> 12 s"],
+  "shaco-lead":   ["none", "EASIER", "30% vigor refund on expeditions"],
+  "ekko-lead":    ["none", "UNVERIFIED", "not measured this round"]
+};
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
 const page = await browser.newPage();
 await page.goto(new URL("../index.html", import.meta.url).href);
@@ -186,11 +221,18 @@ const inv = await page.evaluate(() => ({
     scale: "ratio " + b.ratio + " · " + JSON.stringify(b.cost), rung: b.tech || "—" })),
   UPGRADES: UPGRADES.map(u => ({ id: u.id, name: u.name, scale: JSON.stringify(u.cost), rung: u.tech || "—" })),
   JOBS: JOBS.map(j => ({ id: j.id, name: j.name, scale: JSON.stringify(j.prod || {}), rung: j.tech || "—" })),
-  CRAFTS: CRAFTS.map(c => ({ id: c.id, name: c.name, scale: JSON.stringify(c.cost), rung: c.out }))
+  CRAFTS: CRAFTS.map(c => ({ id: c.id, name: c.name, scale: JSON.stringify(c.cost), rung: c.out })),
+  // v0.56 Part 7.6: the champion and leader block is taken this round. It is the largest
+  // unlabelled RR-original system in the game -- ten permanent multipliers plus a leader slot,
+  // none of which Kittens has in any form -- and Part 3 opens it anyway.
+  CHAMPIONS: CHAMPS.map(c => ({ id: c.id, name: c.name,
+    scale: (c.passive ? c.passive.desc : "—"), rung: JSON.stringify(c.cost) })),
+  LEADS: CHAMPS.map(c => ({ id: c.id + "-lead", name: c.name + " (lead)",
+    scale: c.lead || "—", rung: "leader slot" }))
 }));
 await browser.close();
 
-const KINDS = ["TECHS", "BUILDINGS", "UPGRADES", "JOBS", "CRAFTS"];
+const KINDS = ["TECHS", "BUILDINGS", "UPGRADES", "JOBS", "CRAFTS", "CHAMPIONS", "LEADS"];
 const counts = { PARITY: 0, EASIER: 0, HARDER: 0, UNVERIFIED: 0 };
 const esc = s => String(s).replace(/\|/g, "\\|");
 let body = "";
@@ -198,7 +240,7 @@ for (const kind of KINDS) {
   body += `\n## ${kind} (${inv[kind].length})\n\n`;
   body += "| RR id | Kittens counterpart | rung | scale | verdict | note |\n|---|---|---|---|---|---|\n";
   for (const e of inv[kind]) {
-    const m = V[e.id] || UPGRADE_V[e.id] ||
+    const m = V[e.id] || UPGRADE_V[e.id] || CHAMP_V[e.id] || LEAD_V[e.id] ||
       ["RR-ORIGINAL", "UNVERIFIED", "no citation on file — this row is parity debt, not a claim"];
     counts[m[1]] = (counts[m[1]] || 0) + 1;
     body += `| \`${e.id}\` | ${esc(m[0])} | ${esc(e.rung)} | ${esc(e.scale)} | **${m[1]}** | ${esc(m[2])} |\n`;
@@ -244,12 +286,15 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | **Seasonal farmers** (v0.55 directive 5) | \`js/calendar.js getWeatherMod\` applies the season to catnip, but \`js/village.js updateResourceProduction()\` applies **no** season term to job output — and the Kittens wiki's Game Mechanics page states it outright: *"Seasons affect catnip production from catnip fields, but do not affect production from farmers."* | **HARDER** | **The first HARDER label under the charter.** Jerry's premise was that Kittens' farmers take the season; the source says they do not. His directive stands and ships — it is the round's real Deepwinter lever — but it is an RR-ORIGINAL divergence that makes the game harder, not a parity fix. See BUILD REPORT v0.55 §3. |
 | **The undo window** (\`UNDO_SECONDS = 10\`) | none — Kittens has no undo | **EASIER**, bounded after v0.55 Part 8 | It converted every probabilistic outcome into a best-of-N. v0.55 forces the next roll of the same kind to fail. |
 | **Drakes** (\`DRAKE_PER_KILL\`, five multipliers) | none | **EASIER**, curve fixed in v0.55 Part 6 | \`limitedDR\` is linear below 75% of the cap, so a player reached three-quarters of every drake cap with no diminishing return at all — 7.5 kills for the Mountain Drake. \`strictDR\` bites from the first kill. |
-| **Champions and Renown** | none | **EASIER** | Ten champions, each a permanent multiplier, plus a leader slot. No source counterpart at any rank. |
 | **Morale / luxury comfort** | \`js/village.js\` happiness | **UNVERIFIED** | The mechanism is ported in shape; the magnitudes are not censused. Band has measured 61% against an 80% target for two rounds. |
 | **\`catMeta\`'s two outputs** | \`js/game.js\` transient guard | **PARITY** | STANDING-RULINGS §6. The collapse must keep two outputs or knowledge, culture, vigor and devotion silently inherit the drakes and the Dragon Soul. |
 | **\`CAMP_YIELD_LIMIT = 6\`** | \`js/workshop.js hunterRatio\` Σ 5.10 → ×6.10, unbounded | **PARITY in magnitude** | RR bounds what the source leaves unbounded, but at the source's own Σ the delivered figure lands within 3%. STANDING-RULINGS Appendix. |
-| **Wanderer experience** (\`XP_PER_SECOND = 2\`) | \`js/village.js\` carries the rank table but not the per-tick skill increment; \`js/game.js\` and \`js/core.js\` both 404 from raw.githubusercontent, the GitHub blob view and jsdelivr, and the wiki states no figure | **UNVERIFIED** | v0.55 Part 7 doubles the rate 1 → 2 per second on Jerry's directive. The source increment **could not be located this round** and no citation is invented: 2/s ships as a stated interim. Time-to-Challenger 3.19 real hours → 1.60. This row exists so the next analyzer round knows exactly what is owed. |
+| **Wanderer experience** (\`XP_PER_SECOND = 0.5\`) | \`js/village.js\` carries the rank table but not the per-tick skill increment; \`js/game.js\` and \`js/core.js\` both 404 from raw.githubusercontent, the GitHub blob view and jsdelivr, and the wiki states no figure | **UNVERIFIED** | v0.55 doubled it 1 → 2 and it cost **−193.6 game-years of Era 3**. v0.56 Part 1(a) takes it to **0.5** on Jerry's directive 3 (\"slower than before\"), which is slower than both. The scalar \`skillXP\` is a local computed between \`js/village.js:2623\` and \`:2644\` and no grep query shape returns its assignment — **still no citation, and none invented**. Time-to-Challenger 1.60 real hours → **6.39**. The CAP beside it is PARITY; this rate is not, and the two must not be conflated. |
 | **Wanderer traits** (\`TRAIT_LIMIT = 0.15\`) | none — Kittens has no per-kitten traits | **EASIER**, hard-bounded | The Trailblazer is the eighth member of \`campYieldMult()\` after v0.55 Part 4 rebuilt the other seven onto the source's stack. It adds at most 0.15 to Σ 5.10 no matter how many arrive, which moves the delivered multiplier ×5.93 → ×5.98. Small, bounded, and named rather than removed. |
+| **Storage scope** (\`CAP_SCOPE\`, \`BARN_LINE\`, \`WAREHOUSE_LINE\`) | \`js/resources.js:866-885 addBarnWarehouseRatio\` — two ADDITIVE accumulators (barnRatio Σ 4.35, warehouseRatio Σ 1.80 across six \`js/workshop.js\` upgrades each) applied at three scopes | **PARITY** | v0.56 Part 5. RR ran ONE multiplicative chain (×22.05 nominal, ×12.6 realised) across twelve resources — a Kittens'-Law violation on top of a scope error. Now ×14.98 narrow / ×2.80 broad / ×2.0875 quarter-after-Silos / ×1.00 none, which are the source's own figures. Renown and Mana are RR-ORIGINAL tier assignments and are stated as design rulings in the source comment, not as parity claims. |
+| **Food storage** (Storehouse, Harbor, Warehouse) | \`js/buildings.js:765-767\` barn \`catnipMax 5000\`; wiki *Catnip* — harbour 2,500, warehouse 750 after Silos | **PARITY** | v0.56, Jerry's directive. RR's Storehouse held 7,500 (×1.5 the source) and its Harbor 10,000 (×4), while its Warehouse held none at all against the source's 750. Provisions sat at cap **1.5% of ticks** on the v0.55 build, which is the whole of "Deepwinter is never a problem". |
+| **Wanderer skill cap** (\`XP_CAP = 25,556\`) | \`js/village.js:2622\` \`var skillsCap = 20001;\` and \`:2650\` \`Math.min(kitten.skills[kitten.job] + skillXP, skillsCap)\` | **PARITY** | v0.56 Part 1(b), rank-matched by ratio: Kittens caps at 2.22233× its top tier's 9,000, RR's Challenger is 11,500. RR had **no cap at all** and the measured top bank at Icathia was 1,335,491 — 116× the top rank. |
+| **Champions and leader clauses** | none — see the CHAMPIONS and LEADS sections, taken as rows this round (v0.56 Part 7.6) | **EASIER** | Was a single line here for three rounds. Twenty rows now, each labelled. |
 | **\`BOOST_LIMIT\`'s seven keys** | \`game.js:3425–3435\`, \`<res>Ratio\` unbounded | **HARDER** | RR bounds seven resource-boost stacks the source leaves unbounded. \`knowledge\` is deliberately absent, which is the one key at parity. |
 `;
 fs.writeFileSync(new URL("../docs/PARITY-LEDGER.md", import.meta.url).pathname, header + body);
