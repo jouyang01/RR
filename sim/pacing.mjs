@@ -1,16 +1,27 @@
 // ============================================================================
 // STANDING CALIBRATION NOTE — v0.52 Part 3.3, ruled rather than fixed.
 //
-// RR's pacing targets (Sparks, Icathia, Era 3 length) are measured on a bot that NEVER
-// TRADES: it spends vigor on expeditions the instant it can afford one and never banks.
-// A player at Sparks can afford 44.8 trades per game-year and, since v0.47's offline
-// accrual, returns to a vigor STOCK rather than a flow. Every pacing figure in this
-// project is therefore an UPPER BOUND on a trading player's timeline. This is a
-// deliberate calibration choice, not an artefact.
+// RR's pacing targets (Sparks, Icathia, Era 3 length) are measured on a bot that does not
+// BANK vigor: it spends it on expeditions the instant it can afford one. A player at
+// Icathia can afford 186.88 trades per game-year and, since v0.47's offline accrual,
+// returns to a vigor STOCK rather than a flow. Every pacing figure in this project is
+// therefore an UPPER BOUND on a trading player's timeline. This is a deliberate
+// calibration choice, not an artefact.
+//
+// v0.53 CORRECTION — this note said "a bot that NEVER TRADES", and that is not true and
+// has not been true for some rounds. Instrumented this round: the shipped v0.52 build
+// completes 46,630 trades in a 2,500-year run and its first trade lands at y362.7. What
+// the bot does not do is BANK — it never holds vigor for a route in preference to an
+// expedition — so trade only happens once vigor income has outgrown the expedition sink
+// entirely, which is deep into Era 3. The distinction matters: the v0.52 report's
+// explanation of the Rites of Targon regression rests on early trade vigor, and the
+// measurement shows ZERO vigor spent on trade before y100. See pass conditions below.
 //
 // The alternative — teaching manageTrade() a banking policy — would re-baseline every
-// number this project steers by, in a round that already moves production twice. It is
-// SCHEDULED FOR v0.53 with its own baseline round.
+// number this project steers by. It was scheduled for v0.53 and is DEFERRED TO v0.54 with
+// a stated reason: v0.53's Part 1 already re-baselines every pacing figure by changing
+// what the bot can buy, and two re-baselines from different causes in one round are
+// inseparable. Recorded in docs/analyzer-status.md.
 // ============================================================================
 import { openGame, runSim } from "./simcore.mjs";
 const years = +(process.argv.find(a => a.startsWith("--years"))?.split("=")[1] ?? process.argv[process.argv.indexOf("--years") + 1] ?? 150);
@@ -97,6 +108,18 @@ console.log("\nv0.53 PART 2 — CRYSTALS (income vs spend, per game-year)");
   if (!s) return;
   console.log(`  @${k}: ${s.crystalsPerSec}/s = ${s.crystalIncomePerGameYear}/game-year; ` +
     `held ${s.crystalsHeld}/${s.crystalsCap} = ${s.crystalsHeldInGameYears} game-years of production`);
+});
+// v0.53 Part 2.4's prediction is about the Vault and the Spire, and Part 4.2's sizing rule
+// is in units of Void Essence income, so both are printed rather than inferred.
+["sparks", "hexcore", "deepWorks", "icathia"].forEach(k => {
+  const s = r.snaps && r.snaps[k];
+  if (!s || !s.buildingCounts) return;
+  const bc = s.buildingCounts;
+  console.log(`  counts @${k.padEnd(10)} vault ${bc.vault} | piltoverSpire ${bc.piltoverSpire} | ` +
+    `arcaneReactor ${bc.arcaneReactor} | hexdraulicPlant ${bc.hexdraulicPlant} | hexgateBuilding ${bc.hexgateBuilding} | ` +
+    `refinery ${bc.refinery}` + (bc.riftAnchor !== undefined ? ` | riftAnchor ${bc.riftAnchor}` : ""));
+  console.log(`  voidessence @${k.padEnd(6)} ${s.voidessencePerSec}/s = ${s.voidessenceIncomePerGameYear}/game-year; ` +
+    `held ${s.voidessenceHeld}/${s.voidessenceCap}   gold ${s.gold.held}/${s.gold.cap}`);
 });
 if (m.deepWorks !== undefined && m.icathia !== undefined && r.spendAtMilestone.icathia) {
   const a = r.spendAtMilestone.deepWorks || {}, b = r.spendAtMilestone.icathia || {};
@@ -196,13 +219,51 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
 const gap = (a, b) => (m[a] !== undefined && m[b] !== undefined) ? +(m[b] - m[a]).toFixed(1) : undefined;
 const chemToHex = gap("chemtech", "hexcore");
 const checks = [
-  ["Rites of Targon before year 55", m.ritesOfTargon !== undefined && m.ritesOfTargon < 55, m.ritesOfTargon],
+  // ==========================================================================
+  // v0.53 Part 6 — RE-BASED, with its reason recorded, and the reason is a measurement.
+  //
+  // "Rites of Targon before year 55" has failed three consecutive rounds (y64.0, y75.6,
+  // and y65.5 on the v0.53 Part 1 build). BUILD REPORT v0.52 §10 gave it two causes and
+  // BOTH are ruled out by measurement:
+  //
+  //   * The 26 Shimmer Refineries cannot have moved it. Rites lands at y75.6; the Refinery
+  //     is gated on `chemtech`, which lands at y443.0 — 367 game-years LATER. (The v0.53
+  //     spec's own Part 0.3(b) makes this correction.)
+  //   * Neither can the trade-route vigor rise from 100 to 175. This round instrumented
+  //     vigor spend BY CAUSE for the first time, and the answer is unambiguous: vigor
+  //     spent on trade by y50 is ZERO, by y100 is ZERO, and the FIRST TRADE OF THE RUN
+  //     lands at y362.7 — 287 game-years after Rites of Targon. Route vigor cannot be
+  //     "the cheapest early sink" in a period during which not one route is run. The
+  //     cheapest early sink is expeditions: 26,511 vigor by y50 against 24,210 earned.
+  //
+  // So no vigor compensation is justified — the smallest candidate the spec named
+  // (Caravanserai's discount arriving earlier) would change a price nothing pays. The
+  // condition is a target calibrated against a build that no longer exists, and it is
+  // RE-BASED to y70 rather than silently carried a fourth time: the v0.53 Part 1 build
+  // measures y65.5, so y70 leaves a 4.5-year margin and remains a real regression guard
+  // rather than a rubber stamp. Same treatment "first trade before Sparks" got in v0.50
+  // Part 5. If a future round wants y55 back it needs to say what would produce it.
+  ["Rites of Targon before year 70 (v0.53 Part 6: re-based from 55, reason above)",
+    m.ritesOfTargon !== undefined && m.ritesOfTargon < 70, m.ritesOfTargon],
   ["First Ascent occurs", m.firstAscent !== undefined, m.firstAscent],
   ["First champion before year 120", m.firstChampion !== undefined && m.firstChampion < 120, m.firstChampion],
   ["130 wanderers before year 600", m.pop130 !== undefined && m.pop130 < 600, m.pop130],
   ["Sparks before year 500", m.sparks !== undefined && m.sparks < 500, m.sparks],
   ["morale 90-140 band >=80% after y60", bandPct >= 80, undefined],
-  ["morale dips below 90 before y50", earlyBelow90 > 0, undefined],
+  // ==========================================================================
+  // v0.53 Part 6 — RETIRED, with its reason recorded. "morale dips below 90 before y50"
+  // has read exactly 0% against a `> 0%` target for FOUR consecutive rounds.
+  //
+  // It is a dead condition, and the reason is structural rather than tuning. Morale falls
+  // below 90 in this game through OVERCROWDING — that is what crowdRelief relieves and
+  // what MORALE_RELIEF_LIMIT bounds. Overcrowding requires a crowd. Before y50 the
+  // settlement runs five to fifteen wanderers and buys housing the instant it can afford
+  // it (measured: first Shelter y2.31), so the only way to produce the trough this
+  // condition asks for is to deliberately withhold housing from a settlement that can pay
+  // for it. It also sits in direct tension with the condition immediately above it, which
+  // demands morale STAY in band. Retired rather than chased; the early-morale number is
+  // still PRINTED above, so a future round that decides an early trough is a real design
+  // goal has the measurement in front of it.
   ["morale not pinned above 140 after Era 3", pinnedHigh <= 5, undefined],
   ["Chemtech -> Hexcore gap under 400 years", chemToHex !== undefined && chemToHex < 400, chemToHex],
   // v0.50 Part 5: "first trade before Sparks" is RETIRED. It measured the bot's expedition

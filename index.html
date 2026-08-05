@@ -212,10 +212,23 @@
 </div>
 <div id="tooltip"></div>
 <div id="catchup-banner" style="display:none;text-align:center;padding:6px;color:var(--gold-bright)">Catching up…</div>
-<div class="footer-note">A non-commercial fan project. League of Legends and Runeterra are property of Riot Games, Inc. Riot Games does not endorse or sponsor this project. v0.52</div>
+<div class="footer-note" id="version-note">A non-commercial fan project. League of Legends and Runeterra are property of Riot Games, Inc. Riot Games does not endorse or sponsor this project.</div>
 
 <script>
 "use strict";
+
+// ============================================================
+// VERSION — the single source of truth for the build number.
+//
+// STANDING-RULINGS.md §10 says "the in-file VERSION constant and the footer must match
+// the tag at ship time". There WAS NO VERSION CONSTANT: the version existed in exactly
+// one place, hard-coded inside the footer's prose in the HTML above the script, where
+// nothing could read it and no test could assert it. Every prior round hand-edited that
+// string. It is a constant now, the footer is rendered FROM it at boot, and test-v53
+// asserts both — so the two can no longer disagree, and neither can silently disagree
+// with the git tag.
+// ============================================================
+var VERSION = "v0.53";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -244,7 +257,11 @@ var RES = {
   timber:     { name: "Timber",     kind: "capped",    baseCap: 150 },
   ore:        { name: "Ore",        kind: "capped",    baseCap: 100, hidden: function (s) { return !s.techs.mining; } },
   steel:      { name: "Steel",      kind: "capped",    baseCap: 50,  hidden: function (s) { return !s.techs.smelting; } },
-  gold:       { name: "Gold",       kind: "capped",    baseCap: 80 },
+  // v0.53, JERRY'S DIRECTIVE 4: gold's base ceiling is 200, not 80. Only the BASE moved —
+  // the storage line's own gold terms are untouched (Storehouse 10, Warehouse 80, Harbor
+  // 200), because those are Kittens' barn/harbour/mint figures and re-pricing them would be
+  // a parity change rather than a starting-conditions one.
+  gold:       { name: "Gold",       kind: "capped",    baseCap: 200 },
   // v0.46, Jerry's directive: the Knowledge ceiling starts at ZERO. Nothing remembers
   // anything until an Archive stands — the same reasoning as v0.44's maxPop base 2 -> 0.
   // The Archive is now strictly load-bearing rather than merely the cheapest option.
@@ -266,7 +283,11 @@ var RES = {
   zaunore:    { name: "Zaun Ore",       kind: "capped", baseCap: 150, hidden: function (s) { return !s.techs.sparks; } },
   coalgas:    { name: "Coalgas",        kind: "capped", baseCap: 100, hidden: function (s) { return !s.techs.chemtech; } },
   hexore:     { name: "Hexcrystal Ore", kind: "capped", baseCap: 120, hidden: function (s) { return !s.techs.hexcore; } },
-  beam:       { name: "Support Beams",  kind: "made",  hidden: function (s) { return !s.techs.woodcraft; } },
+  // v0.53, Jerry directive 3: gated on CARPENTRY, which is the tech that unlocks the
+  // recipe (CRAFTS `beam`, show: s.techs.carpentry). It read `woodcraft` — two ranks and
+  // 700 knowledge early — so the row appeared with no way to fill it. auditRawGraph is
+  // unaffected: a craft gate is the more specific one and beam already had one.
+  beam:       { name: "Support Beams",  kind: "made",  hidden: function (s) { return !s.techs.carpentry; } },
   scaffold:   { name: "Scaffolds",      kind: "made",  hidden: function (s) { return !s.techs.sparks; } },
   plating:    { name: "Iron Plating",   kind: "made",  hidden: function (s) { return !s.techs.sparks; } },
   alloy:      { name: "Chemtech Alloy", kind: "made",  hidden: function (s) { return !s.techs.chemtech; } },
@@ -362,6 +383,25 @@ var BUILDINGS = [
     lore: "Every settlement gets the songs it deserves. Yours are improving.",
     effect: "Culture, and a ceiling to hold it. Bards need an audience, so the output rises with the settlement.",
     cost: { timber: 80, provisions: 40 }, ratio: 1.10, prod: { culture: 0.02 }, caps: { culture: 40 },
+    // v0.53 Part 3.2 — RULED AND CLOSED. KEEP IT. RR-ONLY, and a conscious departure:
+    // Kittens' Amphitheatre has NO population term at all — culturePerTickBase is flat
+    // per copy (js/buildings.js:1801-1830), and kittens-game-reference.md records
+    // Amphitheatre 0.005/tick, Chapel 0.05, Temple 0.1, all flat. BUILD REPORT v0.52 §2.2
+    // is right that this is the only effect in the game scaling with the quantity the
+    // whole game is trying to grow.
+    //
+    // Kept because the MEASURED RANGE settles it. enhance-audit reports +0.04 at pop 20,
+    // +0.22 at pop 200, +2.02 at pop 2000. RR's measured peak population is 200-222 and
+    // has been 200-203 in every build measured for four rounds. At the population the game
+    // actually reaches, `audience` is worth +22% culture on ONE building whose culture is
+    // capped anyway — a flavour term operating an order of magnitude below the range where
+    // it would matter.
+    //
+    // Flagged as a conscious departure rather than presented as parity, which is the
+    // standing practice in kittens-game-reference.md. DO NOT BOUND IT NOW: a bound on a
+    // term that does not bind would be a third RR-invented rule (STANDING-RULINGS §2).
+    // The judgement call is converted into a TRIPWIRE instead — AUDIENCE_REOPEN_POP below,
+    // asserted in test-v53: if measured peak population ever passes 600, re-open this.
     audience: 0.05,
     // v0.52 Part 2.3 — Kittens' Amphitheatre does BOTH jobs from one building:
     // culturePerTickBase AND unhappinessRatio (js/buildings.js:1801-1830). RR had split
@@ -744,6 +784,40 @@ var JOBS = [
 // ============================================================
 // TECHS — gated by knowledge CAP as much as by rate
 // ============================================================
+// ============================================================================
+// v0.53 — JERRY'S DIRECTIVE 1: THE FAN-OUT RULE. Each research reveals AT MOST THREE
+// others. One research unlocking five at once is overwhelming — the Almanac was doing
+// exactly that (Cultivation, Woodcraft, Expedition Logistics, Songcraft, Scriptorium),
+// and it was the player's very first research.
+//
+// Three techs were over the limit and three `req` edges moved. NO PRICE CHANGED, so the
+// ladder is the same 37-tech multiset with the same 8 ties, median x1.1222 and geometric
+// mean x1.2632 — re-verified in test-v47 and BUILD REPORT v0.53 §9. Only the shape of the
+// DAG moved, which is the only thing the directive is about.
+//
+//   almanac        5 -> 3   Songcraft and The Scriptorium re-homed (see below)
+//   sparks         4 -> 3   Progress Day re-homed onto Hexdraulics
+//   deepWorks      4 -> 3   Voidglass Optics re-homed onto The Grey Reclamation
+//
+// Each new parent is CHEAPER than its child, so every edge still climbs — asserted in
+// test-v53 — and each was chosen for thematic fit rather than convenience:
+//   Cultivation (100) -> Songcraft (1,300): "rows, seasons, and a reason to stay" is what
+//     a settlement needs before it starts remembering itself in song. This puts 100
+//     knowledge on the Rites of Targon path that was previously optional; Cultivation
+//     returns provisions +10%, so the cost is close to self-funding. Measured in §9.
+//   Woodcraft (300) -> The Scriptorium (900): the two techs v0.47 Part 4.1 promoted
+//     together, and shaping timber is what the copyists' benches are made of.
+//   Hexdraulics (50,000) -> Progress Day (60,000): Piltover's engineering, then Piltover's
+//     holiday.
+//   The Grey Reclamation (115,000) -> Voidglass Optics (125,000): "you cannot lift the
+//     Grey, you can make it work", then "glass that shows you the sky it came from".
+//     Both techs are about seeing through the same thing.
+//
+// Nothing else in the tree was near the limit; the next largest fan-out is three
+// (Smelting, Call to Arms, Chemtech, Hexcore) and those are left alone. test-v53 asserts
+// the rule over the WHOLE tree, not just the Almanac, so a future round cannot reintroduce
+// the problem somewhere else.
+// ============================================================================
 var TECHS = [
   { id: "almanac", name: "Almanac", cost: { knowledge: 30 },
     lore: "Chart the seasons — when to sow, when to hold, and when the frost is only pretending to leave.",
@@ -751,13 +825,19 @@ var TECHS = [
   { id: "cultivation", name: "Cultivation", cost: { knowledge: 100 }, req: "almanac",
     lore: "Rows, seasons, and a reason to stay.",
     effect: "Provisions production +10%."},
+  // v0.53, JERRY'S DIRECTIVE 3. Woodcraft claimed to reveal Support Beams. It does not
+  // and never did: the beam RECIPE is `show: s.techs.carpentry` (v0.47 Part 1.4a put the
+  // whole timber chain on Carpentry, RR's `construction`), so a player who bought Woodcraft
+  // on the strength of this line got a resource row with no way to fill it. Both halves are
+  // corrected — the tooltip here, and the RES.beam visibility gate, which now follows the
+  // recipe instead of leading it by two ranks.
   { id: "woodcraft", name: "Woodcraft", cost: { knowledge: 300 }, req: "almanac",
     lore: "Timber stops being something you drag and becomes something you shape.",
-    effect: "Reveals Support Beams as a material."},
+    effect: "Opens the way to Mining and to Carpentry."},
   { id: "logistics", name: "Expedition Logistics", cost: { knowledge: 500 }, req: "almanac",
     lore: "Somebody finally wrote down how far it is to anywhere.",
     effect: "Opens THE WILDS. Wanderers generate Vigor, which expeditions spend."},
-  { id: "songcraft", name: "Songcraft", cost: { knowledge: 1300 }, req: "almanac",
+  { id: "songcraft", name: "Songcraft", cost: { knowledge: 1300 }, req: "cultivation",   // v0.53 J1: re-homed off the Almanac (5 children -> 3)
     lore: "The settlement starts remembering itself in song.",
     effect: "Culture becomes a resource."},
   { id: "mining", name: "Mining", cost: { knowledge: 500 }, req: "woodcraft",
@@ -827,7 +907,7 @@ var TECHS = [
     lore: "Water, pressure, and a crystal that will not admit which it is."},
   { id: "sumpEcology", name: "The Sump Ecology", cost: { knowledge: 55000, plating: 30 }, req: "sparks",
     lore: "Things live down there. Some of them are worth catching."},
-  { id: "progressDay", name: "Progress Day", cost: { knowledge: 60000, culture: 2000 }, req: "sparks",
+  { id: "progressDay", name: "Progress Day", cost: { knowledge: 60000, culture: 2000 }, req: "hexdraulics",   // v0.53 J1: Sparks 4 children -> 3
     lore: "Piltover's holiday, exported."},
   { id: "chemBaronAccords", name: "The Chem-Baron Accords", cost: { knowledge: 65000, alloy: 40 }, req: "chemtech",
     lore: "An arrangement nobody signed and everybody honours."},
@@ -843,7 +923,7 @@ var TECHS = [
   // only Void Expeditions produce, and those are gated on Icathia (135,000) — so a 125,000
   // tech costing voidglass can never be researched. Reported as a deviation from the
   // spec's Part 4.2 restore list. shimmer (Deep Works, 100,000) keeps the material gate.
-  { id: "voidglassOptics", name: "Voidglass Optics", cost: { knowledge: 125000, shimmer: 150, hexSlab: 200 }, req: "deepWorks",
+  { id: "voidglassOptics", name: "Voidglass Optics", cost: { knowledge: 125000, shimmer: 150, hexSlab: 200 }, req: "greyReclamation",   // v0.53 J1: Deep Works 4 children -> 3
     lore: "Glass that shows you the sky it came from."},
   // --- v0.47 Part 1 / 4.1: two techs promoted or created so the ladder can be
   // Kittens' ladder rank for rank. Kittens' `math` (1,000) unlocks the academy and its
@@ -851,10 +931,12 @@ var TECHS = [
   // one tech opening the timber buildings AND the timber chain together, which is the
   // source's own pairing. RR had the Academy behind a Discovery and the timber chain
   // split across two techs, one of which gated Scaffold behind SPARKS (see CRAFTS).
-  { id: "scriptorium", name: "The Scriptorium", cost: { knowledge: 900 }, req: "almanac",
+  { id: "scriptorium", name: "The Scriptorium", cost: { knowledge: 900 }, req: "woodcraft",   // v0.53 J1: re-homed off the Almanac (5 children -> 3)
     lore: "Someone has to keep the copies straight, and then keep the copies of the copies."},
   { id: "carpentry", name: "Carpentry", cost: { knowledge: 1000 }, req: "woodcraft",
-    lore: "Joints that hold without rope."},
+    lore: "Joints that hold without rope.",
+    // v0.53, Jerry directive 3: this is the tech that actually unlocks the beam recipe.
+    effect: "Reveals Support Beams and Scaffolds as materials, and the buildings raised on them."},
   { id: "watchersBelow", name: "The Watchers Below", cost: { knowledge: 125000, trueice: 400, poroTears: 40 }, req: "deepWorks",
     lore: "The Freljord has been keeping something down there, and Icathia has been keeping the same thing."},
 
@@ -1459,6 +1541,24 @@ var UPGRADES = [
   { id: "voidwardStores", name: "Voidward Stores", cost: { voidglass: 8, hexcrete: 8 }, tech: "icathia",
     lore: "Storage warded against the thing storage attracts.",
     effect: "Masonry V — all material storage ×1.75."},
+  // ==========================================================================
+  // v0.53 — JERRY'S DIRECTIVE 5: THE ARCANIST'S CIRCLE.
+  // A mana ceiling that has been full since spring is a faucet running into a closed
+  // drain. Manual Transmute already exists and is the whole early-game loop, but it is a
+  // click, and a player who has left the settlement to run does not get to make it. Once
+  // a year, if the mana is standing at its ceiling, the Circle convenes and weaves a third
+  // of the standing pool into timber at the ordinary Transmute rate — no better than the
+  // player's own hand, just present when they are not.
+  //
+  // WHY YEARLY, AND WHY ONLY AT THE CAP: both halves are the directive's, and both matter.
+  // Yearly, so this is a windfall the player notices rather than a background trickle that
+  // quietly replaces Transmute as the timber economy. Only at the cap, so it can never
+  // take mana a player is saving — it touches the pool ONLY in the state where the next
+  // point of mana was going to be thrown away anyway.
+  // ==========================================================================
+  { id: "arcanistsCircle", name: "Arcanist's Circle", cost: { mana: 250, culture: 150 }, tech: "songcraft",
+    lore: "They meet at the turn of the year, agree on very little, and weave anyway.",
+    effect: "Once a game-year, if mana is standing at its ceiling, a third of it is woven into timber automatically."},
   { id: "cataloguing", name: "Cataloguing", cost: { parchment: 40, culture: 150 }, tech: "songcraft",
     lore: "Every scroll gets a shelf, every shelf gets a ledger.",
     effect: scholarEffect("cataloguing", "I")},
@@ -2298,6 +2398,35 @@ function luxuryComfort() { return Math.max(LUXURY_COMFORT, LUXURY_PER_HEAD * S.p
 // unicorn production, additively within the category, so the ladder pays for itself in
 // the resource it consumes. Same shape here, and the same reason — without it, True
 // Ice and Poro Tears are two resources with no consumer and Poros never scale.
+//
+// v0.53 Part 3.1 — RULED AND CLOSED. KEEP IT UNBOUNDED. Do not re-flag it.
+// Censused against Kittens' unicornsRatioReligion (js/religion.js, ziggurat ladder):
+// unicornTomb 0.05 + ivoryTower 0.10 + ivoryCitadel 0.25 + skyPalace 0.50 +
+// unicornUtopia 2.50 + sunspire 5.00 = 8.40 -> x9.40, ADDITIVE within one category,
+// UNBOUNDED, with no diminishing return anywhere and every rung at priceRatio 1.15.
+// RR's four rungs — Frostguard Cairn 0.08, Avarosan Hearthhold 0.15, Ice-Wrought Spire
+// 0.30, The Frozen Watcher 0.60 — sum to 1.13 -> x2.13: a rank-for-rank transliteration
+// of the source's FIRST FOUR, at 23% of the source's full stack. RR is not over the
+// source, it is at less than a quarter of it, and it is missing the two largest rungs
+// rather than carrying two invented ones.
+//
+// BUILD REPORT v0.52 §2.2 and HANDOFF §7.1 both call this "RR-only content with no
+// source counterpart, so there is nothing to be at parity with." That is wrong, and the
+// correction is the whole of v0.53 Part 3.1. The reported "x41 at 500 copies, linearity
+// 1.0000" is enhance-audit doing exactly what it is built to do: 500 copies of each of
+// four buildings is not a state the game reaches, and a linearity of 1.0000 is the
+// CORRECT answer for a category Kittens also runs unbounded. Additive-within-category,
+// multiplicative-between is Kittens' Law (HANDOFF v0.52 §2) and poroRatio obeys it.
+//
+// IT IS UNBOUNDED ON PURPOSE AND AT PARITY. Do not add a limit. Two RR-invented rules
+// have already been ruled out of existence for being heuristics the source contradicts
+// (STANDING-RULINGS §2); a bound here would be the third in a new costume.
+//
+// What this OPENS rather than closes: RR stops at Kittens' fourth rung. The source
+// carries two more, at 2.50 and 5.00, priced ivory 1,000,000 + tears 5,000 and
+// ivory 750,000 + tears 25,000. A fifth and sixth Freljord rung is a rank-matched
+// structural lengthener with the source's own numbers behind it — dated as a v0.54
+// candidate in docs/analyzer-status.md.
 function poroRatio() {
   var sum = 0;
   BUILDINGS.forEach(function (b) { if (b.poroRatio) sum += b.poroRatio * count(b.id); });
@@ -2488,7 +2617,7 @@ function freshState() {
     champs: {}, leader: null, hideDone: false, hideDoneR: false, hideDoneD: false, hideDoneP: false, policies: {}, caravans: {},
     pop: 0, wanderers: [], censusFilter: "all", arrivalTimer: 0, starveTimer: 0, eventTimer: 0, chimeTimer: 0,
     scuttlerActive: false, scuttlerTimer: 0, honeyActive: false, honeyTimer: 0, jackActive: false, jackTimer: 0,
-    tick: 0, weather: "clear", weatherSeason: -1,
+    tick: 0, weather: "clear", weatherSeason: -1, arcaneYear: 0,   // v0.53 J5: the Arcanist's Circle year tracker
     milestonesDone: {}, lastSaved: 0, log: [], activeTab: "settlement"
   };
   for (var r in RES) { s.res[r] = 0; s.seenMax[r] = 0; }
@@ -3026,6 +3155,13 @@ var BOOST_LIMIT = { devotion: 2.0, culture: 2.0, gold: 1.5, vigor: 1.0, crystals
 // Kittens' smelterRatio: a multiplier on AUTOPROD output only, bounded by the same
 // primitive shape as campYieldMult. Deep Works loops back and improves the era's
 // own early machinery, which is the §1.4 "discoveries improve earlier mechanics" rule.
+// v0.53 Part 3.2. The `audience` tripwire, in code rather than in a comment so a future
+// round trips over it instead of re-deriving the judgement. `audience` is unbounded on
+// purpose (see the Bard's Hearth); it is kept because at RR's measured peak population it
+// is worth +22% culture on one capped building. THIS IS THE POPULATION AT WHICH THAT
+// ARGUMENT STOPS HOLDING. test-v53 asserts the constant; the pacing harness reports peak
+// population every run. If peak population passes this, the ruling re-opens.
+var AUDIENCE_REOPEN_POP = 600;
 var AUTOPROD_LIMIT = 2.0;
 function autoprodMult() {
   var sum = bfield("chembarrel", "sumpBoost") * count("chembarrel");
@@ -3377,6 +3513,14 @@ function step(dt, ticks) {
     if (!firstRoll && S.techs.almanac && live) addLog("The season turns — " + currentSeason().name + (S.weather !== "clear" ? ", unusually " + S.weather : "") + ".");
     uiDirty = true;
   }
+
+  // v0.53, Jerry directive 5 — the Arcanist's Circle, on the year boundary. Kept beside
+  // the season roll because it is the same kind of event: a calendar tick, not a rate.
+  // The tracker starts at the current year rather than undefined so a fresh state and a
+  // reloaded save both wait for a real boundary instead of firing on their first tick.
+  var arcYear = Math.floor(S.tick / (TICKS_PER_DAY * DAYS_PER_SEASON * 4));
+  if (S.arcaneYear === undefined) S.arcaneYear = arcYear;
+  if (arcYear !== S.arcaneYear) { S.arcaneYear = arcYear; arcanistsCircleYear(); }
 
   var rates = applyProduction(dt);
   tickChampXp(dt);
@@ -3794,6 +3938,23 @@ function craftCostMult() { return leaderIs("heimerdinger") ? 0.8 : 1; }
 // -> Mana -> transmute -> Timber circuit a net-positive faucet. Flat yield; Riverstone
 // Tools still applies. Available forever, exactly as before.
 function transmuteYield() { return (S.upgrades.riverstoneTools ? 1.15 : 1); }
+// v0.53, Jerry directive 5 — the Arcanist's Circle. Called once per game-year boundary
+// from step(); see the UPGRADES entry for why it is yearly and why it fires only at the
+// ceiling. It runs the ORDINARY transmute — same cost, same yield, same upgrades — so it
+// can never be better than the player's own hand, only more punctual.
+var ARCANIST_SHARE = 0.33;
+function arcanistsCircleYear() {
+  if (!S.upgrades.arcanistsCircle) return;
+  var cap = computeCaps().mana;
+  if (!(cap > 0) || S.res.mana < cap - 1e-9) return;      // ONLY at the ceiling
+  var casts = Math.floor(S.res.mana * ARCANIST_SHARE / TRANSMUTE_COST);
+  if (casts < 1) return;
+  var before = S.res.timber;
+  transmuteMana(casts);
+  var made = S.res.timber - before;
+  if (made > 0) addLog("The Arcanist's Circle convenes at the turn of the year. A third of a full reservoir " +
+    "goes into the timber yard, and nobody agrees whose idea it was. (+" + fmt(made) + " timber)", "event");
+}
 function transmuteMana(times) {
   var done = 0;
   for (var i = 0; i < times; i++) {
@@ -3812,7 +3973,13 @@ function transmuteMana(times) {
 var CRAFTS = [
   { id: "parchment", name: "Scribe Parchment", cost: { furs: 175 }, out: "parchment",
     desc: "Wolf furs, scraped and stretched. The past deserves recording.",
-    show: function (s) { return s.seenMax.furs >= 175; } },  // v0.41 §2.4: exact Kittens parity; the plume sink moves to the Noxus route
+    // v0.41 §2.4: the COST is exact Kittens parity and is untouched at 175 furs; the plume
+    // sink moves to the Noxus route. v0.53, JERRY'S DIRECTIVE 6: only the REVEAL moved.
+    // Requiring 175 furs before the recipe is even visible hid the entire knowledge chain
+    // (furs -> parchment -> tomes -> the Scholarship line) behind a stockpile the player had
+    // no stated reason to build. The recipe is now visible the moment any furs have been
+    // held, which is what makes the stockpile worth building.
+    show: function (s) { return s.seenMax.furs >= 1; } },
   { id: "tome", name: "Bind Tome", cost: { parchment: 50, mana: 250, knowledge: 1500 }, out: "tome",
     desc: "Tomes no longer widen the Archive by themselves. They buy the Scholarship line, which widens everything — and the Great Index, Annotated Index and Living Library all want them.",
     show: function (s) { return s.seenMax.parchment >= 1; } },
@@ -4631,6 +4798,22 @@ function convertLine(b) {
   for (i in b.convert.output) outs.push("+" + fmtRate(b.convert.output[i]) + " " + RES[i].name.toLowerCase());
   return "Consumes " + ins.join(", ") + "/s → " + outs.join(", ") + "/s each";
 }
+// ============================================================================
+// v0.53 — JERRY'S DIRECTIVE 2: a tooltip must not advertise an effect on a part of the
+// game the player has not reached. The Storehouse was announcing "Max gold: +10 each" to
+// a player who has never seen a gold coin and has no way to earn one — an effect on a
+// resource that is not on their screen reads as noise at best and as a broken promise at
+// worst. Once the material has been unlocked the line appears, in the same place, with
+// the same number.
+//
+// The gate is the GAME'S OWN resUnlocked() — not a second definition of "unlocked"
+// written here. That function is the one the Chronicle already uses to decide what a
+// random event may hand you, and its rule is: the resource's own `hidden` predicate says
+// it exists, AND the player has held at least one of it (seenMax > 0). A fourth storage
+// tooltip in this file has drifted away from the thing it describes; routing this through
+// the existing predicate is what stops it being a fifth.
+// ============================================================================
+function ttResKnown(r) { return !!RES[r] && resUnlocked(r); }
 function effectLines(b) {
   var out = [], n = count(b.id), r;
   // "X each (currently Y)" — the total is suppressed at 0 or 1 copies, where it says
@@ -4640,7 +4823,7 @@ function effectLines(b) {
   }
   if (b.pop) line("Max wanderers", "+" + ttNum(b.pop), "+" + ttNum(b.pop * n));
   for (r in b.prod || {}) {
-    if (!RES[r]) continue;
+    if (!ttResKnown(r)) continue;                      // v0.53, Jerry directive 2
     line(RES[r].name, "+" + fmtRate(b.prod[r]) + "/s", "+" + fmtRate(b.prod[r] * n) + "/s");
   }
   if (b.seasonal) out.push("Seasonal — the harvest follows the calendar and the sky");
@@ -4648,14 +4831,14 @@ function effectLines(b) {
     (Math.round((1 + b.audience * S.pop) * 100) / 100) + ")");
   var cm = capMultPerCopy(b);
   for (r in b.caps || {}) {
-    if (!RES[r]) continue;
+    if (!ttResKnown(r)) continue;                      // v0.53, Jerry directive 2
     line("Max " + RES[r].name.toLowerCase(), "+" + ttNum(b.caps[r] * cm), "+" + ttNum(b.caps[r] * cm * n));
   }
-  if (b.cultureCapPct) line("Max culture", "+" + ttPct(b.cultureCapPct), "+" + ttPct(b.cultureCapPct * n));
+  if (b.cultureCapPct && ttResKnown("culture")) line("Max culture", "+" + ttPct(b.cultureCapPct), "+" + ttPct(b.cultureCapPct * n));
   for (r in b.jobBoost || {})
     line(jobName(r) + " effectiveness", "+" + ttPct(jobBoostPerCopy(b, r)), "+" + ttPct(jobBoostTotal(r)) + " from all buildings");
   for (r in b.boost || {}) {
-    if (!RES[r]) continue;
+    if (!ttResKnown(r)) continue;                      // v0.53, Jerry directive 2
     line(RES[r].name + " production", "+" + ttPct(b.boost[r]), "+" + ttPct(b.boost[r] * n));
   }
   if (b.globalBoost) line("All production", "+" + ttPct(globalBoostPerCopy(b)), "+" + ttPct(globalBoostPerCopy(b) * n));
@@ -6058,9 +6241,14 @@ document.getElementById("btn-wipe").onclick = function () {
 // ============================================================
 // BOOT
 // ============================================================
+function stampVersion() {
+  var el = document.getElementById("version-note");
+  if (el) el.textContent = el.textContent.replace(/\s*v\d+\.\d+\s*$/, "") + " " + VERSION;
+}
 function intro() {
   addLog("The Rune Wars are over. The land is scarred, silent — and waiting. Channel mana, and begin again.");
 }
+stampVersion();                       // v0.53: the footer is rendered FROM the VERSION constant
 if (!tryAutoload()) { if (!migrateV1()) intro(); }
 renderAll();
 renderTop(computeRates());
