@@ -189,10 +189,6 @@ export async function runSim(page, years, seed = 1) {
         // v0.50 Parts 2.3 and 3
         augmentChamber: count("augmentChamber"), arcaneReactor: count("arcaneReactor"),
         hextechFoundry: count("hextechFoundry"), shimmerRefinery: count("shimmerRefinery"),
-        // v0.58 Part 7.2 / Part 8.1 — the shipped sink and the craft it exists to reach.
-        chemForgeworks: count("chemForgeworks"), riftAnchor: count("riftAnchor"),
-        riftsteelHeld: Math.round(S.res.riftsteel || 0), hexgearHeld: Math.round(S.res.hexgear || 0),
-        voidessenceHeld: Math.round(S.res.voidessence || 0),
         // ---- v0.52, instrumented BEFORE the first run this time ----
         // Part 0: the knowledge multiplier the four science buildings actually deliver,
         // and the counts behind it. The claim under test is that the overshoot in counts
@@ -333,50 +329,12 @@ export async function runSim(page, years, seed = 1) {
           S.upgrades = stripped; const without = computeCaps(); S.upgrades = owned;
           const o = { owned: LINE.filter(u => owned[u]).length, of: LINE.length,
                       held: LINE.filter(u => owned[u]), delivered: {},
-                      // v0.58 Part 3: SCHOLAR_LINE entries are INCREMENTS now, the same shape as
-                      // BARN_LINE and WAREHOUSE_LINE. Reading them as factors here produced
-                      // "product ×0.0225" and "all-five additive ×-2.4" -- the census reporting
-                      // nonsense while the game itself was correct, which is exactly the failure
-                      // mode a census exists to prevent. The two shapes are BOTH reported: what
-                      // the line delivers now, and what the retired multiplicative chain would
-                      // have delivered from the same members, so the cut stays auditable.
-                      sigmaHeld: +SCHOLAR_LINE.reduce((a, u) => a + (owned[u[0]] ? u[1] : 0), 0).toFixed(4),
-                      sigmaFull: +SCHOLAR_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
-                      product: +(1 + SCHOLAR_LINE.reduce((a, u) => a + (owned[u[0]] ? u[1] : 0), 0)).toFixed(4),
-                      fullProduct: +(1 + SCHOLAR_LINE.reduce((a, u) => a + u[1], 0)).toFixed(4),
-                      retiredChainWouldGive: +SCHOLAR_LINE.reduce((a, u) => a * (1 + u[1]), 1).toFixed(4),
-                      additiveWouldGive: +(1 + SCHOLAR_LINE.reduce((a, u) => a + u[1], 0)).toFixed(4) };
+                      product: +SCHOLAR_LINE.reduce((a, u) => a * (owned[u[0]] ? u[1] : 1), 1).toFixed(4),
+                      fullProduct: +SCHOLAR_LINE.reduce((a, u) => a * u[1], 1).toFixed(4),
+                      additiveWouldGive: +(1 + SCHOLAR_LINE.reduce((a, u) => a + (u[1] - 1), 0)).toFixed(4) };
           Object.keys(SCHOLAR_CAPS).forEach(rr => {
             if (without[rr] > 0) o.delivered[rr] = +(withAll[rr] / without[rr]).toFixed(4);
           });
-          // v0.58 Part 3 / Part 7.1. The restructure is a 35% ceiling cut on three resources and
-          // the round is judged on whether the ceiling was ever the constraint. That question is
-          // answerable only against ABSOLUTE numbers: Renown's substantive condition is "the
-          // ceiling clears the largest SINGLE purchase", and the largest single purchase is the
-          // tenth champion, whose price is BUILT by recruitCost() rather than declared. A cut
-          // that leaves the ceiling above 9,611 renown is a cut that cannot block the ladder;
-          // one that drops below it is a hard failure regardless of any cap-out fraction.
-          // NB: `held` above is the list of rung IDs owned. The per-resource stock is `heldRes`,
-          // deliberately a different key -- an earlier draft reused `held` and silently replaced
-          // the rung list with a resource map, which is the same class of collision §22 exists for.
-          o.caps = {}; o.heldRes = {};
-          Object.keys(SCHOLAR_CAPS).forEach(rr => {
-            o.caps[rr] = Math.round(withAll[rr] || 0);
-            o.heldRes[rr] = Math.round(S.res[rr] || 0);
-          });
-          o.largestRenownPurchase = (() => {
-            let mx = 0;
-            (CHAMPS || []).forEach(c => {
-              const rc = (recruitCost(c.id) || {}).renown || 0;
-              if (rc > mx) mx = rc;
-              if (typeof trainCost === "function") {
-                const tc = (trainCost(c.id) || {}).renown || 0;
-                if (tc > mx) mx = tc;
-              }
-            });
-            return Math.round(mx);
-          })();
-          o.championsRecruited = (CHAMPS || []).filter(c => S.champs[c.id] && S.champs[c.id].r).length;
           return o;
         })(),
         // ---- v0.57 PART 6: held/cap AND a producer/consumer ratio for EVERY capped resource --
@@ -447,27 +405,6 @@ export async function runSim(page, years, seed = 1) {
         steelPerSec: +computeRates().steel.toFixed(4),
         bloomery: count("bloomery"), forge: count("forge"),
         bardsHearths: count("bardsHearth"), morale: morale(),
-        // v0.58 Part 2: the faith curve, counted. The analyzer's stated informative failure is
-        // "if the Chapel moves Convergence less than 2x, the bot is not building it and Part 2
-        // measured an apparatus rather than an economy" -- so the count is recorded, not inferred.
-        targon: { shrine: count("shrine"), chapel: count("chapel"), sanctum: count("sanctum"),
-                  marus: count("marus"), acolytes: S.jobs.acolyte || 0,
-                  devotionPerSec: +computeRates().devotion.toFixed(4),
-                  worship: Math.round(S.worship || 0), ascends: S.ascends || 0,
-                  // why the Chapel is or is not being built, rather than a bare zero.
-                  // GUARDED: the Chapel arrives with v0.58 Part 2 and the isolation slices are
-                  // cumulative PREFIXES of the shipped file, so this same simcore has to run
-                  // against builds where BUILDINGS.find() returns undefined. An unguarded call
-                  // here crashed the s2 comparison run outright.
-                  ...(() => {
-                    const cb = BUILDINGS.find(b2 => b2.id === "chapel");
-                    if (!cb) return { chapelVisible: null, chapelCost: null, chapelAfford: null };
-                    return { chapelVisible: buildingVisible(cb), chapelCost: buildingCost(cb),
-                             chapelAfford: canAfford(buildingCost(cb)) };
-                  })(),
-                  parchmentHeld: Math.round(S.res.parchment || 0),
-                  parchmentSeen: Math.round((S.seenMax || {}).parchment || 0),
-                  oreHeld: Math.round(S.res.ore || 0), cultureHeld: Math.round(S.res.culture || 0) },
         // v0.52 Part 2.3: the delivered relief, so the merge is sized in the report and
         // not inferred from the Hearth count.
         crowdReliefPct: +(100 * limitedDR(bfield("bardsHearth", "crowdRelief") * count("bardsHearth"),
@@ -542,23 +479,7 @@ export async function runSim(page, years, seed = 1) {
           const caps = computeCaps(), c = cheapest.c;
           const binding = Object.keys(c).filter(r => caps[r] !== undefined && caps[r] < c[r]);
           const vps = computeRates().vigor;
-          // v0.58 Part 3 diagnostic. "AFFORDABLE" and "the bot will actually trade" are two
-          // different questions and the round found out the hard way: a 700-year run reported
-          // the cheapest route affordable at every milestone and completed ZERO trades, because
-          // affordability asks `cap >= cost` while the bot's own policy asks tradeSurplusOk() --
-          // stock at or above 60% of the ceiling for every capped component. Which component
-          // fails is now recorded rather than reasoned about.
-          const surplusPer = {};
-          Object.keys(c).forEach(rr => {
-            if (rr === "vigor") { surplusPer[rr] = "n/a"; return; }
-            const cp = caps[rr], held = Math.round(S.res[rr] || 0), need = Math.round(c[rr] * SURPLUS_X);
-            const tight = cp !== undefined && cp < c[rr] * SURPLUS_X * 2;
-            if (!(S.res[rr] >= c[rr] * SURPLUS_X)) surplusPer[rr] = `hold ${held}, needs ${need} (${SURPLUS_X}x the route price)`;
-            else if (tight && !(S.res[rr] >= cp * 0.6)) surplusPer[rr] = `hold ${held} of a TIGHT cap ${Math.round(cp)} = ${(100 * held / cp).toFixed(0)}%, needs 60%`;
-            else surplusPer[rr] = "ok";
-          });
           return { route: cheapest.id, cost: c, affordable: binding.length === 0, binding,
-                   surplusOk: tradeSurplusOk(c), surplusPer,
                    vigorPerSec: +vps.toFixed(3),
                    vigorPerGameYear: +(vps * SEC_PER_GAME_YEAR).toFixed(1),
                    tradesPerGameYear: c.vigor ? +((vps * SEC_PER_GAME_YEAR) / c.vigor).toFixed(2) : null };
@@ -597,8 +518,6 @@ export async function runSim(page, years, seed = 1) {
     // v0.58 Part 5: how many times the banking reserve actually held an expedition back. A
     // policy that never fires is dead code wearing a comment, and this is how that is caught.
     let tradeReserveBlocks = 0;
-    let tradeAffordableTicks = 0;
-    const tradeRefusedBy = {}, tradeFracMax = {}, tradeFaction = {};
     const popSeries = [];
 
     // ---------- player heuristics ----------
@@ -757,12 +676,7 @@ export async function runSim(page, years, seed = 1) {
       // v0.55 Part 3.4: the Granary. Added in the SAME slice as the building — test-v53's
       // reachability assertion fails if a building is not in one of these two lists.
       "granary",
-      // v0.58 Part 2: the Chapel. Added in the SAME slice as the building — test-v53's
-      // reachability assertion fails if a building is not in one of these two lists, and an
-      // unbuilt Chapel would have made Part 2 measure an apparatus rather than an economy.
-      // Placed immediately after the Shrine it unlocks from, and before the Sanctum, which is
-      // where it sits on the faith curve.
-      "bardsHearth", "storehouse", "forge", "shrine", "chapel", "observatory", "workshop",
+      "bardsHearth", "storehouse", "forge", "shrine", "observatory", "workshop",
       "tradeDock", "sanctum", "trainingGround", "warehouse",   // v0.55 Part 4: hunterLodge deleted
       "refinery", "marus", "hexLab", "sumpMine", "coalgasVent", "hexQuarry",
       // v0.52 Part 1.2: the Irrigation Channel; Part 3.2: the SHIMMER REFINERY, which
@@ -788,12 +702,6 @@ export async function runSim(page, years, seed = 1) {
       // v0.53 Part 4.3: the Rift Anchor, the tier-5 craft's repeatable consumer. Added in
       // the SAME slice as the craft — a consumer the instrument cannot buy would reproduce
       // the exact defect Part 1 exists to sweep.
-      // v0.58 Part 7.2: the Chem-Forgeworks, added in the SAME slice as the building. An
-      // unbuilt consumer would have reproduced the Shimmer Refinery defect of v0.52 exactly --
-      // a shipped sink the instrument never considers, measuring 0 forever and being read as
-      // "the price is wrong" rather than "the bot never looked". Placed beside the Zaun
-      // converters it takes its shimmer from.
-      "chemForgeworks",
       "piltoverSpire", "vault", "hexcreteBastion", "riftAnchor", "watchersEye",
       "frostguardCairn", "avarosanHold", "iceWroughtSpire", "frozenWatcher",
       "quarry", "augmentChamber", "hexgateBuilding", "wardOfWatchers"];
@@ -923,40 +831,13 @@ export async function runSim(page, years, seed = 1) {
     // then banked vigor for a route it would go on to refuse -- expeditions blocked, trade
     // still not firing, and the first trade moved from y317 to NEVER inside 500 years. One
     // helper, both callers.
-    // ========================================================================================
-    // v0.58 PART 5, AMENDED BY PART 2 — THE SURPLUS RULE IS DENOMINATED IN THE ROUTE PRICE,
-    // NOT IN THE CEILING. (§16: fix the bot, never price around it. No route price is touched.)
-    //
-    // The old rule was `stock >= cost AND stock >= 0.6 x ceiling`. That second clause was a
-    // PROXY for "trade a surplus, not your entire stock", and it stopped tracking its own intent
-    // the moment §19 multiplied the material ceilings by ~15. Measured this round, at hexcore:
-    //   timber  cost 600   ceiling 364,377   0.6 x ceiling = 218,626   best ever held = 1.0%
-    // so the Demacia route was UNSATISFIABLE BY CONSTRUCTION for the whole run. Every trade the
-    // project has ever measured came from ONE route -- Freljord, which charges ORE, and only
-    // because ore happened to idle at 99.9% of its ceiling. Per-faction counts, seed 1, 450y:
-    //   v0.57 build:  demacia  affordable 52, surplus-ok   0   |  freljord affordable 142, ok 142
-    //   + Part 2:     demacia  affordable 32, surplus-ok   0   |  freljord NEVER DISCOVERED
-    // Part 2's Chapel diverts labour into acolytes, vigor income falls ~23% (2,612 -> 2,017 per
-    // game-year at y100), the 500-vigor scouting party runs fewer times, Freljord is not found
-    // inside the horizon -- and TRADE GOES TO ZERO. First trade y317.2 -> NEVER.
-    //
-    // A rule that leaves the entire trade economy resting on one route's stock idling at 99.9%
-    // of a ceiling is a knife-edge, and Part 2 stepped on it. The intent is restored in the unit
-    // the intent was always about: hold THREE TIMES WHAT THE ROUTE CHARGES. The ceiling clause
-    // survives only where it still means something -- a ceiling so tight that 3x the price is a
-    // large share of it, which is the situation the clause was written for.
-    // ========================================================================================
-    const SURPLUS_X = 3;
     function tradeSurplusOk(cost) {
       const c2 = caps();
       return Object.keys(cost).every(r => {
         if (r === "vigor") return true;
-        if (!(S.res[r] >= cost[r] * SURPLUS_X)) return false;
         const cap = c2[r];
-        // Tight ceiling (under 6x the price): the old 60% clause is still the right guard, since
-        // holding 3x the price there really would be most of the settlement's stock.
-        if (cap !== undefined && cap < cost[r] * SURPLUS_X * 2) return S.res[r] >= cap * 0.6;
-        return true;
+        if (cap === undefined) return S.res[r] >= cost[r] * 2;   // uncapped: keep a buffer
+        return S.res[r] >= cost[r] && S.res[r] >= cap * 0.6;
       });
     }
     function tradeVigorReserve() {
@@ -1056,33 +937,6 @@ export async function runSim(page, years, seed = 1) {
         // v0.53 Part 6: vigor spend has to be split by CAUSE. Expeditions were already
         // counted (vigorSpent, above); trade was not, so "the cheapest early sink" could
         // not be checked against the +75% route-vigor rise the spec attributes it to.
-        // v0.58 Part 3 diagnostic. The Chapel slice took first-trade from y317 to NEVER and the
-        // surplus rule was the suspect, so WHICH component refuses is counted rather than
-        // reasoned about -- and the max fraction each capped component ever reached is recorded,
-        // because a point sample at a milestone cannot distinguish "never close" from "crossed
-        // the line between samples".
-        const fx = tradeFaction[f.id] || (tradeFaction[f.id] = { openTicks: 0, affordable: 0, surplusOk: 0, refusedBy: {} });
-        fx.openTicks++;
-        if (canAfford(tc)) {
-          tradeAffordableTicks++; fx.affordable++;
-          const c3 = caps();
-          // The diagnostic MIRRORS tradeSurplusOk() exactly. An earlier draft kept the retired
-          // 60%-of-ceiling test here and went on reporting "refused by timber x59" for 34 trades
-          // that had just succeeded -- an instrument disagreeing with the code it measures.
-          Object.keys(tc).forEach(rr => {
-            if (rr === "vigor") return;
-            const cp = c3[rr];
-            const held = S.res[rr] || 0;
-            if (cp !== undefined && cp > 0) {
-              const fr = held / cp;
-              if (!(tradeFracMax[rr] >= fr)) tradeFracMax[rr] = +fr.toFixed(4);
-            }
-            let ok = held >= tc[rr] * SURPLUS_X;
-            if (ok && cp !== undefined && cp < tc[rr] * SURPLUS_X * 2) ok = held >= cp * 0.6;
-            if (!ok) { tradeRefusedBy[rr] = (tradeRefusedBy[rr] || 0) + 1; fx.refusedBy[rr] = (fx.refusedBy[rr] || 0) + 1; }
-          });
-          if (tradeSurplusOk(tc)) fx.surplusOk++;
-        }
         if (canAfford(tc) && surplus(tc)) {
           const vB = S.res.vigor;
           tradeCaravan(f.id); tradeCount++; mark("firstTrade");
@@ -1510,14 +1364,6 @@ export async function runSim(page, years, seed = 1) {
       }
     }
 
-    // v0.58 Part 7.2. EVERY resourceBalance in this project was read at a MILESTONE, and a
-    // milestone snapshot fires at the instant the tech lands -- so a consumer gated on that
-    // same tech is measured with ZERO copies built, by construction. The Chem-Forgeworks read
-    // "consumed 0/s" at Deep Works for exactly that reason while the run had 505 further years
-    // to build it. A final-state snapshot is taken as well, and the Era-3 classification reads
-    // the final one in preference: a sink is judged after it has had time to exist.
-    snaps.final = snapshot();
-
     return {
       years, seed,
       milestones,
@@ -1541,7 +1387,7 @@ export async function runSim(page, years, seed = 1) {
       vigorAtCapPct: +(100 * vigorAtCapTicks / (tickCount || 1)).toFixed(1),
       crystalsAtCapPct: +(100 * crystalsAtCapTicks / (tickCount || 1)).toFixed(1),
       // v0.56 Part 5 — the whole cap-out distribution, sorted worst-first
-      tradeReserveBlocks, tradeAffordableTicks, tradeRefusedBy, tradeFracMax, tradeFaction,
+      tradeReserveBlocks,
       capOutPct: (() => { const o = {};
         Object.keys(capTicks).sort((a, b) => capTicks[b] - capTicks[a])
           .forEach(rr => o[rr] = +(100 * capTicks[rr] / (tickCount || 1)).toFixed(1));
