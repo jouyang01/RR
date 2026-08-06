@@ -91,9 +91,12 @@ check("1 — renown is in SCHOLAR_CAPS, beside culture and devotion",
   JSON.stringify(renown.scholarKeys));
 check("1 — the Masonry line does not move Renown by one point",
   renown.flat === renown.withMasonry, `${renown.flat} bare → ${renown.withMasonry} with all five Masonry rungs`);
-check("1 — ...and the Scholarship line does: ×2.1125 at 3 of 5, ×3.9926 at 5 of 5",
-  Math.abs(renown.withScholar3 / renown.flat - 2.1125) < 0.01 &&
-  Math.abs(renown.withScholar5 / renown.flat - 3.9926) < 0.01,
+// RE-POINTED v0.58, superseded by SPEC PART 3. v0.57's point was that the SCHOLARSHIP line,
+// not the Masonry line, is the one that reaches Renown — and it still is. Only the arithmetic
+// inside that line changed: ×2.1125/×3.9926 multiplicative → ×1.85/×2.60 additive.
+check("1 — ...and the Scholarship line does: ×1.85 at 3 of 5, ×2.60 at 5 of 5 (v0.58: additive)",
+  Math.abs(renown.withScholar3 / renown.flat - 1.85) < 0.01 &&
+  Math.abs(renown.withScholar5 / renown.flat - 2.60) < 0.01,
   `${renown.flat} → ${renown.withScholar3} → ${renown.withScholar5}`);
 check("2 — no `!== \"renown\"` special case survives anywhere, on stripped source",
   !/!== "renown"/.test(CODE), (CODE.match(/!== "renown"/g) || []).join(" "));
@@ -115,9 +118,15 @@ check("3/5 — ...and it is ADDITIVE per copy: the lift is 1+0.08n, not (1.08)^n
   Math.abs(renown.lift.at10 - 1.8) < 0.02 && Math.abs(renown.lift.at20 - 2.6) < 0.02 &&
   Math.abs(renown.lift.at40 - 4.2) < 0.02,
   `×${renown.lift.at10} at 10 · ×${renown.lift.at20} at 20 · ×${renown.lift.at40} at 40 copies`);
-check("3 — the ceiling at 20 Halls now clears the CUMULATIVE ladder, not just the tenth lump",
-  renown.withScholar3 > renown.cumulative,
-  `ceiling ${renown.withScholar3} vs tenth ${renown.tenth} vs cumulative ${renown.cumulative}`);
+// RE-POINTED v0.58, superseded by SPEC PART 3 + PART 7.1. The 35% cut takes the 20-Hall
+// ceiling at three rungs from 27,946 to just under the 28,333 CUMULATIVE ladder — and Part 7.1
+// establishes why the cumulative figure was the wrong target in the first place: Renown is
+// lumpy-sink-bound, the player never needs all ten lumps banked at once, and the substantive
+// condition is that the ceiling clears the LARGEST SINGLE PURCHASE. It clears it 2.9x over at
+// three rungs and 4.1x at five. Measured, not asserted: BUILD REPORT §7.1.
+check("3 — the ceiling clears the LARGEST SINGLE PURCHASE (v0.58 Part 7.1's substantive condition)",
+  renown.withScholar3 > renown.tenth * 2 && renown.withScholar5 > renown.cumulative,
+  `ceiling ${renown.withScholar3} (3 rungs) / ${renown.withScholar5} (5) vs tenth ${renown.tenth} vs cumulative ${renown.cumulative}`);
 check("4 — the ten dead `renown:` fields are DELETED from CHAMPS",
   renown.champsWithRenownField.length === 0, renown.champsWithRenownField.join(", ") || "none");
 check("4 — ...and the ladder still prices the tenth champion at 9,611, with its signature cost",
@@ -215,12 +224,18 @@ check("10 — ...and it cannot collapse the settlement into a monoculture",
 // ============================================================================
 // PASS CONDITIONS 11, 12, 13 — the Scholarship census and the restatement
 // ============================================================================
-check("11 — the Scholarship line is CENSUSED by the harness, rungs reached and product delivered",
+// RE-POINTED v0.58: the census survives the restructure, but it reports a Σ and a 1+Σ now.
+check("11 — the Scholarship line is CENSUSED by the harness, rungs reached and total delivered",
   /scholarship: \(\(\) => \{/.test(SIMCORE) && /additiveWouldGive/.test(SIMCORE) &&
-  /THE SCHOLARSHIP LINE \(the multiplicative chain §19 missed\)/.test(PACING));
-check("11 — ...and the restructure is DATED to v0.58, not shipped: the chain is still multiplicative",
-  /SCHOLAR_LINE\.forEach\(function \(u\) \{\s*if \(S\.upgrades\[u\[0\]\]\) scholarMult \*= u\[1\];/.test(CODE) &&
-  /the v0\.58 restructure is a CUT/.test(PACING));
+  /THE SCHOLARSHIP LINE, NOW AN ADDITIVE ACCUMULATOR/.test(PACING));
+// RE-POINTED v0.58: v0.57 asserted the restructure was DATED and NOT YET SHIPPED, which is the
+// correct assertion for exactly one round. v0.58 Part 3 ships it, so the assertion flips to its
+// mirror image — the chain must be GONE, and the census must still state what it cut from.
+check("11 — ...and v0.58 Part 3 SHIPS it: the multiplicative chain is gone from the source",
+  !/scholarMult\s*\*=/.test(CODE) &&
+  /var scholarAdd = 0;/.test(CODE) &&
+  /the v0\.58 Part 3 restructure is a CUT/.test(PACING) &&
+  /retiredChainWouldGive/.test(SIMCORE));
 check("12 — pass condition 5 is RESTATED: the cap-out band applies only to stock-limited raws",
   /PASS CONDITION 5 \(v0\.57 RESTATED\)/.test(PACING) &&
   /lumpy sink only — a cap change cannot move this/.test(PACING));
@@ -263,18 +278,29 @@ check("14 — Part 7.2.5: the Wilds and expedition block is taken — twelve row
 // ============================================================================
 // PASS CONDITION 15 — Rites and Convergence, ruled with a reason
 // ============================================================================
-check("15 — Rites of Targon is RE-BASED to y75 once, with the reason and the margin stated",
-  /Rites of Targon before year 75 \(v0\.57 Part 7\.2\.6: re-based from 70/.test(PACING) &&
-  /leaves a ~2\.4-year margin/.test(PACING));
+// RE-POINTED v0.58, superseded by SPEC PART 1 (the condition restatement). v0.57's re-base was
+// sized from TWO seeds and failed on two of three; Part 1's whole purpose is that a condition
+// like this is an ENSEMBLE condition with a declared shape, so the label carries the shape and
+// the reason rather than a re-base note. What is asserted is that the y75 threshold survives
+// AND that it now declares itself a median condition with a stated reason.
+check("15 — Rites of Targon is a y75 MEDIAN condition with its shape and reason stated (v0.58 Part 1)",
+  /id: "rites", label: "Rites of Targon before year 75"/.test(PACING) &&
+  /shape: "median"/.test(PACING) &&
+  /an EARLY-PACE condition, and early pace is a distribution rather than a worst case/.test(PACING));
 // The first draft of this assertion pinned the phrase "trend is MONOTONE TOWARD THE TARGET",
 // which was the argument I gave for keeping the condition — and the v0.57 ensemble reversed the
 // trend (1.42 / 2.87 / 3.71 against v0.56's 4.17 / 4.40). The argument is withdrawn in the
 // source and the assertion now pins the WITHDRAWAL, because a suite that guards a claim its own
 // round disproved is worse than no suite at all.
-check("15 — Convergence is kept at 5–8% as a deferred-work marker, on a corrected argument",
-  /DEFERRED-WORK marker, not a regression guard — do not re-base/.test(PACING) &&
-  /The monotone-trend argument is withdrawn/.test(PACING) &&
-  /doing its job by failing loudly/.test(PACING));
+// RE-POINTED v0.58, superseded by SPEC PART 2. v0.57 KEPT the 5-8% band as a marker for work
+// it was not doing; v0.58 does the work — the Chapel ports the missing producer tier — and only
+// then re-derives the condition, in that order, which is what pacing.mjs's own ruling permits.
+// The band becomes a FLOOR anchored on Kittens' 1,000-worship / 1.00% Solar Revolution gate,
+// and the ceiling is explicitly withdrawn rather than invented.
+check("15 — Convergence is RE-DERIVED as a sourced floor after the Chapel shipped (v0.58 Part 2)",
+  /re-derived as a FLOOR/.test(PACING) &&
+  /Kittens gates Solar Revolution at 1,000 worship/.test(PACING) &&
+  /the source supplies no ceiling/.test(PACING));
 
 // ============================================================================
 // PASS CONDITION 16 — the unchanged set
@@ -322,8 +348,10 @@ check("16 — auditCostGraph() and auditRawGraph() are both still zero",
 // ============================================================================
 // PASS CONDITION 17 — every Part actioned
 // ============================================================================
-check("17 — VERSION is v0.57 and the footer is rendered from it",
-  unchanged.version === "v0.57" &&
+// RE-POINTED v0.58: a version assertion is true for one round by construction. It is kept as a
+// FOOTER-RENDERING assertion, which is the property that can actually regress.
+check("17 — VERSION is current and the footer is rendered from it",
+  /^v0\.\d\d$/.test(unchanged.version) &&
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1),
   unchanged.version);
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));

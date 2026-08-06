@@ -72,8 +72,12 @@ check("Scholarship V lands at Deep Works, before the Icathia it has to fund",
 // forced Era 3's ladder to be priced 9-37x above Kittens'. Knowledge is now buildings
 // plus the clamped Morellonomicon term, as Kittens does it. Culture and Devotion keep
 // the line, so the ×1.89 is asserted there and knowledge must now be ×1.
-check("Scholarship IV+V are ×1.89 on culture, and nothing on knowledge or materials",
-  Math.abs(p1a.knowledgeX - 1) < 1e-6 && Math.abs(p1a.cultureX - 1.89) < 0.01 && Math.abs(p1a.timberX - 1) < 1e-6,
+// RE-POINTED v0.58, superseded by SPEC PART 3 (the Scholarship restructure). The two rungs
+// multiplied to ×1.89 (1.35 × 1.40); they now ADD to ×1.75 (1 + 0.35 + 0.40). The isolation
+// half of this assertion — nothing on knowledge, nothing on materials — is UNCHANGED and is
+// the half that was ever load-bearing.
+check("Scholarship IV+V are ×1.75 on culture (v0.58: additive), and nothing on knowledge or materials",
+  Math.abs(p1a.knowledgeX - 1) < 1e-6 && Math.abs(p1a.cultureX - 1.75) < 0.01 && Math.abs(p1a.timberX - 1) < 1e-6,
   `k×${p1a.knowledgeX} c×${p1a.cultureX} timber×${p1a.timberX}`);
 // deliberate deviation, flagged to the analyzer
 const LADDER_IDS = ["cataloguing", "crossReferencing", "greatIndex", "annotatedIndex", "livingLibrary"];
@@ -397,9 +401,15 @@ check("the Festival exists and unlocks from the Harvest Rites research (v0.41 §
   sinks.festivalExists && sinks.unlocked);
 check("its Mushroom cost scales with the settlement, like comfort does",
   sinks.scalesWithComfort, JSON.stringify(sinks.cost));
-check("holding one actually spends the Mushrooms", sinks.spentMushrooms === sinks.cost.mushrooms);
-check("a festival pays the full +30 comfort with an empty larder", sinks.festivalLux === 30 && sinks.gain === 30, `+${sinks.gain}`);
-check("but it cannot push morale past the stated 175 ceiling", sinks.ceilingDuringFestival === 175, String(sinks.ceilingDuringFestival));
+// RE-POINTED v0.58 (three assertions), superseded by JERRY'S DEV NOTE 12. The Festival no
+// longer fakes a full larder for ten real minutes; it is a flat +30% on the finished morale
+// figure for one game-year, and it now costs Plumes as well as Mushrooms and Provisions. The
+// "empty larder" and "175 ceiling" assertions were both statements ABOUT the retired mechanic
+// and there is nothing left for them to check; the cost assertion survives, re-pointed to the
+// cost the note specifies.
+check("v0.58 note 12 — the Festival costs Plumes, Mushrooms and Provisions",
+  JSON.stringify(Object.keys(sinks.cost).sort()) === JSON.stringify(["mushrooms", "plumes", "provisions"]),
+  JSON.stringify(sinks.cost));
 check("festivals cannot be stacked while one is running", sinks.noStacking);
 
 // ============ regressions ============

@@ -279,8 +279,12 @@ const ui = await page.evaluate(async () => {
 check("tooltip edit 1 — an OPEN tooltip's material counts move with the game",
   ui.liveChanged && ui.liveHasLoop, `changed: ${ui.liveChanged}, wired into tick: ${ui.liveHasLoop}`);
 check("...and a hidden tooltip is not re-rendered (the descriptor is cleared)", ui.clearedOnHide);
+// RE-POINTED v0.58, superseded by JERRY'S DEV NOTE 5.1. This probes the KRUGS tooltip, whose
+// yield string lost its third clause when the hextech-crystal drop was deleted. The property
+// being guarded is "one clause per line, derived from the yield string" — the clause COUNT was
+// never the point, and hard-coding 3 made a content change look like a rendering regression.
 check("tooltip edit 2 — Wilds yields render one per line, not as a paragraph",
-  ui.wildsYieldLines === ui.wildsExpected && ui.wildsYieldLines >= 3,
+  ui.wildsYieldLines === ui.wildsExpected && ui.wildsYieldLines >= 2,
   `${ui.wildsYieldLines} lines (expected ${ui.wildsExpected})`);
 check("tooltip edit 3 — the route's flavour is split in the DATA, and yieldDesc still derives",
   ui.split.amt === "28-38 steel" && /burn your timber/.test(ui.split.note) &&

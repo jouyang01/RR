@@ -171,8 +171,11 @@ check("Jerry — the Warehouse holds 750, and ONLY once Silos is researched, as 
 check("Jerry — a conditional cap is a declared field: one declaration, read by the maths and the tooltip",
   /capsIf: \{ upgrade: "chemtechSilos", caps: \{ provisions: 750 \} \}/.test(CODE) &&
   (CODE.match(/capsIf: \{/g) || []).length === 1 &&
-  /if \(b\.capsIf && S\.upgrades\[b\.capsIf\.upgrade\]\)/.test(CODE) &&
-  /if \(b\.capsIf\) \{/.test(CODE),
+  // RE-POINTED v0.58, superseded by JERRY'S DEV NOTE 2 ("Warehouses should not say +provisions
+  // until the discovery is actually unlocked. No spoilers!"). The tooltip used to read the
+  // field UNGATED so it could advertise the payoff early; it now reads it through the same
+  // gate the maths uses. So both read sites are the gated form, and there are two of them.
+  (CODE.match(/if \(b\.capsIf && S\.upgrades\[b\.capsIf\.upgrade\]\)/g) || []).length === 2,
   `${(CODE.match(/capsIf: \{/g) || []).length} declaration(s)`);
 
 // ============================================================================

@@ -52,7 +52,12 @@ const s21 = await page.evaluate(() => {
 check("the Tome knowledge-cap line is deleted", s21.lineGone);
 check("a hundred thousand Tomes now raise the cap by exactly nothing", s21.tomesDoNothing);
 check("Tomes keep every other job they had", JSON.stringify(s21.tomeJobs) === JSON.stringify([5, 40, 120, 1]) && s21.trainUsesTomes, JSON.stringify(s21.tomeJobs));
-check("the Tome tooltip explains where the cap went now", /Scholarship/.test(s21.tomeDesc) && !/\+150 knowledge cap/.test(s21.tomeDesc));
+// RE-POINTED v0.58, superseded by JERRY'S DEV NOTE 8 ("descriptions should not include the
+// changes we've made... it should just have flavor text"). The Tome desc named a mechanic the
+// player never saw, in a sentence written for someone who remembered v0.40. The invariant that
+// survives is the one that matters: the desc must not RE-ADVERTISE the deleted cap line.
+check("the Tome tooltip no longer advertises the deleted knowledge-cap line (v0.58 note 8: flavour only)",
+  !/\+150 knowledge cap/.test(s21.tomeDesc) && !/knowledge cap/i.test(s21.tomeDesc), s21.tomeDesc);
 check("the Observatory's Sparks gate is withdrawn", s21.obsUnlockGone);
 // SUPERSEDED v0.46 Part 1. The v0.41 concern was that scaffold is Sparks-gated; it is
 // not — Scaffold is unlocked by slabCutting at Mining, well before the Observatory's own
@@ -69,8 +74,12 @@ check("The Great Index moves to Call to Arms, and the ladder stays monotonic (v0
 // the Archives, Academies and Observatories barely mattered next to five upgrades.
 // The PROPERTY v0.41 was guarding — that the Great Index lands before Sparks so the
 // pre-Sparks multiplier is the full early-line product — is unchanged.
-check("all three pre-Sparks Scholarship tiers are available before Sparks",
-  Math.abs(s21.preSparksMult - 1.25 * 1.3 * 1.3) < 0.01, `×${s21.preSparksMult}`);
+// RE-POINTED v0.58, superseded by SPEC PART 3. The three early rungs no longer multiply; they
+// sum. The PROPERTY this assertion has always guarded — that all three land before Sparks, so
+// the pre-Sparks figure is the full early-line total — is untouched, and only the arithmetic
+// that combines them has changed.
+check("all three pre-Sparks Scholarship tiers are available before Sparks (v0.58: additive)",
+  Math.abs(s21.preSparksMult - (1 + 0.25 + 0.30 + 0.30)) < 0.01, `×${s21.preSparksMult}`);
 const prices41 = await page.evaluate(() => {
   const t = id => TECHS.find(x => x.id === id).cost.knowledge;
   return { sparks: t("sparks"), chemtech: t("chemtech"), hexcore: t("hexcore"), deepWorks: t("deepWorks"), icathia: t("icathia") };
@@ -420,8 +429,15 @@ const cry = await page.evaluate(() => {
 });
 check("no faction yields Hextech Crystals any more (the revamp removed every one)",
   cry.factionCrystals.length === 0, cry.factionCrystals.join(","));
-check("...so Krugs carries the non-trade faucet, or the tech tree dead-ends",
-  cry.krugsPays && cry.paid, `${cry.crystalPriced.length} things are crystal-priced`);
+// RE-POINTED v0.58, superseded by JERRY'S DEV NOTE 5.1 ("Krugs should not give hextech
+// crystals"). The disjunction this assertion offered — "Krugs carries the faucet, OR the tech
+// tree dead-ends" — was answered by v0.41 with Krugs and by v0.58 with the OTHER branch: the
+// Hexcrystal Quarry is the faucet, and it is the building that exists to be one. Krugs sit at
+// Expedition Logistics, an entire tier below the resource. What is asserted now is that a
+// faucet EXISTS and is not the first-tech camp.
+const BUILD_HAS_QUARRY = await page.evaluate(() => !!BUILDINGS.find(b => b.id === "hexQuarry" && b.convert && b.convert.output.hexore));
+check("...so a crystal faucet exists, and after v0.58 note 5.1 it is NOT the first-tech camp",
+  !cry.krugsPays && BUILD_HAS_QUARRY, `${cry.crystalPriced.length} things are crystal-priced`);
 
 // ==================== regressions ====================
 await reset();

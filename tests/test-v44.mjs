@@ -292,7 +292,11 @@ const sch = await page.evaluate(() => {
 });
 check("Scholarship no longer touches the knowledge cap at all",
   Math.abs(sch.kX - 1) < 1e-9, `×${sch.kX}`);
-check("it still multiplies Culture by ×3.99", Math.abs(sch.cX - 3.99) < 0.02, `×${sch.cX}`);
+// RE-POINTED v0.58, superseded by SPEC PART 3. The line is an additive accumulator now:
+// ×2.60 at all five rungs, down from the chain's ×3.9926. The invariant this assertion guards
+// — the Scholarship line REACHES culture and does not reach knowledge — is untouched.
+check("it still raises Culture, now at the additive ×2.60 (v0.58 Part 3)",
+  Math.abs(sch.cX - 2.60) < 0.02, `×${sch.cX}`);
 // v0.57 Part 1 RE-POINT: RENOWN JOINS THE FAMILY, on Jerry's directive 1. What this assertion
 // has always been about is that the Scholarship line does not reach KNOWLEDGE (asserted above,
 // and still true) — the membership list itself moves when a directive moves it.

@@ -103,9 +103,17 @@ const prose = await page.evaluate(() => ({
   hex: UPGRADES.find(u => u.id === "hexresonance").effect,
   generated: typeof hoeDesc === "function" && typeof masterworkDesc === "function"
 }));
+// RE-POINTED v0.58, superseded by JERRY'S DEV NOTE 9 ("descriptions should not say 'one rung
+// of the axe line' or '(×4.45 with all 7)'. No spoilers!"). The fully-stacked line totals told
+// the player how many undiscovered upgrades a line still holds, which is the same spoiler class
+// the tooltip layer already refuses elsewhere. The GENERATION property this assertion exists to
+// guard is unchanged and is still asserted: the prose is built by the helpers from the tables,
+// and each rung still states its OWN contribution from the table it lives in.
 check("the three re-homed upgrades generate their prose from the same tables the code reads",
-  prose.generated && /×1\.55/.test(prose.plows) && /×4\.45/.test(prose.mw) && /×1\.55/.test(prose.mw) &&
-  /0\.220 per Mill with all 6/.test(prose.stw),
+  prose.generated && /Farmers \+30%/.test(prose.plows) &&
+  /Woodcutters \+25%/.test(prose.mw) && /Farmers \+25%/.test(prose.mw) &&
+  /rises by 2\.5 points/.test(prose.stw) &&
+  !/with all \d/.test(prose.plows + prose.mw + prose.stw),
   [prose.plows, prose.mw, prose.stw].join(" || "));
 
 // ============================================================================

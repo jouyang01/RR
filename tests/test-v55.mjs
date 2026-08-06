@@ -550,8 +550,13 @@ check("17 — every roll inside EXPEDITIONS goes through the wrappers; no raw Ma
 // ============================================================================
 // PASS CONDITIONS 18, 19, 20 — Convergence, the unchanged set, ship discipline
 // ============================================================================
+// RE-POINTED v0.58, superseded by SPEC PART 2 (the Convergence round). The 5-8% band had no
+// source derivation — the spec's words — and v0.58 replaced it with a FLOOR anchored on
+// Kittens' own Solar Revolution gate (1,000 worship = 1.00% on this same formula). This
+// assertion has always been "Convergence IS a pass condition", not "the band is 5-8%", and it
+// is re-pointed to the label the harness now carries.
 check("18 — Convergence at Sparks is a pass condition in the pacing harness",
-  /Convergence 5-8% at Sparks/.test(readFileSync(new URL("../sim/pacing.mjs", import.meta.url), "utf8")));
+  /Convergence at Sparks >= /.test(readFileSync(new URL("../sim/pacing.mjs", import.meta.url), "utf8")));
 const unchanged = await page.evaluate(() => ({
   science: (function () {
     S.buildings = {}; S.upgrades = {}; S.techs = {}; S.policies = {}; S.champs = {}; S.pop = 0;

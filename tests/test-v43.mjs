@@ -230,7 +230,10 @@ check("the recruit card no longer lists the class or the rung", ui.showsRecruitI
 // ==================== Part 0 + Jerry's directive 4 ====================
 const drift = await page.evaluate(() => {
   const descs = SCHOLAR_LINE.map(([id, mult]) => ({ id, mult, desc: UPGRADES.find(u => u.id === id).desc }));
-  const mismatched = descs.filter(d => d.desc.indexOf("×" + d.mult) === -1).map(d => d.id);
+  // RE-POINTED v0.58, superseded by SPEC PART 3. SCHOLAR_LINE holds INCREMENTS now, so the
+  // prose states "+25%" where it used to state "×1.25". The invariant is unchanged and is the
+  // whole point of this block: the description must state the number the code applies.
+  const mismatched = descs.filter(d => d.desc.indexOf("+" + Math.round(d.mult * 100) + "%") === -1).map(d => d.id);
   // and the multipliers computeCaps actually applies
   // v0.44 Part 2.5.2: knowledge left the line, so "the multiplier the code actually
   // applies" is measured on culture — SCHOLAR_CAPS is the single source for both the
@@ -243,7 +246,8 @@ const drift = await page.evaluate(() => {
     return { id, mult, actual: +(computeCaps().culture / base).toFixed(4) };
   });
   S.upgrades = {}; S.buildings = {};
-  const wrong = applied.filter(a => Math.abs(a.actual - a.mult) > 1e-6).map(a => a.id);
+  // v0.58 Part 3: one rung held delivers 1 + its increment, not the increment itself.
+  const wrong = applied.filter(a => Math.abs(a.actual - (1 + a.mult)) > 1e-6).map(a => a.id);
   // duplicate passives
   const keys = CHAMPS.map(c => c.passive.key + ":" + c.passive.base);
   return { mismatched, wrong, dupes: keys.filter((x, i) => keys.indexOf(x) !== i),

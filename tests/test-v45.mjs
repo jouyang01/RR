@@ -309,8 +309,13 @@ check("...at exactly 10 per kind, which is Kittens' happinessPerLuxury",
 check("...with the constants named and the old ramp gone from the source",
   mor.perLux === 10 && mor.kinds === 3 && mor.noRamp && mor.flatForm,
   JSON.stringify({ perLux: mor.perLux, kinds: mor.kinds, noRamp: mor.noRamp, flatForm: mor.flatForm }));
-check("the Festival still pays the full set, so it is worth what your larder is missing",
-  mor.festThin > mor.oneFur && mor.festFull === mor.allOne,
+// RE-POINTED v0.58, superseded by JERRY'S DEV NOTE 12. The old design was worth "what your
+// larder is missing" — which meant a settlement holding all three comforts got NOTHING for its
+// feast, and mor.festFull === mor.allOne was asserting exactly that dead spot. A flat +30%
+// multiplier is worth something in every state, so the assertion becomes: it helps a thin
+// larder AND it still helps a full one.
+check("v0.58 note 12 — the Festival pays +30% in EVERY state, including a full larder",
+  mor.festThin > mor.oneFur && mor.festFull > mor.allOne,
   `thin ${mor.oneFur}→${mor.festThin}, full ${mor.allOne}→${mor.festFull}`);
 
 // ============================================================================

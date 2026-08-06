@@ -339,8 +339,12 @@ check("trading with an undiscovered faction is refused", fac.tradeBlocked);
 check("scouting parties eventually find everyone", fac.allFound, `${fac.rounds} attempts`);
 check("v0.54 directive 3 — scouting is a FLAT 500 vigor, no escalator, no provisions, and it lives in the Trade tab",
   fac.flat && fac.c1.vigor === 500 && fac.tab === "trade", JSON.stringify([fac.c1, fac.c4, fac.tab]));
-check("...and the only thing that moves it is a Discovery discount, not the count of civilisations",
-  fac.discounted === 425, `${fac.c1.vigor} -> ${fac.discounted} with Surveyed Approaches`);
+// RE-POINTED v0.58, superseded by JERRY'S DEV NOTE 14 ("specify that these are WILD expeditions
+// that cost less"). The vigor discounts are now scoped to Wilds expeditions, and `scouting`
+// carries `tab: "trade"` — so it is deliberately NOT discounted. The assertion now checks the
+// property the round actually shipped: scouting is a flat 500 that no Discovery moves.
+check("...and NOTHING moves it: v0.58 note 14 scopes the Discovery discounts to Wilds expeditions",
+  fac.discounted === 500, `${fac.c1.vigor} -> ${fac.discounted} with Surveyed Approaches`);
 
 // ============ TRADE PAYOUTS ============
 const pay = await page.evaluate(() => {

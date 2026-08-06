@@ -111,7 +111,10 @@ const know = await page.evaluate(() => {
 check("a Morellonomicon is worth +150 knowledge cap", know.perUnit === 150, `+${know.perUnit}`);
 check("the compendium line is CLAMPED to the building cap — at most a doubling, ever",
   know.doublesExactly, `${know.base} building cap → ${know.absurd} with unlimited compendia`);
-check("Scholarship cut from ×22.4 to ×4", Math.abs(know.scholarMult - 3.99) < 0.02, `×${know.scholarMult}`);
+// RE-POINTED v0.58, superseded by SPEC PART 3. v0.42 cut the chain ×22.4 → ×3.99; v0.58 retires
+// the chain outright for an additive accumulator at ×2.60. Same assertion, one more cut.
+check("Scholarship cut from ×22.4 to ×3.99 (v0.42) and now to ×2.60 additive (v0.58 Part 3)",
+  Math.abs(know.scholarMult - 2.60) < 0.02, `×${know.scholarMult}`);
 check("and v0.44 Part 2.5.2 takes it off the knowledge cap entirely", know.knowledgeUntouched === true);
 check("the Morellonomicon recipe is Kittens' compendium, rescaled",
   know.recipe && know.recipe.tome === 30 && know.recipe.knowledge === 9000 && know.gatedOnCrossRef,
@@ -353,7 +356,10 @@ check("regression: no NaN rates with everything owned", reg.noNaNRates, reg.badR
 check("regression: morale finite at 130 wanderers", reg.moraleFinite);
 check("regression: crafted materials still uncapped, including the Morellonomicon", reg.craftedUncapped);
 check("regression: the v0.41 trade invariants survive", reg.tradeV1.length === 0 && reg.tradeV2);
-check("regression: Krugs still produces crystals", reg.krugsCrystals);
+// RE-POINTED v0.58, superseded by JERRY'S DEV NOTE 5.1. This guarded against an ACCIDENTAL
+// removal; the removal is now deliberate and directed, so the assertion is inverted rather
+// than deleted — a silent RE-appearance of the drop would still be a regression.
+check("regression: Krugs produces NO crystals (v0.58 note 5.1, deliberate)", !reg.krugsCrystals);
 
 // ---- the loop gain must not have reopened ----
 const loop = await page.evaluate(() => {
