@@ -26,7 +26,12 @@ const V = {
   mining:       ["js/science.js mining (500)", "PARITY", "500 = 500, exact; both unlock the mine"],
   logistics:    ["js/science.js animal (500)", "PARITY", "500 = 500; animal unlocks pasture + unicornPasture, RR's 500 rung now carries the Granary (Part 3.4)"],
   scriptorium:  ["js/science.js math (1000)", "UNVERIFIED", "RR 900 against math 1000; RR's Academy is math's role but the rung is one step light — 10% cheap, unmeasured"],
-  carpentry:    ["js/science.js construction (1300)", "HARDER", "RR 1000 vs construction 1300: RR's construction-role tech is 23% CHEAPER in rung, i.e. EASIER — see note"],
+  // v0.57 Part 7.1, found while adding the summary-vs-rows guard: THIS ROW CONTRADICTED ITSELF.
+  // The verdict read HARDER and the note read "i.e. EASIER" in the same string. A cheaper rung
+  // is reached sooner, so it is EASIER for the player -- the note was right and the verdict was
+  // a typo, and it is the identical class of defect as the "EASIER 32" prose error this Part
+  // exists to fix: a hand-written label disagreeing with the thing beside it.
+  carpentry:    ["js/science.js construction (1300)", "EASIER", "RR 1000 against construction's 1300 — RR's construction-role tech is 23% CHEAPER in rung, so it arrives sooner"],
   songcraft:    ["js/science.js construction (1300)", "UNVERIFIED", "RR 1300 matches construction's rung exactly, but carries Culture rather than the timber buildings — role mismatch, rung parity"],
   trade:        ["js/science.js currency (1200)", "UNVERIFIED", "rung 1200 matches; the trade mechanism itself is only partly ported"],
   smelting:     ["js/science.js engineering (1500)", "PARITY", "1500 = 1500; now also carries the Irrigation Channel, which is Kittens' aqueduct on engineering (Part 2.2)"],
@@ -210,6 +215,32 @@ const LEAD_V = {
   "shaco-lead":   ["none", "EASIER", "30% vigor refund on expeditions"],
   "ekko-lead":    ["none", "UNVERIFIED", "not measured this round"]
 };
+// ============================================================================
+// v0.57 PART 7.2.5 — THE WILDS AND EXPEDITION BLOCK, taken this round.
+//
+// Twelve rows off the 127-row UNVERIFIED backlog. Kittens has NO expedition system: there is no
+// vigor, no camp, no cooldown, no drake and no Baron. What it has, and what these rows are
+// measured against, is `js/village.js`'s HUNT -- a manpower-priced action that returns furs and
+// ivory through `getHuntResult()`, with `hunterRatio` (the seven workshop upgrades censused in
+// v0.55 Part 4) as its only multiplier. RR's four resource camps ARE that hunt, ported with a
+// charge system on top; everything beyond them is RR-original.
+//
+// The default verdict for an RR-original expedition is EASIER, per §16's null hypothesis, and a
+// row escapes it only where the action is bounded or costs something the source's hunt does not.
+const EXPEDITION_V = {
+  wolves:         ["js/village.js huntAll -> getHuntResult(), furs", "PARITY", "IN SHAPE: RR's resource camps ARE Kittens' hunt: a manpower/vigor-priced action returning furs, scaled by hunterRatio/campYieldMult at the SOURCE's Sigma 5.10 since v0.55 Part 4. The 100-vigor price is RR-original but the yield-per-cost band was matched in v0.40"],
+  gromp:          ["js/village.js getHuntResult()", "PARITY", "IN SHAPE: as wolves; mushrooms stand in for a second hunt drop"],
+  raptors:        ["js/village.js getHuntResult()", "PARITY", "IN SHAPE: as wolves; plumes, plus a Rift Scuttler roll that is RR-original and small"],
+  krugs:          ["js/village.js getHuntResult()", "PARITY", "IN SHAPE: as wolves; the one MATERIAL camp, so it takes CAMP_YIELD_LIMIT rather than the comfort ceiling"],
+  sumpCrawl:      ["none — Kittens has no Era-3 expedition", "EASIER", "RR-original. A repeatable zaunore source priced only in vigor, and vigor measures 0% time-at-cap, so the constraint is the cooldown rather than the price"],
+  blueSentinel:   ["none", "EASIER", "RR-original. Mana, repeatable, vigor-only"],
+  redBrambleback: ["none", "EASIER", "RR-original. The twin of blueSentinel"],
+  abyssJourney:   ["none", "EASIER", "RR-original, and the FIRST expedition that costs a stored resource (provisions 500) rather than pure vigor — which is what keeps it bounded"],
+  scouting:       ["none — Kittens has no trade discovery", "EASIER", "RR-original. Flat 500 vigor since v0.54 directive 3; the escalator was deleted because it walled off content the Trade tab had already advertised"],
+  drakeHunt:      ["none", "EASIER", "RR-original, and the entrance to the drakes — themselves EASIER and re-curved in v0.55 Part 6. Costs steel and 4,000 provisions, so the food economy gates it"],
+  voidExpedition: ["none", "EASIER", "RR-original. focusedHex 2 + provisions 2,000 makes it the most crafted-input-gated expedition in the game"],
+  baron:          ["none", "EASIER", "RR-original. The largest single sink in the Wilds — 1,200 vigor, 100 steel, 20,000 provisions, 200 knowledge — and the only one priced in four resources at once"]
+};
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
 const page = await browser.newPage();
 await page.goto(new URL("../index.html", import.meta.url).href);
@@ -222,6 +253,10 @@ const inv = await page.evaluate(() => ({
   UPGRADES: UPGRADES.map(u => ({ id: u.id, name: u.name, scale: JSON.stringify(u.cost), rung: u.tech || "—" })),
   JOBS: JOBS.map(j => ({ id: j.id, name: j.name, scale: JSON.stringify(j.prod || {}), rung: j.tech || "—" })),
   CRAFTS: CRAFTS.map(c => ({ id: c.id, name: c.name, scale: JSON.stringify(c.cost), rung: c.out })),
+  // v0.57 Part 7.2.5: the Wilds block joins the enumeration, so an expedition added later
+  // cannot miss the ledger any more than a building can.
+  EXPEDITIONS: EXPEDITIONS.map(e => ({ id: e.id, name: e.name,
+    scale: JSON.stringify(e.cost), rung: (e.tab || "wilds") + " · " + (e.tech || "—") })),
   // v0.56 Part 7.6: the champion and leader block is taken this round. It is the largest
   // unlabelled RR-original system in the game -- ten permanent multipliers plus a leader slot,
   // none of which Kittens has in any form -- and Part 3 opens it anyway.
@@ -232,7 +267,7 @@ const inv = await page.evaluate(() => ({
 }));
 await browser.close();
 
-const KINDS = ["TECHS", "BUILDINGS", "UPGRADES", "JOBS", "CRAFTS", "CHAMPIONS", "LEADS"];
+const KINDS = ["TECHS", "BUILDINGS", "UPGRADES", "JOBS", "CRAFTS", "EXPEDITIONS", "CHAMPIONS", "LEADS"];
 const counts = { PARITY: 0, EASIER: 0, HARDER: 0, UNVERIFIED: 0 };
 const esc = s => String(s).replace(/\|/g, "\\|");
 let body = "";
@@ -240,13 +275,26 @@ for (const kind of KINDS) {
   body += `\n## ${kind} (${inv[kind].length})\n\n`;
   body += "| RR id | Kittens counterpart | rung | scale | verdict | note |\n|---|---|---|---|---|---|\n";
   for (const e of inv[kind]) {
-    const m = V[e.id] || UPGRADE_V[e.id] || CHAMP_V[e.id] || LEAD_V[e.id] ||
+    const m = V[e.id] || UPGRADE_V[e.id] || CHAMP_V[e.id] || LEAD_V[e.id] || EXPEDITION_V[e.id] ||
       ["RR-ORIGINAL", "UNVERIFIED", "no citation on file — this row is parity debt, not a claim"];
     counts[m[1]] = (counts[m[1]] || 0) + 1;
     body += `| \`${e.id}\` | ${esc(m[0])} | ${esc(e.rung)} | ${esc(e.scale)} | **${m[1]}** | ${esc(m[2])} |\n`;
   }
 }
 const total = KINDS.reduce((a, k) => a + inv[k].length, 0);
+// v0.57 Part 7.1 — THE GUARD THAT WAS MISSING, and it is here in the GENERATOR rather than only
+// in a suite. Four documents quoted this ledger as "EASIER 32" while the ledger itself said 29,
+// and only 29 makes the total 208. Nothing checked the summary against the rows it summarises.
+// Now the tool refuses to write a file whose verdict buckets do not sum to its own row count,
+// and it refuses to invent a fifth bucket — which is exactly how "PARITY in shape" would have
+// silently created one during this very round.
+{
+  const VERDICTS = ["PARITY", "EASIER", "HARDER", "UNVERIFIED"];
+  const stray = Object.keys(counts).filter(v => VERDICTS.indexOf(v) < 0);
+  const sum = VERDICTS.reduce((a, v) => a + (counts[v] || 0), 0);
+  if (stray.length) { console.error(`LEDGER ABORT: verdict outside the four — ${stray.join(", ")}`); process.exit(1); }
+  if (sum !== total) { console.error(`LEDGER ABORT: buckets sum to ${sum} but there are ${total} rows`); process.exit(1); }
+}
 const header = `# PARITY LEDGER — Runeterra Reclaimed ${inv.version}
 
 **Generated by \`tools/parity-ledger.mjs\`. Do not hand-edit — edit the verdict map in the tool
@@ -283,7 +331,8 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 
 | mechanism | Kittens counterpart | verdict | note |
 |---|---|---|---|
-| **Seasonal farmers** (v0.55 directive 5) | \`js/calendar.js getWeatherMod\` applies the season to catnip, but \`js/village.js updateResourceProduction()\` applies **no** season term to job output — and the Kittens wiki's Game Mechanics page states it outright: *"Seasons affect catnip production from catnip fields, but do not affect production from farmers."* | **HARDER** | **The first HARDER label under the charter.** Jerry's premise was that Kittens' farmers take the season; the source says they do not. His directive stands and ships — it is the round's real Deepwinter lever — but it is an RR-ORIGINAL divergence that makes the game harder, not a parity fix. See BUILD REPORT v0.55 §3. |
+| **Seasonal farmers** (v0.55 directive 5, **REVERSED v0.57 directive 2**) | \`js/village.js updateResourceProduction()\` applies **no** season term to job output; the wiki: *"Seasons affect catnip production from catnip fields, but do not affect production from farmers."* | **PARITY** | **This row is the charter's proof of work.** v0.55 shipped seasonal farmers on a directive whose premise about the source was FALSE, the builder disproved the premise in the same round, and it shipped labelled RR-ORIGINAL / **HARDER** rather than as a parity fix. Two rounds later Jerry read the label and reversed it. v0.57 Part 2 removes the season term from the farmer job — seasonal BUILDINGS keep theirs, which is Kittens' catnip field and is seasonal in the source. **HARDER → PARITY, and the project's HARDER count falls 2 → 1.** STANDING-RULINGS §17, amended not deleted. |
+| **Renown's cap family** (\`SCHOLAR_CAPS\`, and \`renownCapPct\` on the Hall of Heroes) | \`js/resources.js addBarnWarehouseRatio\` touches **seven material effect names and nothing else**; Kittens relieves non-material ceilings by other machinery entirely — \`libraryRatio\` for science, **Ziggurat +8% per copy** for culture, the Temple line for faith | **EASIER** | v0.57 Part 1, Jerry's directive 1. Renown has no Kittens counterpart, so its TIER is an RR-original decision — but what the source settles is which family it cannot be in: **a non-material resource on the material storage line is a category error in the source's own terms.** Renown moves from \`CAP_SCOPE broad\` to \`SCHOLAR_CAPS\`. The dedicated \`renownCapPct 0.08\` per Hall of Heroes shipped because Jerry's objective trigger fired on measurement (time-at-cap 83.1%, not below 70%; tenth champion never affordable) — and it takes **Kittens' own Ziggurat figure and additive per-copy shape**, not a fourth multiplicative Discovery chain. |
 | **The undo window** (\`UNDO_SECONDS = 10\`) | none — Kittens has no undo | **EASIER**, bounded after v0.55 Part 8 | It converted every probabilistic outcome into a best-of-N. v0.55 forces the next roll of the same kind to fail. |
 | **Drakes** (\`DRAKE_PER_KILL\`, five multipliers) | none | **EASIER**, curve fixed in v0.55 Part 6 | \`limitedDR\` is linear below 75% of the cap, so a player reached three-quarters of every drake cap with no diminishing return at all — 7.5 kills for the Mountain Drake. \`strictDR\` bites from the first kill. |
 | **Morale / luxury comfort** | \`js/village.js\` happiness | **UNVERIFIED** | The mechanism is ported in shape; the magnitudes are not censused. Band has measured 61% against an 80% target for two rounds. |

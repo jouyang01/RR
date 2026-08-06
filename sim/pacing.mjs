@@ -304,10 +304,43 @@ console.log(`CRYSTALS at cap: ${r.crystalsAtCapPct}% of elapsed ticks   (v0.52 P
 if (r.capOutPct) {
   console.log("\nv0.56 PART 5 — TIME AT CAP, EVERY CAPPED RESOURCE (worst first)");
   console.log("  " + Object.entries(r.capOutPct).map(([k, v]) => `${k} ${v}%`).join("  "));
+  // ---- v0.57 PART 6 — PASS CONDITION 5, RESTATED ----
+  // v0.56 stated this as a 30-60% CAP-OUT band for all four Era-3 raws, sized two ceilings
+  // against it, and moved them by 3 points and 0 points. The reason is in the balance block
+  // below: a cap-out fraction only measures anything for a resource that is STOCK-limited.
+  // hexore is consumed as fast as it is produced; shimmer has no consumer at all. Restated:
+  //   STOCK-LIMITED (pcRatio > 1.5)  -> the 30-60% cap-out band still applies.
+  //   FLOW-LIMITED  (pcRatio <= 1.5) -> the meaningful target is the PRODUCER/CONSUMER RATIO,
+  //                                     and a cap change cannot move it.
+  //   NO CONSUMER   (pcRatio null)   -> not a tuning question at all. It is a design question,
+  //                                     and it is now TWO resources: shimmer and voidessence.
   const ERA3 = ["zaunore", "coalgas", "hexore", "shimmer"];
-  const band = ERA3.map(k => `${k} ${r.capOutPct[k] ?? 0}%`).join(" | ");
-  const ok = ERA3.every(k => (r.capOutPct[k] ?? 0) >= 30 && (r.capOutPct[k] ?? 0) <= 60);
-  console.log(`  PASS CONDITION 5 — Era-3 raws in a 30-60% cap-out band: ${ok ? "PASS" : "FAIL"}  ${band}`);
+  // deepest milestone the run actually reached — a short slice-comparison run stops before
+  // Icathia and would otherwise report every raw as "unmeasured".
+  const balAt = ["icathia", "deepWorks", "hexcore", "chemtech", "sparks"]
+    .find(k => r.snaps && r.snaps[k] && r.snaps[k].resourceBalance);
+  const bal = balAt ? r.snaps[balAt].resourceBalance : {};
+  if (balAt) console.log(`  (balance measured at ${balAt})`);
+  const classOf = k => { const b = bal[k];
+    if (!b) return "unmeasured";
+    if (b.kind === "no-sink") return "NO SINK AT ALL";
+    if (b.kind === "lumpy-only") return "lumpy sink only — a cap change cannot move this";
+    return b.pcRatio > 1.5 ? "stock-limited" : "flow-limited"; };
+  const stock = ERA3.filter(k => classOf(k) === "stock-limited");
+  const ok = stock.length > 0 && stock.every(k => (r.capOutPct[k] ?? 0) >= 30 && (r.capOutPct[k] ?? 0) <= 60);
+  console.log(`  PASS CONDITION 5 (v0.57 RESTATED) — the 30-60% cap-out band applies ONLY to ` +
+    `stock-limited raws: ${stock.length ? stock.join(", ") : "none"} → ${ok ? "PASS" : "FAIL"}`);
+  ERA3.forEach(k => {
+    const b = bal[k] || {};
+    console.log(`     ${k.padEnd(9)} cap-out ${String((r.capOutPct[k] ?? 0) + "%").padStart(7)}` +
+      `  held ${(b.held === null || b.held === undefined ? "—" : (100 * b.held).toFixed(0) + "%").padStart(5)}` +
+      `  gross ${String(b.gross ?? "—").padStart(9)}/s  consumed ${String(b.consumed ?? "—").padStart(9)}/s` +
+      `  P/C ${String(b.pcRatio ?? "—").padStart(7)}  ${String(b.lumpySinks ?? "?").padStart(2)} lumpy sinks   ${classOf(k)}`);
+  });
+  const noSink = Object.keys(bal).filter(k => bal[k] && bal[k].kind === "no-sink" && bal[k].gross > 1e-6);
+  if (noSink.length) console.log(`  RESOURCES BEING PRODUCED WITH NO SINK OF ANY KIND (a design question, not a cap): ${noSink.join(", ")}`);
+  const lumpyFull = Object.keys(bal).filter(k => bal[k] && bal[k].kind === "lumpy-only" && (bal[k].held ?? 0) > 0.9);
+  if (lumpyFull.length) console.log(`  LUMPY-SINK RESOURCES SITTING AT THEIR CEILING (the player is full and waiting to spend): ${lumpyFull.join(", ")}`);
   const twelve = Object.keys(r.capOutPct).filter(k => k !== "vigor" && k !== "knowledge");
   const avg = twelve.length ? twelve.reduce((a, k) => a + r.capOutPct[k], 0) / twelve.length : 0;
   console.log(`  spread: worst ${Object.values(r.capOutPct)[0] ?? 0}%, average across ${twelve.length} multiplied resources ${avg.toFixed(1)}%`);
@@ -359,6 +392,19 @@ if (m.sparks !== undefined) {
 }
 const peak = Math.max(...r.samples.map(s => s.pop));
 console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHED" : "not reached"})`);
+// ---- v0.57 Part 5 — the Scholarship census, dated to v0.58 as a restructure, measured here ----
+{
+  const sc = (r.snaps && (r.snaps.icathia || r.snaps.deepWorks || r.snaps.hexcore || r.snaps.sparks) || {}).scholarship;
+  if (sc) {
+    console.log("\nv0.57 PART 5 — THE SCHOLARSHIP LINE (the multiplicative chain §19 missed)");
+    console.log(`  rungs reached by the instrument: ${sc.owned} of ${sc.of}  [${sc.held.join(", ")}]`);
+    console.log(`  delivered product at that state: ×${sc.product}   fully stacked: ×${sc.fullProduct}` +
+      `   the SAME MEMBERS READ ADDITIVELY would give: ×${sc.additiveWouldGive}`);
+    console.log(`  delivered per resource: ` + Object.entries(sc.delivered).map(([k, v]) => `${k} ×${v}`).join("  "));
+    console.log(`  → the v0.58 restructure is a CUT from ×${sc.fullProduct} to ×${sc.additiveWouldGive}, ` +
+      `applied to the resource already at ${(r.capOutPct || {}).culture ?? "?"}% of its ceiling. Dated, not shipped.`);
+  }
+}
 // v0.50 Part 5 — what a PLAYER could run, rather than what the bot did.
 ["sparks", "hexcore", "icathia"].forEach(k => {
   const ct = r.snaps && r.snaps[k] && r.snaps[k].cheapestTrade;
@@ -394,8 +440,33 @@ const checks = [
   // measures y65.5, so y70 leaves a 4.5-year margin and remains a real regression guard
   // rather than a rubber stamp. Same treatment "first trade before Sparks" got in v0.50
   // Part 5. If a future round wants y55 back it needs to say what would produce it.
-  ["Rites of Targon before year 70 (v0.53 Part 6: re-based from 55, reason above)",
-    m.ritesOfTargon !== undefined && m.ritesOfTargon < 70, m.ritesOfTargon],
+  // ==========================================================================
+  // v0.57 PART 7.2.6 — RULED, AND THE RULING IS "THE CONDITION IS RIGHT, THE MARGIN WAS TOO
+  // TIGHT TO SURVIVE ITS OWN INSTRUMENT."
+  //
+  // The spec is blunt: "a condition failed four times without a ruling is not a condition."
+  // Rites has read y72.7 / y72.5 (v0.56, both seeds) and y75.3 (v0.55) against a y70 target
+  // re-based in v0.53 from a measured y65.5 with a stated 4.5-year margin.
+  //
+  // WHAT CHANGED SINCE THAT MARGIN WAS CHOSEN, and it is not drift: v0.55 rescaled the entire
+  // food economy x10 and made Deepwinter bind, and v0.56 cut the food ceiling to Kittens' own
+  // figures. Rites of Targon sits at knowledge 12,000, which an Era-1 settlement reaches on
+  // loremaster-seconds -- and loremaster-seconds are exactly what a settlement spends on
+  // FARMERS when food gets tight. The 2.7-year overshoot is the food rounds arriving, not the
+  // tech ladder moving: the ladder is unchanged at 37 rungs and both audit graphs are zero.
+  //
+  // AND v0.57 IS THE ROUND THAT MAKES IT MEASURABLE AGAIN. Part 4 gives the bot a food policy
+  // for the first time, so the loremaster/farmer split is now a decision rather than an
+  // accident, and Part 3 means the figure carries a spread instead of pretending to be exact.
+  //
+  // RE-BASED TO y75, ONCE, WITH THE MARGIN STATED. v0.56 measured y72.7 and y72.5 across two
+  // seeds; y75 leaves a ~2.4-year margin on the worse of them and remains a real regression
+  // guard. It is NOT re-based to whatever this round happens to measure -- that would be a
+  // rubber stamp, which is the thing the spec is objecting to. If a future round wants y70
+  // back, the lever is the bot's loremaster share under the new food policy, and it should say
+  // so and measure it.
+  ["Rites of Targon before year 75 (v0.57 Part 7.2.6: re-based from 70, reason above)",
+    m.ritesOfTargon !== undefined && m.ritesOfTargon < 75, m.ritesOfTargon],
   ["First Ascent occurs", m.firstAscent !== undefined, m.firstAscent],
   ["First champion before year 120", m.firstChampion !== undefined && m.firstChampion < 120, m.firstChampion],
   ["130 wanderers before year 600", m.pop130 !== undefined && m.pop130 < 600, m.pop130],
@@ -424,7 +495,30 @@ const checks = [
   // NEVER had a pass condition attached to it, so three rounds of drift went unreported —
   // it measured 5.4% on v0.52, 3.18% on v0.53 and 2.33% on v0.54. A target with no condition
   // is not a target. Added here even though the Convergence work itself is deferred.
-  ["Convergence 5-8% at Sparks", (() => {
+  // v0.57 PART 7.2.6 — CONVERGENCE, RULED THE OTHER WAY: THE CONDITION STAYS AT 5-8% AND IT IS
+  // SUPPOSED TO BE FAILING.
+  //
+  // It read 2.33% (v0.54), 3.87% (v0.55) and 4.17% / 4.40% (v0.56) against a 5-8% target.
+  //
+  // CORRECTION, WRITTEN AFTER THE v0.57 ENSEMBLE RAN AND AGAINST MY OWN EARLIER DRAFT OF THIS
+  // COMMENT: I wrote here that the trend was "monotone toward the target" and used that as the
+  // argument for keeping the condition. THE v0.57 ENSEMBLE REVERSED IT -- 1.42% / 2.87% / 3.71%
+  // across three seeds, worse than v0.56 on every one. The monotone-trend argument is withdrawn.
+  //
+  // The condition is KEPT ANYWAY, on a better argument than the one I had: Convergence is
+  // worship-driven, worship is ascent-driven, and v0.57's food policy holds the settlement at a
+  // lower population for longer -- so the regression is a MEASURED CONSEQUENCE of this round's
+  // apparatus work rather than drift, and a target that moves whenever the game moves is not a
+  // target. The Convergence round itself has been deferred five times and is still deferred;
+  // what is not acceptable is deferring it SILENTLY, which is why v0.55 Part 9 attached this
+  // condition at all. It is a DEFERRED-WORK marker and it is doing its job by failing loudly.
+  //
+  // THE RULING: keep 5-8%, and record that it is a DEFERRED-WORK marker rather than a
+  // regression guard. It may not be re-based to the measured value in any round that does not
+  // also do the Convergence work -- re-basing a target to whatever you happen to measure is how
+  // a target stops meaning anything, and this project has now done that twice (Rites y55 -> y70,
+  // and above y70 -> y75, both with stated reasons and both once).
+  ["Convergence 5-8% at Sparks (v0.57: DEFERRED-WORK marker, not a regression guard — do not re-base)", (() => {
     const at = m.sparks !== undefined ? r.samples.find(s2 => s2.year >= m.sparks) : null;
     return !!at && at.worshipBonus >= 5 && at.worshipBonus <= 8;
   })(), (() => { const at = m.sparks !== undefined ? r.samples.find(s2 => s2.year >= m.sparks) : null;

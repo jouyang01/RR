@@ -314,6 +314,94 @@ export async function runSim(page, years, seed = 1) {
           }
           return o;
         })(),
+        // ---- v0.57 PART 5: the Scholarship census, the same one v0.56 did for storage ----
+        // v0.56 found the instrument holds only 3 of the 5 STORAGE rungs through most of a run,
+        // so the fully-stacked table it shipped was never exercised. The Scholarship line is the
+        // identical multiplicative-chain shape STANDING-RULINGS §19 ruled out of existence for
+        // the material line -- surviving on culture, devotion and, from v0.57 Part 1, renown --
+        // and nobody has ever censused how many of ITS rungs a run reaches. The v0.58 sizing
+        // depends on that number, so it is measured here rather than assumed.
+        scholarship: (() => {
+          const owned = S.upgrades;
+          const LINE = SCHOLAR_LINE.map(u => u[0]);
+          const withAll = computeCaps();
+          const stripped = {}; for (const k in owned) if (LINE.indexOf(k) < 0) stripped[k] = owned[k];
+          S.upgrades = stripped; const without = computeCaps(); S.upgrades = owned;
+          const o = { owned: LINE.filter(u => owned[u]).length, of: LINE.length,
+                      held: LINE.filter(u => owned[u]), delivered: {},
+                      product: +SCHOLAR_LINE.reduce((a, u) => a * (owned[u[0]] ? u[1] : 1), 1).toFixed(4),
+                      fullProduct: +SCHOLAR_LINE.reduce((a, u) => a * u[1], 1).toFixed(4),
+                      additiveWouldGive: +(1 + SCHOLAR_LINE.reduce((a, u) => a + (u[1] - 1), 0)).toFixed(4) };
+          Object.keys(SCHOLAR_CAPS).forEach(rr => {
+            if (without[rr] > 0) o.delivered[rr] = +(withAll[rr] / without[rr]).toFixed(4);
+          });
+          return o;
+        })(),
+        // ---- v0.57 PART 6: held/cap AND a producer/consumer ratio for EVERY capped resource --
+        // v0.56 sized two Era-3 ceilings from cap-out fractions and moved them by 3 points and 0
+        // points. The reason is that a cap-out fraction cannot tell three different situations
+        // apart, and all three are present in this game:
+        //
+        //   CONTINUOUS CONSUMER  something draws the resource every tick (a `convert` input, or
+        //                        eating). Then gross/consumed is meaningful and a ceiling only
+        //                        binds if the ratio is well above 1.
+        //   LUMPY SINK ONLY      nothing draws it per tick, but buildings, techs, Discoveries,
+        //                        crafts or expeditions buy it in lumps. Then the stock fills the
+        //                        ceiling BETWEEN purchases and a high cap-out fraction means
+        //                        "the player sat full waiting to spend", not "the cap is tight".
+        //                        THIS IS SHIMMER, and it is why raising its ceiling x2.5 moved
+        //                        its cap-out by 3 points.
+        //   NO SINK AT ALL       neither. That is a design question, not a tuning one.
+        //
+        // `gross` is measured by switching off ONLY the converters that CONSUME this resource --
+        // v0.56's first attempt switched off every converter and read gross 0/s for zaunore,
+        // because the Sump Mine that produces it is a converter too.
+        resourceBalance: (() => {
+          const caps = computeCaps(), rates = computeRates();
+          const capped = Object.keys(RES).filter(r2 => RES[r2].baseCap !== undefined);
+          const offSave = JSON.parse(JSON.stringify(S.buildingsOff || {}));
+          const lumpy = r2 => {
+            let n = 0;
+            const scan = list => (list || []).forEach(x => { if (x && x.cost && x.cost[r2]) n++; });
+            scan(BUILDINGS); scan(TECHS); scan(UPGRADES); scan(CRAFTS); scan(EXPEDITIONS);
+            (CHAMPS || []).forEach(c => { if (c.cost && c.cost[r2]) n++; });
+            if (typeof POLICIES !== "undefined") scan(POLICIES);
+            // DYNAMICALLY PRICED SINKS, and this one bit immediately. Champion recruit and train
+            // prices are BUILT by recruitCost()/trainCost() from RECRUIT_BASE x RECRUIT_RATIO^n,
+            // not declared in a `cost` field -- and v0.57 Part 1.4 deleted the ten static
+            // `renown:` figures that used to sit in CHAMPS looking like prices. A purely static
+            // scan therefore reported RENOWN as having NO SINK AT ALL, moments after the round
+            // moved its entire storage family. Read the real prices instead of the table.
+            (CHAMPS || []).forEach(c => {
+              if ((recruitCost(c.id) || {})[r2]) n++;
+              if (typeof trainCost === "function" && (trainCost(c.id) || {})[r2]) n++;
+            });
+            return n;
+          };
+          const o = {};
+          capped.forEach(r2 => {
+            const eaters = BUILDINGS.filter(b => b.convert && b.convert.input && b.convert.input[r2]);
+            let gross;
+            if (eaters.length) {
+              S.buildingsOff = JSON.parse(JSON.stringify(offSave));
+              eaters.forEach(b => S.buildingsOff[b.id] = true);
+              gross = computeRates()[r2];
+              S.buildingsOff = offSave;
+            } else gross = rates[r2];
+            const g = +(gross || 0).toFixed(4), n = +(rates[r2] || 0).toFixed(4);
+            const consumed = +(g - n).toFixed(4);
+            const sinks = lumpy(r2);
+            o[r2] = {
+              held: caps[r2] > 0 ? +((S.res[r2] || 0) / caps[r2]).toFixed(3) : null,
+              gross: g, net: n, consumed,
+              continuousConsumers: eaters.length, lumpySinks: sinks,
+              pcRatio: consumed > 1e-6 ? +(g / consumed).toFixed(2) : null,
+              kind: consumed > 1e-6 ? "continuous" : (sinks > 0 ? "lumpy-only" : "no-sink")
+            };
+          });
+          S.buildingsOff = offSave;
+          return o;
+        })(),
         steelPerSec: +computeRates().steel.toFixed(4),
         bloomery: count("bloomery"), forge: count("forge"),
         bardsHearths: count("bardsHearth"), morale: morale(),
