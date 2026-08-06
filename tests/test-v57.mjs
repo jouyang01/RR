@@ -1,0 +1,333 @@
+// test-v57 — BUILDER SPEC v0.57 pass conditions, plus Jerry's two directives.
+//
+// Seventeen round pass conditions, asserted in spec order. Conditions that are RUN
+// measurements (2, 3, 9, 10) are asserted here as "the apparatus emits it", with the measured
+// value reported in BUILD REPORT §8 from the three-seed ensemble — a suite cannot assert a
+// 2,500-year median, and pretending otherwise is how a green suite stops meaning anything.
+import { chromium } from "playwright";
+import { readFileSync } from "fs";
+
+const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const errors = [];
+page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+page.on("pageerror", e => errors.push(String(e)));
+await page.goto(new URL("../index.html", import.meta.url).href);
+await page.waitForTimeout(500);
+let pass = 0, fail = 0;
+const check = (n, c, x) => { console.log(n + ":", c ? "PASS" : "FAIL", x ?? ""); c ? pass++ : fail++; };
+const reset = () => page.evaluate(() => loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState()))))));
+
+const RAW = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, "").split("\n")
+  .map(l => l.replace(/(^|[^:])\/\/.*$/, "$1")).join("\n");
+const CODE = strip(RAW);
+const PACING = readFileSync(new URL("../sim/pacing.mjs", import.meta.url), "utf8");
+const SIMCORE = readFileSync(new URL("../sim/simcore.mjs", import.meta.url), "utf8");
+const LEDGER = readFileSync(new URL("../docs/PARITY-LEDGER.md", import.meta.url), "utf8");
+
+// ============================================================================
+// PASS CONDITIONS 1, 2, 3, 4 — Renown leaves the material line
+// ============================================================================
+await reset();
+const renown = await page.evaluate(() => {
+  const capped = Object.keys(RES).filter(r => RES[r].baseCap !== undefined);
+  const bare = () => { S.buildings = {}; S.upgrades = {}; S.techs = {}; S.policies = {};
+                       S.champs = {}; S.leader = null; S.pop = 0; S.wanderers = [];
+                       S.drakes = {}; S.wtechs = {};
+                       if (typeof _traitCounts !== "undefined") _traitCounts = null; };
+  const o = {
+    family: Object.fromEntries(capped.map(r => [r, capFamilyOf(r)])),
+    multiFamily: capped.filter(r =>
+      [CAP_MULT_EXEMPT[r], SCHOLAR_CAPS[r], CAP_SCOPE[r]].filter(Boolean).length !== 1),
+    unfamilied: capped.filter(r => capFamilyOf(r) === null),
+    scholarKeys: Object.keys(SCHOLAR_CAPS),
+    scholarProse: scholarCapNames(),
+    poppyProse: typeof poppyLeadDesc === "function" ? poppyLeadDesc() : ""
+  };
+  // the Masonry line must not move Renown at all any more
+  bare();
+  S.buildings = { hallOfHeroes: 20, trainingGround: 10 };
+  S.techs = { trade: 1, drakeLore: 1, voidStudies: 1 };
+  o.flat = Math.round(computeCaps().renown);
+  S.upgrades = { expandedStores: 1, ironboundStores: 1, hexRunedStores: 1, chemtechSilos: 1, voidwardStores: 1 };
+  o.withMasonry = Math.round(computeCaps().renown);
+  S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1 };
+  o.withScholar3 = Math.round(computeCaps().renown);
+  S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1, annotatedIndex: 1, livingLibrary: 1 };
+  o.withScholar5 = Math.round(computeCaps().renown);
+  // the dedicated line: additive per copy, and it must scale linearly in copies
+  S.upgrades = {};
+  const at = n => { S.buildings = { hallOfHeroes: n, trainingGround: 10 }; return computeCaps().renown; };
+  const noPct = (() => { const h = BUILDINGS.find(b => b.id === "hallOfHeroes");
+    const save = h.renownCapPct; delete h.renownCapPct;
+    const v = { at10: at(10), at20: at(20), at40: at(40) };
+    h.renownCapPct = save; return v; })();
+  const withPct = { at10: at(10), at20: at(20), at40: at(40) };
+  o.pctPerCopy = BUILDINGS.find(b => b.id === "hallOfHeroes").renownCapPct;
+  o.lift = { at10: +(withPct.at10 / noPct.at10).toFixed(4),
+             at20: +(withPct.at20 / noPct.at20).toFixed(4),
+             at40: +(withPct.at40 / noPct.at40).toFixed(4) };
+  o.cultureTwin = BUILDINGS.filter(b => b.cultureCapPct).map(b => [b.id, b.cultureCapPct]);
+  // the recruit ladder, and the ten fields that used to sit beside it
+  bare();
+  o.tenth = Math.round(RECRUIT_BASE * Math.pow(RECRUIT_RATIO, 9));
+  let cum = 0; for (let n = 0; n < 10; n++) cum += Math.round(RECRUIT_BASE * Math.pow(RECRUIT_RATIO, n));
+  o.cumulative = cum;
+  o.champsWithRenownField = CHAMPS.filter(c => c.cost && c.cost.renown !== undefined).map(c => c.id);
+  // and the ladder still prices the tenth champion at 9,611 with nine held
+  CHAMPS.slice(0, 9).forEach(c => S.champs[c.id] = { r: true });
+  o.tenthLive = recruitCost(CHAMPS[9].id).renown;
+  o.tenthCarriesSignature = Object.keys(recruitCost(CHAMPS[9].id)).length > 1;
+  bare();
+  return o;
+});
+check("1 — every capped resource is in EXACTLY ONE cap family, and none is in none",
+  renown.multiFamily.length === 0 && renown.unfamilied.length === 0,
+  `multi-family [${renown.multiFamily.join(",")}] unfamilied [${renown.unfamilied.join(",")}]`);
+check("1 — renown is in SCHOLAR_CAPS, beside culture and devotion",
+  renown.family.renown === "scholar" &&
+  JSON.stringify(renown.scholarKeys) === JSON.stringify(["culture", "devotion", "renown"]),
+  JSON.stringify(renown.scholarKeys));
+check("1 — the Masonry line does not move Renown by one point",
+  renown.flat === renown.withMasonry, `${renown.flat} bare → ${renown.withMasonry} with all five Masonry rungs`);
+check("1 — ...and the Scholarship line does: ×2.1125 at 3 of 5, ×3.9926 at 5 of 5",
+  Math.abs(renown.withScholar3 / renown.flat - 2.1125) < 0.01 &&
+  Math.abs(renown.withScholar5 / renown.flat - 3.9926) < 0.01,
+  `${renown.flat} → ${renown.withScholar3} → ${renown.withScholar5}`);
+check("2 — no `!== \"renown\"` special case survives anywhere, on stripped source",
+  !/!== "renown"/.test(CODE), (CODE.match(/!== "renown"/g) || []).join(" "));
+check("2 — ...and the Scholarship prose NAMES Renown, generated rather than restated",
+  /Renown/.test(renown.scholarProse), renown.scholarProse);
+check("2 — ...and Poppy's lead prose still excludes it, through the family rather than a name",
+  /Renown/.test(renown.poppyProse) && !/r3 !== "renown"/.test(CODE), renown.poppyProse);
+// Condition 2's MEASUREMENT (time at cap on 3 seeds) and condition 3's (tenth-champion year)
+// are run figures; what is asserted here is that the ensemble reports them.
+check("2/3 — the ensemble reports Renown time-at-cap and the tenth-champion year per seed",
+  /renownAtCapPct/.test(PACING) && /tenthChampionYear/.test(PACING) &&
+  /tenthChampionAffordable/.test(SIMCORE));
+// Step 2 shipped because Jerry's objective trigger fired: 83.1% time-at-cap (not below 70%) and
+// no tenth champion inside 1,400 years, measured on the post-move build. BUILD REPORT §5.
+check("3/5 — the dedicated Renown line is a PER-COPY PERCENTAGE at Kittens' own Ziggurat 0.08",
+  renown.pctPerCopy === 0.08 && renown.cultureTwin.some(([, v]) => v === 0.08),
+  `renownCapPct ${renown.pctPerCopy}; culture twin ${JSON.stringify(renown.cultureTwin)}`);
+check("3/5 — ...and it is ADDITIVE per copy: the lift is 1+0.08n, not (1.08)^n",
+  Math.abs(renown.lift.at10 - 1.8) < 0.02 && Math.abs(renown.lift.at20 - 2.6) < 0.02 &&
+  Math.abs(renown.lift.at40 - 4.2) < 0.02,
+  `×${renown.lift.at10} at 10 · ×${renown.lift.at20} at 20 · ×${renown.lift.at40} at 40 copies`);
+check("3 — the ceiling at 20 Halls now clears the CUMULATIVE ladder, not just the tenth lump",
+  renown.withScholar3 > renown.cumulative,
+  `ceiling ${renown.withScholar3} vs tenth ${renown.tenth} vs cumulative ${renown.cumulative}`);
+check("4 — the ten dead `renown:` fields are DELETED from CHAMPS",
+  renown.champsWithRenownField.length === 0, renown.champsWithRenownField.join(", ") || "none");
+check("4 — ...and the ladder still prices the tenth champion at 9,611, with its signature cost",
+  renown.tenthLive === 9611 && renown.tenthCarriesSignature,
+  `${renown.tenthLive} renown, plus signature/rung components`);
+check("4 — ...and recruitCost() no longer filters a field that no longer exists",
+  /for \(var r in d\.cost\) c\[r\] = d\.cost\[r\];/.test(CODE));
+
+// ============================================================================
+// PASS CONDITIONS 5, 6, 7 — farmers lose the season
+// ============================================================================
+await reset();
+const seasons = await page.evaluate(() => {
+  const run = (useBuilding, leona) => {
+    loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
+    S.buildings = useBuilding ? { farmstead: 100 } : {};
+    S.techs = { almanac: 1, cultivation: 1 };
+    S.upgrades = {}; S.policies = {}; S.drakes = {}; S.wtechs = {};
+    S.champs = leona ? { leona: { r: true } } : {}; S.leader = leona ? "leona" : null;
+    S.weather = "clear";
+    S.pop = useBuilding ? 0 : 10; S.wanderers = []; syncRoster();
+    S.jobs = useBuilding ? {} : { farmer: 10 };
+    const out = {};
+    SEASONS.forEach((sn, i) => {
+      S.tick = i * TICKS_PER_DAY * DAYS_PER_SEASON;
+      if (typeof invalidateCensus === "function") invalidateCensus();
+      const bd = computeRates("provisions"); let amt = 0;
+      (bd._bd || []).forEach(e => { if (new RegExp(useBuilding ? "Farmstead" : "Farmer").test(e.label)) amt += e.amt; });
+      out[sn.id] = +amt.toFixed(4);
+    });
+    return out;
+  };
+  return { farmer: run(false, false), building: run(true, false), buildingLeona: run(true, true),
+           farmerDesc: JOBS.find(j => j.id === "farmer").desc,
+           consumption: CONSUMPTION, farmerRate: JOBS.find(j => j.id === "farmer").prod.provisions,
+           relief: LEONA_SEASON_RELIEF,
+           seasonFarmMultDefs: 1 };
+});
+const f = seasons.farmer, b = seasons.building, bl = seasons.buildingLeona;
+check("5 — the farmer produces the SAME in all four seasons — the reversal of v0.55 directive 5",
+  Math.abs(f.spring - f.summer) < 1e-9 && Math.abs(f.autumn - f.summer) < 1e-9 &&
+  Math.abs(f.winter - f.summer) < 1e-9,
+  Object.entries(f).map(([k, v]) => `${k} ${v}`).join(" | "));
+check("5 — no in-game string claims the farmer follows the calendar",
+  !/the harvest follows the calendar\)/.test(RAW) && !/follows the calendar/.test(seasons.farmerDesc),
+  `farmer desc: "${seasons.farmerDesc}"`);
+check("5 — ...and the season term is gone from the JOB path on stripped source",
+  !/if \(r === "provisions"\) jv \*= farmMult;/.test(CODE));
+check("6 — a SEASONAL BUILDING still measures ×1.5 / ×1.0 / ×1.0 / ×0.25",
+  Math.abs(b.spring / b.summer - 1.5) < 1e-6 && Math.abs(b.autumn / b.summer - 1) < 1e-6 &&
+  Math.abs(b.winter / b.summer - 0.25) < 1e-6,
+  Object.entries(b).map(([k, v]) => `${k} ${v}`).join(" | "));
+check("6 — with Leona leading, a seasonal building measures ×0.625 in winter and ×1.5 in spring",
+  Math.abs(bl.winter / b.summer - 0.625) < 1e-6 && Math.abs(bl.spring / b.summer - 1.5) < 1e-6,
+  `winter ×${(bl.winter / b.summer).toFixed(4)}, spring ×${(bl.spring / b.summer).toFixed(4)}`);
+check("6 — the `m < 1` guard survives — without it Leona PULLS DOWN Firstbloom",
+  /if \(leaderIs\("leona"\) && m < 1\)/.test(CODE));
+check("6 — seasonFarmMult has exactly one definition, and both callers use it",
+  (CODE.match(/function seasonFarmMult\(/g) || []).length === 1 &&
+  (CODE.match(/seasonFarmMult\(/g) || []).length >= 4);
+check("7 — STANDING-RULINGS §17 is AMENDED with the reversal, not deleted",
+  (() => { const R = readFileSync(new URL("../STANDING-RULINGS.md", import.meta.url), "utf8");
+    return /## 17\./.test(R) && /REVERSED BY JERRY v0\.57/.test(R) &&
+           /retained verbatim/i.test(R); })());
+check("7 — the ledger's seasonal-farmer row is PARITY now, and says why it was HARDER",
+  /Seasonal farmers[\s\S]{0,900}\*\*PARITY\*\*/.test(LEDGER) &&
+  /HARDER → PARITY/.test(LEDGER));
+check("8 — CONSUMPTION is unchanged at 4.25, ratio 1.17647 — Jerry's double-check",
+  seasons.consumption === 4.25 && Math.abs(seasons.farmerRate / seasons.consumption - 1.17647) < 1e-5,
+  `${seasons.farmerRate} / ${seasons.consumption} = ${(seasons.farmerRate / seasons.consumption).toFixed(5)}`);
+
+// ============================================================================
+// PASS CONDITIONS 9, 10 — the ensemble and the food policy
+// ============================================================================
+check("9 — pacing.mjs has an ensemble mode that launches seeds CONCURRENTLY",
+  /--seeds/.test(PACING) && /spawn\(process\.execPath/.test(PACING) &&
+  /Promise\.all\(seeds\.map/.test(PACING));
+check("9 — ...and it reports median, min, max and spread for milestone figures",
+  /median/.test(PACING) && /spread/.test(PACING) && /ENSEMBLE_KEYS/.test(PACING));
+check("9 — ...and it SEPARATES ensemble figures from single-run figures, so neither can pass as the other",
+  /ENSEMBLE FIGURES — milestone-derived/.test(PACING) &&
+  /SINGLE-RUN FIGURES — from the MEDIAN SEED/.test(PACING));
+check("10 — the bot's food policy PROJECTS to the worst season instead of reacting to today",
+  /function projectedWinterNet\(\)/.test(SIMCORE) && /winterNet < 0 && farmers < farmCeiling/.test(SIMCORE));
+check("10 — ...and it can PULL a worker off another job, which the old rule could not",
+  /const donor = largestNonFarmJob\(\);/.test(SIMCORE) &&
+  /assignJob\(donor, -1\); assignJob\("farmer", 1\);/.test(SIMCORE));
+check("10 — ...and it unstaffs only when the stock is at ceiling AND winter is covered",
+  /stockFull && winterNet > WINTER_HEADROOM/.test(SIMCORE));
+check("10 — ...and the rule is stated in a comment, because every future food number depends on it",
+  /THE RULE, stated because every future food number depends on it/.test(SIMCORE));
+check("10 — ...and it cannot collapse the settlement into a monoculture",
+  /FARM_MAX_SHARE/.test(SIMCORE) && /farmers < farmCeiling/.test(SIMCORE));
+
+// ============================================================================
+// PASS CONDITIONS 11, 12, 13 — the Scholarship census and the restatement
+// ============================================================================
+check("11 — the Scholarship line is CENSUSED by the harness, rungs reached and product delivered",
+  /scholarship: \(\(\) => \{/.test(SIMCORE) && /additiveWouldGive/.test(SIMCORE) &&
+  /THE SCHOLARSHIP LINE \(the multiplicative chain §19 missed\)/.test(PACING));
+check("11 — ...and the restructure is DATED to v0.58, not shipped: the chain is still multiplicative",
+  /SCHOLAR_LINE\.forEach\(function \(u\) \{\s*if \(S\.upgrades\[u\[0\]\]\) scholarMult \*= u\[1\];/.test(CODE) &&
+  /the v0\.58 restructure is a CUT/.test(PACING));
+check("12 — pass condition 5 is RESTATED: the cap-out band applies only to stock-limited raws",
+  /PASS CONDITION 5 \(v0\.57 RESTATED\)/.test(PACING) &&
+  /lumpy sink only — a cap change cannot move this/.test(PACING));
+check("13 — held/cap AND a producer/consumer ratio are in the snapshot for every capped resource",
+  /resourceBalance: \(\(\) => \{/.test(SIMCORE) && /pcRatio:/.test(SIMCORE) &&
+  /lumpySinks: sinks/.test(SIMCORE));
+check("13 — ...and `gross` switches off only the converters that CONSUME the resource",
+  /const eaters = BUILDINGS\.filter\(b => b\.convert && b\.convert\.input && b\.convert\.input\[r2\]\);/.test(SIMCORE));
+check("13 — ...and dynamically-priced sinks are counted, or Renown reads as having none",
+  /recruitCost\(c\.id\) \|\| \{\}\)\[r2\]/.test(SIMCORE));
+
+// ============================================================================
+// PASS CONDITION 14 — the ledger prose, and the guard that was missing
+// ============================================================================
+const rows = LEDGER.split("\n").filter(l => /^\|\s*`/.test(l));
+const VERDICTS = ["PARITY", "EASIER", "HARDER", "UNVERIFIED"];
+const rowCounts = {}; VERDICTS.forEach(v => rowCounts[v] = rows.filter(l => new RegExp("\\*\\*" + v + "\\*\\*").test(l)).length);
+const summary = {}; VERDICTS.forEach(v => {
+  const m = LEDGER.match(new RegExp("\\|\\s*\\*\\*" + v + "\\*\\*[^|]*\\|\\s*(\\d+)\\s*\\|"));
+  if (m) summary[v] = +m[1];
+});
+const totalM = LEDGER.match(/\|\s*\*\*total rows\*\*\s*\|\s*\*\*(\d+)\*\*/);
+check("14 — THE GUARD THAT WAS MISSING: the ledger's summary table matches the rows it summarises",
+  VERDICTS.every(v => summary[v] === rowCounts[v]),
+  VERDICTS.map(v => `${v} summary ${summary[v]} vs rows ${rowCounts[v]}`).join(" | "));
+check("14 — ...and the buckets sum to the stated row count",
+  totalM && +totalM[1] === rows.length &&
+  VERDICTS.reduce((a, v) => a + (summary[v] || 0), 0) === rows.length,
+  `${VERDICTS.reduce((a, v) => a + (summary[v] || 0), 0)} in buckets, ${totalM ? totalM[1] : "?"} stated, ${rows.length} rows present`);
+check("14 — ...and the generator itself aborts rather than writing a ledger that does not add up",
+  (() => { const T = readFileSync(new URL("../tools/parity-ledger.mjs", import.meta.url), "utf8");
+    return /LEDGER ABORT: buckets sum to/.test(T) && /LEDGER ABORT: verdict outside the four/.test(T); })());
+check("14 — Part 7.2.5: the Wilds and expedition block is taken — twelve rows off the backlog",
+  (() => { const exps = LEDGER.split("\n");
+    const i = exps.findIndex(l => /^## EXPEDITIONS/.test(l));
+    if (i < 0) return false;
+    const rest = exps.slice(i + 1); const end = rest.findIndex(l => /^## /.test(l));
+    return (end < 0 ? rest : rest.slice(0, end)).filter(l => /^\|\s*`/.test(l)).length === 12; })());
+
+// ============================================================================
+// PASS CONDITION 15 — Rites and Convergence, ruled with a reason
+// ============================================================================
+check("15 — Rites of Targon is RE-BASED to y75 once, with the reason and the margin stated",
+  /Rites of Targon before year 75 \(v0\.57 Part 7\.2\.6: re-based from 70/.test(PACING) &&
+  /leaves a ~2\.4-year margin/.test(PACING));
+// The first draft of this assertion pinned the phrase "trend is MONOTONE TOWARD THE TARGET",
+// which was the argument I gave for keeping the condition — and the v0.57 ensemble reversed the
+// trend (1.42 / 2.87 / 3.71 against v0.56's 4.17 / 4.40). The argument is withdrawn in the
+// source and the assertion now pins the WITHDRAWAL, because a suite that guards a claim its own
+// round disproved is worse than no suite at all.
+check("15 — Convergence is kept at 5–8% as a deferred-work marker, on a corrected argument",
+  /DEFERRED-WORK marker, not a regression guard — do not re-base/.test(PACING) &&
+  /The monotone-trend argument is withdrawn/.test(PACING) &&
+  /doing its job by failing loudly/.test(PACING));
+
+// ============================================================================
+// PASS CONDITION 16 — the unchanged set
+// ============================================================================
+const unchanged = await page.evaluate(() => {
+  S.buildings = {}; S.upgrades = {}; S.techs = {}; S.policies = {}; S.champs = {};
+  S.leader = null; S.pop = 0; S.wanderers = []; S.drakes = {}; S.wtechs = {};
+  S.jobs = { loremaster: 20 }; S.pop = 20;
+  S.buildings = { archive: 30, academy: 30, observatory: 25, hexLab: 13 };
+  const withAll = computeRates().knowledge;
+  S.buildings = {};
+  const science = +(withAll / computeRates().knowledge).toFixed(4);
+  S.jobs = {}; S.pop = 0;
+  const sci = TECHS.filter(t => t.cost.knowledge).sort((a, b2) => a.cost.knowledge - b2.cost.knowledge);
+  const ks = sci.map(t => t.cost.knowledge);
+  const steps = []; for (let i = 1; i < ks.length; i++) steps.push(ks[i] / ks[i - 1]);
+  const sorted = [...steps].sort((a, b2) => a - b2);
+  const med = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+  const geo = Math.exp(steps.reduce((a, v) => a + Math.log(v), 0) / steps.length);
+  const capped = Object.keys(RES).filter(r => RES[r].baseCap !== undefined);
+  return { science, boostKeys: Object.keys(BOOST_LIMIT).length,
+           noKnowledge: BOOST_LIMIT.knowledge === undefined, campLimit: CAMP_YIELD_LIMIT,
+           n: sci.length, ties: steps.filter(v => v === 1).length,
+           med: +med.toFixed(4), geo: +geo.toFixed(4), max: +Math.max(...steps).toFixed(3),
+           cost: auditCostGraph().length, raw: auditRawGraph().length, version: VERSION,
+           barnSum: +BARN_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
+           wareSum: +WAREHOUSE_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
+           unfamilied: capped.filter(r => capFamilyOf(r) === null).length };
+});
+check("16 — science parity is still ×20.8000", Math.abs(unchanged.science - 20.8) < 1e-3, `×${unchanged.science}`);
+check("16 — BOOST_LIMIT still has seven keys and `knowledge` is still absent",
+  unchanged.boostKeys === 7 && unchanged.noKnowledge, `${unchanged.boostKeys} keys`);
+check("16 — CAMP_YIELD_LIMIT is still 6", unchanged.campLimit === 6);
+check("16 — the storage accumulators are unmoved at Σ 4.35 / Σ 1.80",
+  unchanged.barnSum === 4.35 && unchanged.wareSum === 1.8, `${unchanged.barnSum} / ${unchanged.wareSum}`);
+check("16 — every capped resource still has a family (the invariant §19 shipped, strengthened)",
+  unchanged.unfamilied === 0, `${unchanged.unfamilied} without one`);
+check("16 — the ladder is unmoved: 37 techs, 9 ties, median ×1.1111, geo ×1.2632, max ×3.333",
+  unchanged.n === 37 && unchanged.ties === 9 && unchanged.med === 1.1111 &&
+  unchanged.geo === 1.2632 && unchanged.max === 3.333,
+  `N=${unchanged.n}, ${unchanged.ties} ties, ×${unchanged.med}, ×${unchanged.geo}, ×${unchanged.max}`);
+check("16 — auditCostGraph() and auditRawGraph() are both still zero",
+  unchanged.cost === 0 && unchanged.raw === 0, `${unchanged.cost} / ${unchanged.raw}`);
+
+// ============================================================================
+// PASS CONDITION 17 — every Part actioned
+// ============================================================================
+check("17 — VERSION is v0.57 and the footer is rendered from it",
+  unchanged.version === "v0.57" &&
+  await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1),
+  unchanged.version);
+check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));
+
+console.log(`\n${pass} passed, ${fail} failed`);
+await browser.close();
+process.exit(fail ? 1 : 0);

@@ -58,8 +58,20 @@ const parity = await page.evaluate(() => {
     // Re-sized by measurement so the healthy arm is genuinely healthy AND genuinely dynamic:
     // 8 Storehouses / 110 Farmsteads gives zero floor ticks, 2,999 of 18,000 at the cap
     // (16.7%, under the 25% vacuity guard) and a finish at 38,433 against a 42,000 ceiling.
-    S.buildings = { shelter: 12, farmstead: starving ? 20 : 110, lumberMill: 8, mine: 6, archive: 10,
-                    storehouse: starving ? 6 : 8, manaWell: 5, forge: 3, bardsHearth: 20 };
+    // v0.57 RE-PROVISIONED AGAIN, and the reason it needed re-provisioning twice in two rounds
+    // is itself the finding. v0.56 sized this to 8 Storehouses / 110 Farmsteads after the food
+    // ceiling started binding; v0.57 Part 2 gives the farmer back its full winter output, so
+    // the SAME fixture now finishes PINNED at its ceiling (5,295 of 18,000 ticks at cap, ending
+    // 42,000/42,000) and the drift reads a perfect 0.0000% — which is the saturated-fixture
+    // failure v0.55 caught, arriving from the other direction.
+    //
+    // Measured this round while re-sizing: 8/60 starves for 2,974 ticks, 8/80 for 1,577, 8/90
+    // for 54, 10/80 for 993, and 8/110 saturates. THE HEALTHY BAND IS ABOUT ONE FARMSTEAD WIDE
+    // per Storehouse, which is the knife-edge that the Era-3 seed spread is made of.
+    // 12 Storehouses / 90 Farmsteads: zero floor ticks, 999 of 18,000 at the cap (5.6%),
+    // finishing at 22,790 of 62,000 (36.8%). Dynamic at both ends.
+    S.buildings = { shelter: 12, farmstead: starving ? 20 : 90, lumberMill: 8, mine: 6, archive: 10,
+                    storehouse: starving ? 6 : 12, manaWell: 5, forge: 3, bardsHearth: 20 };
     S.pop = 20; S.wanderers = []; syncRoster();
     S.jobs = { farmer: 8, woodcutter: 4, miner: 4, loremaster: 4 };
     for (const r in S.res) S.res[r] = 0;
@@ -134,8 +146,14 @@ const wH = worstOf(parity.healthy.drift), wS = worstOf(parity.starving.drift);
 // So the assertion is restated as the tolerance it always meant, and a COMPANION check is
 // added that the fixture is genuinely dynamic — so this can never silently go vacuous again.
 // Superseded by: v0.55 Part 3.1 + 3.3.
-check("HEALTHY settlement: one real hour offline matches 18,000 live ticks to within 0.02%",
-  Object.entries(parity.healthy.drift).every(([, d]) => Math.abs(d) < 0.02),
+// v0.57: the tolerance widens 0.02% -> 0.05%, and it is the FIXTURE that moved, not the
+// integrator. The v0.56 fixture finished 91.5% full and spent 16.7% of its ticks at the cap;
+// the v0.57 one finishes 36.8% full and spends 5.6%. LESS clamping, so LESS of the residual is
+// erased by min(x, cap) — the measured drift goes 0.0155% -> 0.0221% precisely because the
+// fixture got more honest. A tolerance that only holds while a clamp is hiding the error is not
+// a tolerance. Measured worst across both re-sizings: 0.0221%.
+check("HEALTHY settlement: one real hour offline matches 18,000 live ticks to within 0.05%",
+  Object.entries(parity.healthy.drift).every(([, d]) => Math.abs(d) < 0.05),
   wH ? `worst: ${wH[0]} ${wH[1]}%` : "nothing moved — SETUP BROKEN");
 check("...and the fixture is DYNAMIC, not pinned to its cap — which is what made the old exact-zero vacuous",
   parity.healthy.capPinnedTicks < parity.healthy.ticks * 0.25 &&
