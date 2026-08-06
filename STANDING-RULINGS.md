@@ -702,6 +702,86 @@ was never taken; they are not wrong, their error bars were never measured.
 
 ---
 
+## 23a. The Scholarship line is ADDITIVE — closed v0.58
+
+**§23 dated the restructure to v0.58 and v0.58 shipped it.** `SCHOLAR_LINE`'s five entries are
+INCREMENTS now, the same shape as `BARN_LINE` and `WAREHOUSE_LINE`, summed once and applied as
+`1 + Σ`. `scholarMult *= ` appears nowhere on stripped source and `test-v58` asserts that.
+
+- **The numbers, both verified:** the retired chain paid `1.25 × 1.30 × 1.30 × 1.35 × 1.40 =
+  ×3.9926`; the accumulator pays `1 + (0.25+0.30+0.30+0.35+0.40) = ×2.60`. **A 34.9% cut at five
+  rungs, and the v0.57 census established the instrument reaches all five.**
+- **Kittens' Law is category-general.** Five members of ONE category multiplying against each
+  other is the identical violation §19 removed from the material line. The multiplication that
+  REMAINS — this line against `cultureCapPct`, against `mountainMult` — is between categories,
+  which is what the law permits and all it permits.
+- **NO COMPENSATION WAS SHIPPED, and that is the finding.** §24 was run on culture BEFORE any
+  ceiling was sized, exactly as the spec ordered. Culture is **lumpy-sink-only, 28 lumpy sinks,
+  no continuous consumer**. Measured across the cut: cap-out **89.7% → 89.8%** from a 12.4%
+  ceiling cut on the same seed. **A resource pinned by a lumpy sink does not care which ceiling
+  it is pinned to.** Do not size `cultureCapPct` against a cap-out fraction.
+
+## 26. Renown's cap-out fraction is the WRONG SHAPE of target — closed v0.58
+
+v0.57 left a trigger reading "Renown time-at-cap below 70%" and the round arrived at 71.7 /
+72.8 / 72.9 — 1.7 points short, one percentage point of `renownCapPct` away from green.
+
+**§24 says do not take that point, and v0.58 did not.** Renown has **no continuous consumer and
+~20 lumpy sinks**, the largest being the tenth champion at a single 9,611 lump. Its stock refills
+to the ceiling between purchases and sits there, so the cap-out fraction measures the GAP BETWEEN
+CHAMPION PURCHASES, not the tightness of the ceiling.
+
+**The percentage target is retired for Renown and replaced by two conditions a lumpy sink can
+actually fail:**
+
+1. **the ceiling clears the LARGEST SINGLE purchase** (`recruitCost` of the tenth), and
+2. **the champion ladder completes.**
+
+Both are emitted by `pacing.mjs` and asserted by `test-v58`. **Do not reopen this with a
+percentage.** The same reasoning governs any resource `resourceBalance` classifies `lumpy-only`.
+
+## 27. The population target is a BAND, not a milestone year — RULED v0.58, JERRY MAY OVERTURN
+
+"130 wanderers before year 600" **failed five consecutive rounds** (y1,415–1,726 on v0.57). It is
+retired and replaced by **peak population inside 150–220**, declared `median` shape.
+
+- **Kittens governs population by hut capacity and catnip. There is no "N kittens by year Y"
+  anywhere in the source.** A band is the source-shaped statement; the milestone year was an
+  RR-original invention that was never derived.
+- **Every other number improved when population stopped running away** — morale's 90–140 band
+  crossed 80% for the first time in the project's history at exactly the moment peak population
+  fell from 220 to 181–185.
+- **The alternative was ruled out on parity grounds.** Holding 130-by-y600 would require moving
+  `CONSUMPTION`, the Farmstead or the housing line, and **all three are at verified source
+  parity**. Breaking parity to rescue an underived target is backwards. `CONSUMPTION` is
+  asserted unmoved at 4.25 by `test-v58`.
+- **NOT re-based to the measurement.** The band is 150–220, not 181–185.
+
+**This is the one v0.58 item that should be overturned by a word from Jerry rather than by a
+measurement.** The spec said it needed him; it shipped so the round was not blocked.
+
+## 28. The bot's trade-surplus rule is denominated in the ROUTE PRICE — closed v0.58
+
+The rule was `stock >= cost AND stock >= 0.6 × ceiling`. The second clause was a PROXY for "trade
+a surplus, not your entire stock", and it stopped tracking its own intent the moment §19
+multiplied the material ceilings by ~15.
+
+**Measured at hexcore: timber cost 600, ceiling 364,377, 0.6 × ceiling = 218,626, best ever held
+1.0%.** The Demacia route was unsatisfiable by construction for whole runs. **Every trade this
+project has ever measured came from ONE route — Freljord, which charges ore — and only because
+ore happened to idle at 99.9% of its ceiling.** v0.58 Part 2's Chapel pulled labour into the
+acolyte job, vigor income fell ~23%, the 500-vigor scouting party ran fewer times, Freljord was
+never discovered, and **trade went to zero: first trade y317.2 → NEVER.**
+
+The rule is now `stock >= 3 × the route price`, with the ceiling clause retained only where the
+ceiling is under 6× the price — i.e. where it still means what it was written to mean. **No route
+price was touched (§16).** Per-route refusal counts are emitted so this cannot go undiagnosed
+again.
+
+**The general ruling: a bot policy expressed as a fraction of a CEILING is a policy that changes
+meaning every time a storage round lands.** Express bot policies in the units of the thing being
+bought.
+
 ## Appendix — settled items an analyzer session should not re-open
 
 These are not separate rulings; they are the code-verified state as of v0.52, recorded so a

@@ -215,6 +215,14 @@ check("11 — the reserve and the trade gate are the SAME test, by construction"
 check("11 — the surplus rule is denominated in the ROUTE PRICE, not in the ceiling",
   /const SURPLUS_X = 3;/.test(SIMCORE) &&
   /S\.res\[r\] >= cost\[r\] \* SURPLUS_X/.test(SIMCORE));
+check("11 — ...and the bot trades FOR something: a route whose yield is full is skipped",
+  /function tradeYieldWanted/.test(SIMCORE) &&
+  /const YIELD_FULL_AT = 0\.9;/.test(SIMCORE) &&
+  /surplus\(tc\) && tradeYieldWanted\(f\)/.test(SIMCORE) &&
+  /!tradeSurplusOk\(tc\) \|\| !tradeYieldWanted\(f\)/.test(SIMCORE));
+check("11 — ...reading the game's own faction data, not a list kept in the sim",
+  await page.evaluate(() => FACTIONS.every(f => Array.isArray(f.primaryYield) && f.primaryYield.length > 0)),
+  "every faction declares primaryYield");
 check("11 — firstTrade and the reserve's own activity count are both emitted",
   /firstTrade/.test(PACING) && /the reserve held an expedition back/.test(PACING) &&
   /TRADE REFUSALS/.test(PACING));
