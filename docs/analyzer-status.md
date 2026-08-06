@@ -16,7 +16,7 @@ check per spec part, full multi-seed suite once at the end, never the full suite
 |---|---|
 | Last shipped build | **v0.57**, tagged `v0.57` |
 | Last consumed spec | `docs/specs/rr-analyzer-v057-spec.md` |
-| Current spec, awaiting a builder | **none — the cycle is at the analyzer** |
+| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.58, THE CONVERGENCE ROUND** |
 | Live suites | **26 suites, 1,273 assertions, 0 failures** — re-run and confirmed 2026-08-06 |
 | Parity ledger | **220 rows — PARITY 54, EASIER 38, HARDER 1, UNVERIFIED 127** |
 | Era 3 | **1,734.6 median of three seeds, spread 1,672.1–1,784.1 (×1.07). ALL THREE SEEDS INSIDE the 1,400–2,300 target.** |
@@ -74,6 +74,63 @@ save/load only). RR's is `w.jx[w.j] += dt` — **1 xp per second worked, Challen
 hours of single-job work**. The rank *thresholds* are already close to source in shape and
 exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
 interim labelled UNVERIFIED — do not invent a citation.
+
+## v0.58 — the analyzer's verification pass
+
+**Everything reproduces.** All 26 suites: **1,273 assertions, 0 failures.** Two independent
+2,500-year runs reproduce the ensemble's per-seed values to the digit — seed 1 → Sparks y137.4,
+Icathia y1872.0, **Era 3 1,734.6**, 130 wanderers y1726.5, peak pop 185, morale band 100%,
+Convergence 1.42%; seed 2 → Sparks y157.2, Icathia y1829.3, **Era 3 1,672.1**, 130 at y1415.4,
+peak pop 181. The spread collapse is real and Era 3 is inside the target band on both draws.
+
+Code probe, all exact: `CONSUMPTION 4.25` / ratio **1.17647**; the farmer's desc is plain
+`+5 provisions/s` and output is **identical in all four seasons** while seasonal buildings still
+read ×1.5/×1.0/×1.0/×0.25; `capFamilyOf()` total and single-valued with `renown` in `scholar`;
+`renownCapPct 0.08` delivering **exactly `1 + 0.08n`** (30 → 4,554 at ten Halls); the ten dead
+`renown:` fields **gone**; ladder 37/9/1.1111/1.2632/3.333; audits 0/0; ledger **220 rows —
+PARITY 54, EASIER 38, HARDER 1, UNVERIFIED 127**, summing correctly.
+
+**Jerry's note 2 — storage scaling — checked and correct.** Bare state, line fully researched:
+timber **×14.98**, gold and crystals **×2.80**, provisions **×2.0875**, voidessence **×1.00**.
+And the families do not leak: Scholarship delivers ×3.9926 to culture/devotion/renown and
+**×1.0000 to timber**; Masonry delivers **×1.0000 to culture and renown**. **No change warranted
+— but nothing asserts family isolation, and isolation is the property that actually broke once**
+(before v0.57 four resources were in two families and a ternary picked the winner). v0.58 Part 4
+turns the measurement into an assertion.
+
+### The Convergence round: the formula was never the problem
+
+All three links checked against source. **Two are at exact parity and the third is a missing
+building:**
+
+| RR | rate | Kittens | source |
+|---|---|---|---|
+| Acolyte | **0.0075 devotion/s** | priest `faith: 0.0015`/tick × 5 | `js/village.js` |
+| Shrine of the Solari | **0.0075 devotion/s** | **temple** `faithPerTickBase 0.0015` × 5 | `js/buildings.js:1910` |
+| *(nothing)* | — | **chapel** `faithPerTickBase 0.005` × 5 = **0.025/s** | `js/buildings.js:1858` |
+| Marus Omegnum | 0.05/s | — | RR-original, 2× the Chapel |
+
+**RR jumps from a 0.0075/s starter straight to a 0.05/s capstone; the Sanctum between them is a
+multiplier, not a producer.** Kittens' middle faith tier was never ported.
+
+**And the 5–8%-at-Sparks target has no source derivation.** Under the unchanged formula
+(§3, closed), 5% requires **15,000 worship** and 8% requires **36,000**; the measured 1.42% and
+3.71% correspond to ≈1,720 and ≈8,740. **Kittens gates Solar Revolution at 1,000 worship, where
+the same formula delivers exactly 1.00%** — so RR's measured value is already above the source's
+unlock-point value, and the band asks for 15–36× the source's threshold. The band has stood since
+v0.46 and nothing derives it. `pacing.mjs`'s own ruling permits re-deriving it in a round that
+does the Convergence work; **this is that round.**
+
+### Two more things worth carrying
+
+- **The Scholarship cut is 35%**, confirmed independently: ×3.9926 product against ×2.60
+  additive. Kittens' `ziggurat` `cultureMaxRatio: 0.08` at priceRatio 1.25 is verified as the
+  shape to size against — **the upgrade line was never meant to be the whole culture ceiling;
+  the buildings are.**
+- **Renown's last 1.7 points are probably not a ceiling problem.** Its sinks are champion
+  recruitment (`250 × 1.5ⁿ`, tenth = 9,611 in one lump) and training (`40 × (lvl+1)^1.6`) — both
+  lumpy and dynamically priced. §24 says classify before sizing; the <70% trigger may be the
+  wrong *shape* of target for this resource.
 
 ## v0.57 — the analyzer's verification pass
 
