@@ -228,7 +228,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.57";
+var VERSION = "v0.58";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -601,8 +601,16 @@ var BUILDINGS = [
     // Silos behaviour rather than half of it. This PARTLY offsets the Storehouse and Harbor
     // cuts above and below — the point of the directive is the right ceiling, not merely a
     // lower one.
+    // v0.58 DEV NOTE 13 (Jerry): "Warehouse should contribute to hextech crystal cap."
+    // The Warehouse is the general material store and it was the ONLY one of the four storage
+    // tiers with no crystal line at all — the Storehouse has none either, but the Harbor
+    // carries crystals 20 and the Hexgate carries 400, so a player who has built out
+    // Warehouses and no Harbors has a crystal ceiling that never moves. Sized at 15, one rung
+    // BELOW the Harbor's 20, because the Harbor is the later and more expensive tier and the
+    // ordering between the two should not invert. Crystals are `broad` scope (CAP_SCOPE), so
+    // this rides the Warehouse accumulator exactly as gold does.
     cost: { beam: 2, stoneSlab: 3 }, ratio: 1.15,
-    caps: { timber: 400, ore: 300, steel: 100, gold: 80 },
+    caps: { timber: 400, ore: 300, steel: 100, gold: 80, crystals: 15 },
     capsIf: { upgrade: "chemtechSilos", caps: { provisions: 750 } } },
   // v0.47 Part 1.4(c): the Harbor costs gear 20, and gear is Smelting-gated. At tech
   // "trade" (1,200) it was visible one rank before its input existed.
@@ -861,6 +869,46 @@ var BUILDINGS = [
     // sized so the 20th copy — the Deep Works matching scale — pays its raw back in
     // shimmer inside 5 game-years. THE SCALE IS 20 COPIES; see BUILD REPORT v0.52 §3.2.
     cost: { plating: 4, alloy: 3 }, ratio: 1.15, convert: { input: { coalgas: 0.2, mana: 0.5 }, output: { shimmer: 0.05 } }, caps: { shimmer: 150 } },   // v0.56 Part 5: 60 -> 150, sized from s4's 84.1% cap-out
+  // ============================================================================
+  // v0.58 PART 7.2 (+ PART 8.1) — THE SHIMMER CONSUMER, AND WHY IT MAKES HEXGEAR
+  //
+  // Pass condition 5 asked all four Era-3 raws to sit between 30% and 60% time-at-cap. §24's
+  // restatement showed the band cannot describe ANY of them, because a cap-out fraction only
+  // measures a STOCK-limited resource and all four are lumpy-sink-only. Measured this round at
+  // hexcore: shimmer held 100% of its ceiling, gross 0/s, consumed 0/s, 10 lumpy sinks. Nothing
+  // draws it per tick. The same is true of Void Essence after Icathia.
+  //
+  // The spec offered two exits and asked for a choice: give one raw a continuous consumer, or
+  // retire the band. THIS SHIPS THE CONSUMER, and it ships the version that closes Part 8.1 in
+  // the same slice, because the two are one problem seen from opposite ends:
+  //
+  //   * shimmer accumulates because nothing consumes it continuously;
+  //   * VOID ESSENCE accumulates because its only sink is Riftsteel;
+  //   * Riftsteel (voidessence 150 + HEXGEAR 375) is never forged because hexgear is a `made`
+  //     good with no producer at all -- every unit is hand-crafted out of alloy 25.
+  //
+  // One repeatable converter that eats shimmer and pays hexgear gives shimmer a per-tick
+  // consumer AND puts Riftsteel inside reach, which in turn gives Void Essence its sink. Two
+  // no-sink resources and a dead craft, closed by one building.
+  //
+  // THE SHAPE IS KITTENS' CONVERTER, the same one the Sump Mine, the Coalgas Vent and the
+  // Shimmer Refinery already use here: repeatable, priceRatio 1.15, raw + mana in, refined out,
+  // and NOT `autoprod` -- unlike the three extractors this one is worked, so it takes the
+  // Forge/Refinery multiplier band the overseer affinity and the Cinder crest feed.
+  //
+  // SIZING, measured before it was set. At the Deep Works scale the Refinery family runs about
+  // 20 copies producing 0.05 shimmer/s each = 1.0/s. A consumer that eats ALL of that leaves the
+  // resource flow-limited, which is the failure §24 warns about from the other side; the band
+  // wants P/C comfortably above 1.5. At 0.05 shimmer/s per copy this reaches 1.0/s only at 20
+  // copies, and the price is rank-matched to the Hexdraulic Plant tier so ~10 is the natural
+  // scale -- 0.5/s against 1.0/s produced, P/C ≈ 2. Hexgear at 0.005/s per copy is 4/game-year
+  // per copy, so ten copies fund Riftsteel's 375 hexgear in roughly 9 game-years against the
+  // hundreds of game-years Icathia lasts. Both figures are reported in BUILD REPORT §7.2.
+  { id: "chemForgeworks", name: "Chem-Forgeworks", group: "Zaun", tech: "deepWorks", toggleable: true,
+    lore: "Shimmer goes in glowing and comes out as gearing. Nobody asks what the difference was.",
+    effect: "Draws Shimmer and mana off the line continuously and turns them into Hexgear.",
+    cost: { hexcrete: 6, plating: 150, alloy: 80 }, ratio: 1.15,
+    convert: { input: { shimmer: 0.05, mana: 0.5 }, output: { hexgear: 0.005 } } },
   { id: "hexcreteBastion", name: "Hexcrete Bastion", group: "Storage", tech: "deepWorks",
     lore: "Storage that will outlast the argument about whether it was necessary.",
     effect: "Deep storage for everything the Sump and the refineries produce.",
@@ -960,6 +1008,63 @@ var BUILDINGS = [
     // a x10 Worship range into x1,256.
     effect: "Devotion and a ceiling for it — and pilgrims bring stories, which is culture.",
     cost: { timber: 120, mana: 200, culture: 40, ore: 150 }, ratio: 1.15, prod: { devotion: 0.0075, culture: 0.005 }, caps: { devotion: 75, culture: 15 } },
+  // ==========================================================================================
+  // v0.58 PART 2 — THE CHAPEL. Kittens' middle faith producer, and RR never ported it.
+  //
+  // Jerry: "Convergence bonus values should follow Kitten's Worship production bonus... This
+  // means making sure devotion/faith production should be very similar."
+  //
+  // All three links in that chain were checked against source. TWO ARE ALREADY AT EXACT PARITY:
+  //   worshipBonus()          0.01 x unlimitedDR(worship, 1000) capped x10 -- Kittens' Solar
+  //                           Revolution shape exactly. STANDING-RULINGS §3 closes it.
+  //   Acolyte  0.0075/s   =   js/village.js priest `faith: 0.0015`/tick x 5 ticks/s
+  //   Shrine   0.0075/s   =   js/buildings.js:1910 temple `faithPerTickBase 0.0015` x 5
+  //
+  // THE THIRD LINK IS A MISSING BUILDING. Kittens' CHAPEL (js/buildings.js:1858) carries
+  // `effects["faithPerTickBase"] = 0.005` -- 0.025 faith/s, more than three times the temple --
+  // and RR has no analogue at all. RR jumps from a 0.0075/s starter (Shrine) straight to a
+  // 0.05/s capstone (Marus Omegnum), with the Aspect's Sanctum in between producing NOTHING;
+  // it is a multiplier, not a producer. The middle of RR's faith curve was simply absent.
+  //
+  // So "devotion production should be very similar" was already true everywhere the two games
+  // map. The gap Jerry is reaching for is STRUCTURAL, and this is the parity item that closes
+  // it: it raises worship at Sparks BY CONSTRUCTION rather than by tuning a number.
+  //
+  // PORTED WHOLE, INCLUDING THE CULTURE HALF, AND THAT IS DELIBERATE. Source, verbatim:
+  //   prices  [ minerals 2000, culture 250, parchment 250 ]   priceRatio 1.15
+  //   effects faithPerTickBase 0.005  ->  0.025 devotion/s
+  //           culturePerTickBase 0.05 ->  0.250 culture/s
+  //           cultureMax 200
+  // Shipping only the devotion half would be inventing half a building; RR's Shrine already
+  // ports the temple's devotion AND culture pair on exactly this pattern.
+  //
+  // THE PRICE IS RANK-MATCHED, NOT TRANSLITERATED, AND THE FIRST ATTEMPT PROVED WHY. I shipped
+  // Kittens' literal 2,000 / 250 / 250 and measured the Chapel at ZERO copies at every
+  // milestone -- visible and unaffordable, blocked entirely on parchment: 20 held against 250
+  // needed, at Hexcore, on a settlement holding 174,772 ore. **RR's parchment costs 175 furs
+  // each, so Kittens' 250 parchment is 43,750 furs**, and RR's fur economy is a Wilds camp
+  // rather than Kittens' hunting-plus-trade line. The same numeral means a different thing in
+  // the two games, which is precisely what §16's "port the mechanism and the rung; assign by
+  // ROLE" exists to prevent.
+  //
+  // Priced instead between the two RR buildings it sits between on RR's own faith curve:
+  //   Shrine   timber 120, mana 200, culture  40, ore 150
+  //   CHAPEL              ore 600, culture 120, parchment 12      <- here
+  //   Sanctum  timber 400, ore 500, culture  80, gold 120, crystals 8
+  // The SHAPE of the source's price is kept -- a bulk mineral, culture, and a scribal craft,
+  // which is what makes it a chapel rather than a mine -- at RR's own magnitudes. 12 parchment
+  // is 2,100 furs, which one Wolves camp supplies.
+  //
+  // ATTRIBUTION WARNING, RECORDED BECAUSE IT MATTERS TO THIS ROUND'S OWN PREDICTIONS: the
+  // culture half lands on the resource Part 3 is simultaneously measuring (culture sits at
+  // 97.1-97.3% time-at-cap). The Chapel's `cultureMax 200` per copy and 0.25/s both move that
+  // number, so s3 and s4 are NOT cleanly separable on culture. Reported in BUILD REPORT §6.
+  { id: "chapel", name: "Chapel of the Dawn", group: "Targon", tech: "ritesOfTargon",
+    lore: "Smaller than the Marus, warmer than the Shrine, and never empty.",
+    effect: "The middle of the climb: steady devotion, and a congregation that keeps the stories.",
+    cost: { ore: 600, culture: 120, parchment: 12 }, ratio: 1.15,
+    prod: { devotion: 0.025, culture: 0.25 }, caps: { culture: 200 },
+    unlock: function (s) { return count("shrine") >= 2; } },
   { id: "sanctum", name: "Aspect's Sanctum", group: "Targon", tech: "ritesOfTargon",
     lore: "Where the Aspects' gaze falls longest, the air itself hums.",
     effect: "Every acolyte's devotion counts for more.",
@@ -1586,8 +1691,32 @@ function buyWtech(id) {
 // left the prose promising x1.6/x1.75/x2/x2/x2 — a player buying The Great Index was
 // told storage doubles and got +30%. Same class of drift as the v0.40 morale tooltip,
 // and the same fix: derive, never restate.
-var SCHOLAR_LINE = [["cataloguing", 1.25], ["crossReferencing", 1.3], ["greatIndex", 1.3],
-                    ["annotatedIndex", 1.35], ["livingLibrary", 1.4]];
+// v0.58 PART 3 — SCHOLARSHIP BECOMES AN ADDITIVE ACCUMULATOR (STANDING-RULINGS §23).
+//
+// Kittens' Law is category-general: ADDITIVE WITHIN a category, multiplicative only BETWEEN
+// categories. Five rungs of ONE category multiplied together is the identical violation §19
+// removed from the material storage line in v0.56 Part 5, and since v0.57 Part 1 it governs
+// culture, devotion AND renown -- including the ceiling that gates the champion ladder.
+//
+// The numbers, both verified this session and both stated so neither can drift:
+//   MULTIPLICATIVE (what this was):  1.25 x 1.30 x 1.30 x 1.35 x 1.40  = x3.9926
+//   ADDITIVE       (what this is):   1 + (0.25+0.30+0.30+0.35+0.40)    = x2.60
+// a 34.9% cut at the top of the line. The v0.57 census settled the sizing question that had
+// blocked this for two rounds: the instrument reaches 5 of 5 rungs, not 3, so the cut is a
+// real 35% rather than the 20% a three-rung run would have suggested.
+//
+// The ENTRIES ARE NOW INCREMENTS, not factors -- the same shape as BARN_LINE and
+// WAREHOUSE_LINE below, so lineTotal() reads all three lines and the prose generators sum
+// rather than multiply. An entry of 0.25 means "+25 percentage points on this line", never
+// "x0.25".
+//
+// If this cut leaves culture short, the compensation goes on `cultureCapPct` -- the shape
+// Kittens actually uses (ziggurat cultureMaxRatio 0.08 per copy, additive and unbounded,
+// js/buildings.js) and which RR already carries on the Watcher's Eye and the Ice-Wrought
+// Spire -- and NOT back into this chain. The upgrade line was never supposed to be the whole
+// culture ceiling; the buildings are.
+var SCHOLAR_LINE = [["cataloguing", 0.25], ["crossReferencing", 0.30], ["greatIndex", 0.30],
+                    ["annotatedIndex", 0.35], ["livingLibrary", 0.40]];
 
 // ============================================================
 // v0.45 Part 2 — ore and timber, composed the way Kittens composes them
@@ -1678,17 +1807,21 @@ function ratioDesc(bid, id, tail) {
   var e = ratioEffect(bid, id);
   return e ? e.replace(/\.$/, "") + " — " + tail : tail;
 }
+// v0.58 DEV NOTE 9 (Jerry): "Descriptions should not say 'one rung of the axe line' or
+// '(x4.45 with all 7)'. No spoilers!" Two separate faults in one sentence. "One rung of the
+// axe line" names an internal table; and the fully-stacked total tells the player exactly how
+// many more upgrades exist in a line they have not discovered yet, which is the same spoiler
+// the tooltip layer already refuses to give for un-seen resources (ttResKnown, v0.53
+// directive 2). What the rung DOES is the whole of what the rung should say.
 function axeDesc(id) {
   var v = 0;
   AXE_LINE.forEach(function (u) { if (u[0] === id) v = u[1]; });
-  return "Woodcutters +" + Math.round(v * 100) + "%. One rung of the axe line — ×" +
-    (1 + lineTotal(AXE_LINE)).toFixed(2) + " on the woodcutter with all " + AXE_LINE.length + ".";
+  return "Woodcutters +" + Math.round(v * 100) + "%.";
 }
 function hoeDesc(id) {
   var v = 0;
   HOE_LINE.forEach(function (u) { if (u[0] === id) v = u[1]; });
-  return "Farmers +" + Math.round(v * 100) + "%. One rung of the plough line — ×" +
-    (1 + lineTotal(HOE_LINE)).toFixed(2) + " on the farmer with all " + HOE_LINE.length + ".";
+  return "Farmers +" + Math.round(v * 100) + "%.";
 }
 // Masterwork Tools is the one upgrade that sits in two lines, so it generates from both.
 function masterworkDesc() {
@@ -1696,20 +1829,20 @@ function masterworkDesc() {
   AXE_LINE.forEach(function (u) { if (u[0] === "masterworkTools") av = u[1]; });
   HOE_LINE.forEach(function (u) { if (u[0] === "masterworkTools") hv = u[1]; });
   return "Woodcutters +" + Math.round(av * 100) + "% and Farmers +" + Math.round(hv * 100) +
-    "% — one rung of the axe line (×" + (1 + lineTotal(AXE_LINE)).toFixed(2) + " with all " +
-    AXE_LINE.length + ") and one of the plough line (×" + (1 + lineTotal(HOE_LINE)).toFixed(2) +
-    " with all " + HOE_LINE.length + "). Miners work the seam, not the tool — their gains come from the Mine and the Quarry.";
+    "%. Miners work the seam, not the tool — their gains come from the Mine and the Quarry.";
 }
 function sawDesc(id) {
   var v = 0;
   SAW_LINE.forEach(function (u) { if (u[0] === id) v = u[1]; });
-  return "Every Lumber Mill's woodcutter bonus rises by " + (v * 10).toFixed(1) +
-    " points. One rung of the saw line — " + (0.10 * (1 + lineTotal(SAW_LINE))).toFixed(3) +
-    " per Mill with all " + SAW_LINE.length + ", up from 0.100.";
+  return "Every Lumber Mill's woodcutter bonus rises by " + (v * 10).toFixed(1) + " points.";
 }
-function scholarMultOf(id) {
+// v0.58 Part 3: the entries are increments now, so this returns the INCREMENT. Every caller
+// that wants a factor asks for `1 + scholarAddOf(id)` and every caller that wants the whole
+// line asks lineTotal(SCHOLAR_LINE) -- exactly as the two storage lines are read. The old name
+// `scholarMultOf` returning 1.25 while the table held 0.25 would have been a silent x0.25.
+function scholarAddOf(id) {
   for (var i = 0; i < SCHOLAR_LINE.length; i++) if (SCHOLAR_LINE[i][0] === id) return SCHOLAR_LINE[i][1];
-  return 1;
+  return 0;
 }
 // v0.44 Part 2.5.2 moved KNOWLEDGE off this line — the knowledge ceiling is now
 // buildings plus the clamped Morellonomicon term and nothing else, exactly as Kittens
@@ -1911,12 +2044,17 @@ function scholarCapNames() {
 }
 // v0.48 §3: same split. scholarDesc is retained — it is asserted to exist by test-v43 —
 // but the table now reads the two halves separately.
+// v0.58 Part 3: the line is additive, so the prose says what an additive line actually does --
+// "+25%" against the base, with the all-five total stated the way the storage tooltips state
+// theirs. Saying "×1.25" for a rung that no longer multiplies is the same drift class v0.43
+// Part 0 built these generators to end.
 function scholarEffect(id, numeral) {
-  return "Scholarship " + numeral + " — " + scholarCapNames() + " storage ×" + scholarMultOf(id) + ".";
+  return "Scholarship " + numeral + " — " + scholarCapNames() + " storage +" +
+    Math.round(scholarAddOf(id) * 100) + "%.";
 }
 function scholarDesc(id, numeral, flavour) {
   return "Scholarship " + numeral + " — " + flavour +
-    ". " + scholarCapNames() + " storage ×" + scholarMultOf(id);
+    ". " + scholarCapNames() + " storage +" + Math.round(scholarAddOf(id) * 100) + "%";
 }
 var UPGRADES = [
   { id: "runicAttunement", name: "Runic Attunement", cost: { mana: 120 },
@@ -2049,7 +2187,7 @@ var UPGRADES = [
     effect: "Champion training costs 25% less Renown."},
   { id: "surveyedApproaches", name: "Surveyed Approaches", cost: { parchment: 140, gold: 1000 }, tech: "deepCartography",
     lore: "Knowing the way is most of the walk.",
-    effect: "Every expedition costs 15% less Vigor."},
+    effect: wildsVigorDesc(15, false)},
   // v0.52 Part 5.1: 900 -> 1,300 knowledge. It is a BRANCH at Songcraft's own price, not a
   // rung — the Census is a cultural artefact and Songcraft (rank 9, 1,300) is where Culture
   // starts, so the 60 culture is spendable the moment the research appears. The tech ladder
@@ -2145,7 +2283,7 @@ var UPGRADES = [
   // not exist until Smelting.
   { id: "ironShodWheels", name: "Iron-Shod Wheels", cost: { steel: 120, timber: 600 }, tech: "smelting",
     lore: "The road is the same length; the cart argues less.",
-    effect: "Every expedition costs a further 10% less Vigor."},
+    effect: wildsVigorDesc(10, true)},
   { id: "bankedCoals", name: "Banked Coals", cost: { steel: 80, stoneSlab: 20 }, tech: "kindling",
     lore: "A fire you never let die is a fire you never rebuild.",
     effect: "Forge and Refinery output +15%."},
@@ -2219,20 +2357,27 @@ var UPGRADES = [
   var barnTotal = 0, wareTotal = 0;
   BARN_LINE.forEach(function (u) { barnTotal += u[1]; });
   WAREHOUSE_LINE.forEach(function (u) { wareTotal += u[1]; });
-  var romans = ["I", "II", "III", "IV", "V"];
+  // v0.58 DEV NOTES 9 AND 10 (Jerry), and they pull the same string.
+  //   9: "Descriptions should not say ... 'Masonry 1, or 2.' No spoilers!"
+  //  10: "Masonry description needs to be more clear, I don't know what Barn +0.75 or
+  //      Warehouse +0.25 means."
+  // Both are the same defect from opposite ends: the string was written for a reader who had
+  // already read BARN_LINE. "barn +0.75" is an internal accumulator share and "Masonry III" is
+  // a position in a table the player cannot see. The rung now says, in the player's units,
+  // WHICH STORES GET BIGGER AND BY HOW MUCH -- +0.75 on the barn accumulator IS +75% barn
+  // capacity, so the number was never the problem, only the noun in front of it.
+  // The "With all five: x22.42 / x2.80 / x2.0875" total is DELETED as a spoiler, per note 9's
+  // companion complaint about "(x4.45 with all 7)".
   BARN_LINE.forEach(function (u, i) {
     var up = UPGRADES.find(function (x) { return x.id === u[0]; });
     if (!up) return;
     var ware = WAREHOUSE_LINE[i] ? WAREHOUSE_LINE[i][1] : 0;
-    up.effect = "Masonry " + romans[i] + " — barn +" + u[1].toFixed(2) + ", warehouse +" + ware.toFixed(2) +
-      ". Barns widen " + SCOPE_NAMES.narrow.join(", ") +
-      "; warehouses widen those and " + SCOPE_NAMES.broad.join(", ") + "." +
-      (u[0] === QUARTER_GATE ? " Also opens a quarter of the barn line to " + SCOPE_NAMES.quarter.join(", ") + "." : "");
+    up.effect = "Barns and cellars hold +" + Math.round(u[1] * 100) + "% more " +
+      SCOPE_NAMES.narrow.join(", ") + ". Warehouses and yards hold +" + Math.round(ware * 100) +
+      "% more of those, and of " + SCOPE_NAMES.broad.join(", ") + "." +
+      (u[0] === QUARTER_GATE ? " Barns also begin keeping " + SCOPE_NAMES.quarter.join(", ") +
+        ", at a quarter of their usual share." : "");
   });
-  var lastId = BARN_LINE[BARN_LINE.length - 1][0];
-  var last = UPGRADES.find(function (x) { return x.id === lastId; });
-  if (last) last.effect += " With all five: ×" + ((1 + barnTotal) * (1 + wareTotal)).toFixed(2) +
-    " / ×" + (1 + wareTotal).toFixed(2) + " / ×" + (1 + barnTotal * 0.25).toFixed(4) + ".";
 })();
 
 // ============================================================
@@ -2265,15 +2410,58 @@ var UPGRADES = [
 function _gatesOnTech(fn, id) {
   return !!fn && new RegExp("techs\\." + id + "\\b").test(Function.prototype.toString.call(fn));
 }
+// v0.58 DEV NOTE 4 (Jerry): "Hextech theory does not show that it unlocks the tinkerer role."
+// It does unlock it -- the Tinkerer's gate is `unlock: function (s) { return !!s.techs.hextech; }`
+// -- but this generator only read the DECLARATIVE `tech:` field on JOBS and never the closure.
+// _gatesOnTech already exists precisely to read a closure's source; it simply was not applied
+// here. The same omission is fixed for BUILDINGS and EXPEDITIONS in the same line, since both
+// carry closure-shaped gates too (the Sanctum on `count("shrine")`, Bilgewater on `techs.chemtech`).
+// A generator that reads one of the two gate shapes is how a tech string goes quietly wrong.
 function techUnlocks(id) {
   var out = [];
-  BUILDINGS.forEach(function (x) { if (x.tech === id) out.push(x.name); });
-  JOBS.forEach(function (x) { if (x.tech === id) out.push(x.name + "s"); });
+  BUILDINGS.forEach(function (x) { if (x.tech === id || (x.tech === undefined && _gatesOnTech(x.unlock, id))) out.push(x.name); });
+  JOBS.forEach(function (x) { if (x.tech === id || _gatesOnTech(x.unlock, id)) out.push(x.name + "s"); });
   CRAFTS.forEach(function (c) { if (c.tech === id || _gatesOnTech(c.show, id)) out.push(c.name); });
   TABS.forEach(function (t) { if (_gatesOnTech(t.show, id)) out.push(t.name + " tab"); });
-  EXPEDITIONS.forEach(function (x) { if (x.tech === id) out.push(x.name); });
+  EXPEDITIONS.forEach(function (x) { if (x.tech === id || (x.tech === undefined && _gatesOnTech(x.unlock, id))) out.push(x.name); });
   UPGRADES.forEach(function (x) { if (x.tech === id) out.push(x.name); });
+  // de-duplicate: a job whose gate names the tech AND carries `tech:` would appear twice
+  return out.filter(function (v, i) { return out.indexOf(v) === i; });
+}
+// ============================================================================
+// v0.58 DEV NOTES 1 and 1.1 (Jerry): "Deepwater Docks says Harbor is craftable but Harbor also
+// requires smelting. Audit ALL discoveries/tooltips to ensure that what they say gets unlocked
+// is fully true."
+//
+// The three lore-gated Discoveries each hand-wrote their own unlock line, and each one told a
+// HALF truth: the Discovery is one of TWO gates on the thing it names, and the tech is the
+// other. A player who buys Deepwater Docks and does not see a Harbor has been misinformed by
+// the tooltip, not confused by the game.
+//
+// Same fix as v0.48 §5 applied to techs: DERIVE the line from the gates rather than restate it,
+// and derive BOTH gates. `discoveryUnlocks` reads every BUILDING and CRAFT whose `unlock`/`show`
+// closure names this upgrade, and reports the co-required tech beside each one.
+// ============================================================================
+function _gatesOnUpgrade(fn, id) {
+  return !!fn && new RegExp("upgrades\\." + id + "\\b").test(Function.prototype.toString.call(fn));
+}
+function discoveryUnlocks(id) {
+  var out = [];
+  BUILDINGS.forEach(function (b) {
+    if (!_gatesOnUpgrade(b.unlock, id)) return;
+    var t = b.tech ? TECHS.find(function (x) { return x.id === b.tech; }) : null;
+    out.push(b.name + (t ? " (also requires " + t.name + ")" : ""));
+  });
+  CRAFTS.forEach(function (c) {
+    if (!_gatesOnUpgrade(c.show, id)) return;
+    var t = c.tech ? TECHS.find(function (x) { return x.id === c.tech; }) : null;
+    out.push(c.name + (t ? " (also requires " + t.name + ")" : ""));
+  });
   return out;
+}
+function discoveryEffect(id) {
+  var u = discoveryUnlocks(id);
+  return u.length ? "Unlocks " + u.join(" and ") + "." : "";
 }
 
 
@@ -2299,9 +2487,9 @@ var POLICY_GROUPS = [
     req: function (s) { return s.techs.logistics; }, prereq: "growth",
     options: [
       { id: "vigilantWatch", name: "Vigilant Watch", cost: { culture: 450, furs: 30 },
-        desc: "Nobody walks out alone. Expeditions cost 15% less Vigor." },
+        desc: "Nobody walks out alone. Wilds expeditions cost 15% less Vigor." },
       { id: "openRange", name: "Open Range", cost: { culture: 450, furs: 30 },
-        desc: "The wilds are a larder, not a threat. All camp yields +12%, but expeditions cost 10% more Vigor." }
+        desc: "The wilds are a larder, not a threat. All camp yields +12%, but Wilds expeditions cost 10% more Vigor." }
     ] },
   { id: "tradeOrient", name: "Trade Orientation",
     blurb: "A settlement that faces outward, or one that deepens what it already has?",
@@ -2501,6 +2689,36 @@ function policyGlobalBonus() {
 // the same 0.1875 top bonus Kittens grants at 9,000 -- 27.8% more experience for the same
 // tier. Left alone because the spec says keep RANKS, and because moving the ladder and the
 // rate together would make neither measurable. It is parity debt and it is in the ledger.
+// ============================================================================
+// ============================================================================
+// v0.58 DEV NOTE 11 (Jerry): "Confirm that wanderers earn exp at the same rate kitten's earn
+// exp." ANSWER: IT CANNOT BE CONFIRMED, AND THE RATE IS STILL UNVERIFIED. What was and was not
+// established this round, so the next attempt does not repeat the same three dead ends:
+//
+//   CONFIRMED, and now sourced rather than recalled:
+//     * Kittens runs at FIVE TICKS PER SECOND, 200 ms each (wiki, Game Mechanics, verbatim:
+//       "Each second consists of 5 ticks; in other words, each tick lasts 200 ms"). RR's
+//       TICK_MS = 200 is therefore at exact tick parity, so any per-tick rate ports 1:1 and
+//       the two games' seconds are the same second. That removes one whole class of error.
+//     * Kittens' skill LADDER, verbatim from the wiki's Kittens page:
+//         Dabbling 0 / Novice 100 / Adequate 500 / Competent 1200 / Skilled 2500 /
+//         Proficient 5000 / Master 9000, topping out at +18.75%.
+//       RR's RANKS run to Challenger at 11,500 for the same 0.1875 top bonus — 27.8% more
+//       experience for the same tier. That is PARITY DEBT and it is already in the ledger.
+//     * The CAP is sourced and shipped (skillsCap = 20001, js/village.js:2622), rank-matched
+//       by ratio to XP_CAP = 25,556 below.
+//
+//   NOT CONFIRMED, and here is exactly why. `skillXP` is a LOCAL computed between
+//   js/village.js:2623 and :2644. Three retrieval routes were tried this round and all three
+//   failed for different, recorded reasons: the raw file on githubusercontent is too large to
+//   be delivered in full and every targeted query returned "not present in this excerpt";
+//   grep.app's HTML search is disallowed by its robots.txt; and grep.app's JSON endpoint
+//   silently ignores the repository filter and returns matches from unrelated projects.
+//
+//   SO 0.5 IS STILL AN RR-ORIGINAL NUMBER SET BY DIRECTIVE, NOT BY CITATION, and it is
+//   labelled UNVERIFIED in PARITY-LEDGER.md. It is not being changed on a guess: this round
+//   moved trade, storage and the faith curve, and inventing an XP rate on top of that would
+//   make none of them measurable. See BUILD REPORT §6.
 // ============================================================================
 var XP_PER_SECOND = 0.5;
 // The spec's pass condition states 25,556; the exact ratio-match is 11,500 x 20,001 / 9,000 =
@@ -2872,21 +3090,41 @@ var EXPEDITIONS = [
       }
       addLog(msg + ".", "event");
     } },
+  // ==========================================================================
+  // v0.58 DEV NOTES 5 AND 5.1 (Jerry):
+  //   5:   "Krugs are giving way too much gold too early. Let's tune this number to be much
+  //        lower — especially because we need to consider the yield multipliers and the
+  //        charge multiplier."
+  //   5.1: "Krugs should not give hextech crystals."
+  //
+  // Jerry's parenthesis is the whole of the sizing argument and it is right. The base roll was
+  // 20-40 gold, but NOTHING in this game pays its base roll for long: `campYieldMult()` reached
+  // x5.79 in the v0.58 measured run, and an EMPOWERED krug hunt multiplies that by
+  // CHARGE_BONUS = 3.0 again. The real top-end payout was therefore 40 x 5.79 x 3.0 = 695 GOLD
+  // FOR 150 VIGOR, on a camp available at Expedition Logistics — one of the first techs in the
+  // game. For scale, the miner produces 0.008 gold/s at exact Kittens parity, so one empowered
+  // krug hunt paid what a miner earns in twenty-four game-HOURS.
+  //
+  // Gold cut to 6-12 base, a 70% reduction, which puts the empowered top end at 12 x 5.79 x 3.0
+  // = 208 -- still the best early gold in the game, which is the camp's role, but no longer
+  // three times the whole rest of the economy. THE ORE IS UNTOUCHED: the note is about gold,
+  // and ore has a genuine early sink in the storage chain.
+  //
+  // 5.1: the crystal drop is DELETED outright. Krugs sit at Expedition Logistics; Hextech
+  // Crystals are the Hextech tier's own currency and the Hexcrystal Quarry is the building
+  // that exists to produce them. A 30% drop on a first-tech camp is an entire tier's resource
+  // arriving before the tier does -- the same class of defect as the tooltip spoilers in notes
+  // 2 and 9, but paid out in resources instead of words.
+  // ==========================================================================
   { id: "krugs", name: "Hunt Krugs", tech: "logistics", renown: 3,
     desc: "Living stone, splitting when struck.",
-    yield: "15–30 ore + 20–40 gold · 30% chance of 2–4 hextech crystals (scales with camp yields)",
+    yield: "15–30 ore + 6–12 gold (scales with camp yields)",
     cost: { vigor: 150 },
     run: function () {
       var m = campYieldMult();
-      var o = Math.round((15 + Math.floor(rerollAmt("hunt") * 16)) * m), g = Math.round((20 + Math.floor(rerollAmt("hunt") * 21)) * m);
+      var o = Math.round((15 + Math.floor(rerollAmt("hunt") * 16)) * m), g = Math.round((6 + Math.floor(rerollAmt("hunt") * 7)) * m);
       gain("ore", o); gain("gold", g);
-      var msg = "The krugs crumble, then crumble again. +" + o + " ore, +" + g + " gold";
-      if (rerollHit("hunt") < 0.3) {
-        var cr = Math.round((2 + Math.floor(rerollAmt("hunt") * 3)) * m);
-        gain("crystals", cr);
-        msg += ". One of them splits along a seam of something clearer than stone (+" + cr + " hextech crystals)";
-      }
-      addLog(msg + ".", "event");
+      addLog("The krugs crumble, then crumble again. +" + o + " ore, +" + g + " gold.", "event");
     } },
   { id: "sumpCrawl", name: "The Sump Crawl", tech: "sumpEcology", renown: 4,
     desc: "Down past the vents, where the runoff pools and something has learned to like it.",
@@ -3420,7 +3658,7 @@ function freshState() {
   var s = {
     res: {}, seenMax: {}, buildings: {}, buildingsOff: {}, jobs: {}, techs: {}, upgrades: {},
     drakes: {}, dragonSoul: false, baronUntil: 0, cinderUntil: 0, insightUntil: 0, honeyUntil: 0,
-    festivalUntil: 0, festivals: 0,
+    festivalUntil: 0, festivalUntilTick: 0, festivals: 0,
     standing: {}, campReady: {}, campSlots: {}, factionsFound: { demacia: true }, tradeReady: {}, tradeFatigue: {},
     jackboxes: 0, firstTome: false, wtechs: {}, ascends: 0, altarTier: 0, worship: 0,
     champs: {}, leader: null, hideDone: false, hideDoneR: false, hideDoneD: false, hideDoneP: false, policies: {}, caravans: {},
@@ -3726,13 +3964,48 @@ function luxuryTypes() {
 // capped by the same +30 comfort term rather than adding on top of it — a festival
 // buys you the FULL comfort bonus you might not otherwise have, so it is worth most
 // exactly when you are short, and it can never push morale past the stated ceiling.
-var FESTIVAL_MINUTES = 10;
+// ============================================================================
+// v0.58 DEV NOTE 12 (Jerry): "Festival should give +30% to Morale for a year and require
+// Plumes + Mushrooms + Provisions."
+//
+// THREE CHANGES, and each replaces something the old design got wrong for a stated reason.
+//
+// 1. THE EFFECT. It used to grant the FULL comfort set for its duration -- deliberately capped
+//    by the same +30 comfort term so it could never push past the ceiling, which also meant a
+//    settlement already stocked on all three luxuries got LITERALLY NOTHING for its feast. A
+//    flat +30% multiplier is worth something in every state, which is what a festival should be.
+//
+// 2. THE DURATION IS A GAME YEAR, not ten real minutes. Everything else the player reasons
+//    about -- seasons, milestones, the Arcanist's Circle's yearly draw -- is denominated in
+//    game time, and a real-time duration silently changes value when the tick rate does. One
+//    game-year is TICKS_PER_DAY x DAYS_PER_SEASON x 4 = 4,000 ticks (13m20s at 200ms), so this
+//    is also a LONGER festival than the old ten minutes.
+//
+// 3. THE COST TAKES PLUMES. The three luxuries are furs, plumes and mushrooms; the feast asked
+//    for one of them plus culture. Culture is dropped (it has policies and caravans for sinks,
+//    and it was never thematic here) and Plumes take its place, so the festival draws on the
+//    luxury economy it exists to spend -- which is Kittens' shape for holdFestival, where the
+//    feast eats the catnip and fur stockpiles.
+// ============================================================================
+var FESTIVAL_MINUTES = 10;                                   // retained: legacy saves and suites read it
+var TICKS_PER_GAME_YEAR = TICKS_PER_DAY * DAYS_PER_SEASON * 4;
+var FESTIVAL_MORALE_MULT = 1.30;
 function festivalCost() {
   // v0.55 Part 3.3: the provisions term is x10 with the rest of the sweep. It is per-head, so
   // it scales with the settlement exactly as it did — only the unit changed.
-  return { mushrooms: Math.round(4 * luxuryComfort()), provisions: Math.round(60 * Math.max(1, S.pop)), culture: 40 };
+  // v0.58 note 12: plumes join at the same per-comfort scale as mushrooms; culture leaves.
+  return { mushrooms: Math.round(4 * luxuryComfort()), plumes: Math.round(4 * luxuryComfort()),
+           provisions: Math.round(60 * Math.max(1, S.pop)) };
 }
-function festivalActive() { return simNow() < (S.festivalUntil || 0); }
+// v0.58 note 12: tick-denominated, so offline catch-up (which advances ticks) expires a
+// festival at exactly the right game-time rather than at the wall clock. `festivalUntil` is
+// still honoured so a save written before v0.58 keeps its running festival.
+function festivalActive() {
+  return S.tick < (S.festivalUntilTick || 0) || simNow() < (S.festivalUntil || 0);
+}
+function festivalSeasonsLeft() {
+  return Math.max(0, Math.ceil(((S.festivalUntilTick || 0) - S.tick) / (TICKS_PER_DAY * DAYS_PER_SEASON)));
+}
 // v0.41 §2.5: a research, not a tech-plus-sighting check. Kittens gates festivals
 // behind Drama and Poetry for the same reason, and costing the unlock in mushrooms
 // and parchment makes it a first taste of the sink it opens.
@@ -3742,7 +4015,8 @@ function holdFestival() {
   var c = festivalCost();
   if (!canAfford(c)) return;
   pay(c);
-  S.festivalUntil = simNow() + FESTIVAL_MINUTES * 60 * 1000;
+  S.festivalUntilTick = S.tick + TICKS_PER_GAME_YEAR;
+  S.festivalUntil = 0;
   S.festivals = (S.festivals || 0) + 1;
   // Kittens scales the festival payout off its religious buildings; RR uses the
   // Bard's Hearth, which is the building that remembers things worth singing about.
@@ -3750,8 +4024,9 @@ function holdFestival() {
   var know = Math.round(20 + 10 * count("archive"));
   gain("culture", cult);
   gain("knowledge", know);
-  addLog("The settlement holds a festival. Mushroom stew, borrowed drums, and someone's cousin on the lute. For " +
-    FESTIVAL_MINUTES + " minutes nobody wants for comfort. (+" + cult + " culture, +" + know + " knowledge)", "event");
+  addLog("The settlement holds a festival. Mushroom stew, borrowed drums, and someone's cousin on the lute. " +
+    "For a full year the settlement carries itself differently — morale +" +
+    Math.round((FESTIVAL_MORALE_MULT - 1) * 100) + "%. (+" + cult + " culture, +" + know + " knowledge)", "event");
   uiDirty = true;
 }
 var MORALE_RELIEF_LIMIT = 0.88;  // the one tuning constant for the whole band
@@ -3806,7 +4081,10 @@ function morale(bd) {
   // "worth most when the larder is thin" design intent under the flat rule.
   var luxes = luxuryTypes();
   var fest = festivalActive();
-  var lux = fest ? MORALE_PER_LUXURY * LUXURY_KINDS : MORALE_PER_LUXURY * luxes.length;
+  // v0.58 note 12: the festival no longer fakes a full larder. It is a straight +30% applied at
+  // the END of the calculation (below), so it is worth the same proportion in every state
+  // instead of being worth nothing to a settlement that already holds all three comforts.
+  var lux = MORALE_PER_LUXURY * luxes.length;
   m += lux;
 
   // B2 — Shrine role (Kittens' Temple + Sun Altar): a FLAT add, religion-gated,
@@ -3827,6 +4105,9 @@ function morale(bd) {
     bd.shrine = shrine; bd.box = box;
     bd.raw = m; bd.floored = m < 25;
   }
+
+  // v0.58 note 12 — the festival multiplier, applied last so it lifts the finished figure.
+  if (fest) m *= FESTIVAL_MORALE_MULT;
 
   // B4 — Kittens floors happiness at 25%. A 10% floor was a death spiral with
   // no way back; 25% is a heavy tax you can recover from.
@@ -3897,14 +4178,17 @@ function computeCaps() {
   // so the scribal chain and the trade chain start supporting each other.
   caps.culture += unlimitedDR(Math.floor(S.res.tome || 0), 0.01);
   if (S.wtechs && S.wtechs.solariAltar) caps.devotion *= 2;
-  // Storage-ratio upgrades, two families. SCHOLARSHIP is unchanged and stays multiplicative:
-  // it is RR's port of Kittens' own separate cultureMax/scienceMax ratio lines, which are a
-  // different category and therefore multiply against this one (Kittens' Law).
+  // Storage-ratio upgrades, two families -- and as of v0.58 Part 3 BOTH are additive
+  // accumulators. Scholarship is still a DIFFERENT CATEGORY from the material lines and so
+  // still multiplies against them (Kittens' Law); what changed is that its own five rungs no
+  // longer multiply against EACH OTHER. The claim that used to stand here -- "SCHOLARSHIP is
+  // unchanged and stays multiplicative" -- was true of the port's shape and false of the law
+  // it cited: Kittens' cultureMax ratio line is `ziggurat cultureMaxRatio 0.08` summed per
+  // copy, not a chain of factors.
   //
-  // MASONRY is no longer a multiplicative chain. v0.56 Part 5 replaces it with the source's
-  // two ADDITIVE accumulators applied at three different scopes -- see BARN_LINE,
+  // MASONRY is no longer a multiplicative chain either. v0.56 Part 5 replaced it with the
+  // source's two ADDITIVE accumulators applied at three different scopes -- see BARN_LINE,
   // WAREHOUSE_LINE and CAP_SCOPE above for the source quotation and the tier assignments.
-  var scholarMult = 1;
   var ratios = storageRatios();
   // v0.45 Part 5 corrects a false claim that stood here for three versions. Kittens
   // DOES have a multiplicative science-cap line: libraryRatio (js/buildings.js:578-579),
@@ -3914,9 +4198,16 @@ function computeCaps() {
   // titanium / unobtainium / eludium, i.e. entirely outside RR's era window, which is
   // why knowledge still takes no multiplier here. The directive stands; the old
   // justification for it did not.
+  // v0.58 Part 3. Was `scholarMult *= u[1]` across five rungs of one category (×3.9926 at
+  // five). It is one additive accumulator now, read exactly as ratios.barn and ratios.ware
+  // are read: Σ 1.60 → ×2.60. The multiplication that remains is BETWEEN categories — this
+  // line against the buildings' own cultureCapPct and against mountainMult — which is what
+  // Kittens' Law permits and all it permits.
+  var scholarAdd = 0;
   SCHOLAR_LINE.forEach(function (u) {
-    if (S.upgrades[u[0]]) scholarMult *= u[1];
+    if (S.upgrades[u[0]]) scholarAdd += u[1];
   });
+  var scholarMult = 1 + scholarAdd;
   // v0.45 Part 5: CAP_MULT_EXEMPT (declared beside SCHOLAR_CAPS) now carries knowledge
   // as well as vigor, and the champion storage multiplier is gone entirely — Part 8.1
   // removed the passive that fed it, so that key has no call sites left anywhere.
@@ -4957,7 +5248,15 @@ function transmuteMana(times) {
     gain("timber", transmuteYield());
     done++;
   }
-  if (done > 0) uiDirty = true;
+  // v0.58 DEV NOTE 7 (Jerry): "Mana -> timber should be included" in the chronicle. This
+  // conversion was entirely silent — including the Arcanist's Circle automatic yearly draw,
+  // which spends up to a third of a full mana pool without ever saying so. A player watching
+  // mana fall with no line in the chronicle has no way to learn the mechanic exists.
+  if (done > 0) {
+    addLog("Transmutation ×" + done + " — +" + fmt(done * transmuteYield()) + " timber for −" +
+      fmt(done * TRANSMUTE_COST) + " mana", "event");
+    uiDirty = true;
+  }
 }
 
 // ============================================================
@@ -4975,7 +5274,13 @@ var CRAFTS = [
     // held, which is what makes the stockpile worth building.
     show: function (s) { return s.seenMax.furs >= 1; } },
   { id: "tome", name: "Bind Tome", cost: { parchment: 50, mana: 250, knowledge: 1500 }, out: "tome",
-    desc: "Tomes no longer widen the Archive by themselves. They buy the Scholarship line, which widens everything — and the Great Index, Annotated Index and Living Library all want them.",
+    // v0.58 DEV NOTE 8 (Jerry): "The descriptions for the buttons should not include the
+    // changes we've made. For example, Tomes says 'Tomes no longer widen the archives by
+    // themselves...'. It should just have flavor text." A description written against the
+    // player's memory of a previous build is written for the wrong reader — nobody playing
+    // this for the first time knows what Tomes USED to do. Flavour only; what a Tome is FOR
+    // is stated by the things that ask for one.
+    desc: "Bound in wolf-hide and stitched by hands that will not see it read. Somebody, later, will want to know all of this.",
     show: function (s) { return s.seenMax.parchment >= 1; } },
   // Kittens' third scribal tier: compedium <- science 9000 + manuscript 55. 30 Tomes
   // rather than 55 because an RR Tome costs 50 parchment where a manuscript costs 25;
@@ -5091,6 +5396,24 @@ var CRAFTS = [
     desc: "A fragment of what broke the world, remade. The World Rune will want these. All of these.",
     show: function (s) { return s.techs.icathia; } }
 ];
+// v0.58 DEV NOTES 1 / 1.1 — the three lore-gated Discoveries take their `effect` from the gates
+// themselves. Placed here because discoveryUnlocks() reads BUILDINGS **and CRAFTS**, and CRAFTS
+// is only defined immediately above; running it any earlier silently omits every craft.
+// The audit note 1.1 asks for: every Discovery in DISCOVERIES is rewritten, not just the one
+// Jerry caught, and the rewrite FAILS LOUDLY (leaves the hand-written string) rather than
+// blanking a tooltip if a gate is ever renamed.
+(function deriveDiscoveryEffects() {
+  UPGRADES.forEach(function (u) {
+    var gen = discoveryEffect(u.id);
+    if (!gen) return;
+    // Only a PURE discovery — one whose whole stated effect is the unlock — is regenerated.
+    // An upgrade that both unlocks something and does something else keeps its own sentence,
+    // so this can never silently delete a real effect.
+    if (!/^Unlocks\b/.test(u.effect || "")) return;
+    u.effect = gen;
+    u.desc = [u.lore, u.effect].filter(Boolean).join(" ");   // deriveLegacyDesc ran before CRAFTS existed
+  });
+})();
 function craftItem(id, times) {
   var c = CRAFTS.find(function (x) { return x.id === id; });
   var done = 0;
@@ -5111,7 +5434,16 @@ function craftItem(id, times) {
     // stops early at a storage ceiling or when the inputs run out, and that difference is
     // exactly the thing worth telling someone about.
     var made = done * craftYield(id);
+    // v0.58 DEV NOTE 7 (Jerry): "When crafting something, show how much was crafted AND how
+    // much material it cost in the chronicle." The line told half the story — the gain but not
+    // the spend — which is the half a player can already see in the resource column. The cost
+    // is recomputed from `cost` (the price at the START of the batch) times `done`, so a batch
+    // that stopped early reports what it actually paid, not what it would have paid.
+    var spent = Object.keys(cost).map(function (r) {
+      return "−" + fmt(cost[r] * done) + " " + RES[r].name.toLowerCase();
+    }).join(", ");
     addLog(c.name + " ×" + done + " — +" + fmt(made) + " " + RES[c.out].name.toLowerCase() +
+      (spent ? " for " + spent : "") +
       (done < times ? " (stopped early: " + (caps[c.out] !== undefined && S.res[c.out] >= caps[c.out] - 1e-9 ? "storage full" : "ran out of materials") + ")" : ""), "event");
     uiDirty = true;
   }
@@ -5212,10 +5544,34 @@ function expYield(e) {
   var y = typeof e.yield === "function" ? e.yield(S) : e.yield;
   return y ? y.split(" · ") : [];
 }
+// v0.58 DEV NOTE 14 (Jerry): "Culture policies 'expeditions' is confusing; specify that these
+// are WILD expeditions that cost less, in all areas where this terminology is used."
+//
+// The word was doing two jobs. RR has Wilds expeditions (hunts and journeys, the WILDS tab) and
+// it has trade caravans, and a player reading "every expedition costs 15% less Vigor" beside a
+// Trade tab reasonably expects it to cover the routes. It never did.
+//
+// SHIPPED AS SPECIFIED, which means the vigor discounts now apply to WILDS expeditions ONLY.
+// One expedition changes hands: `scouting`, which carries `tab: "trade"` and is therefore not
+// in the Wilds by the game's own test (see the comment on its definition). Its vigor price
+// rises from 500 x 0.85 x 0.90 = 383 to a flat 500 once both upgrades are held. I flag this as
+// a real balance change rather than a wording change, and it is measured in BUILD REPORT §6:
+// scouting is what discovers trade routes, and v0.58 established that faction discovery is the
+// single most load-bearing thing vigor buys.
+//
+// The prose is GENERATED from one helper so the three strings that use the term cannot drift
+// apart again.
+function isWildsExpedition(e) { return !!e && e.tab !== "trade"; }
+function wildsVigorDesc(pct, further) {
+  return "Every " + (further ? "Wilds expedition costs a further " : "Wilds expedition costs ") +
+    pct + "% less Vigor.";
+}
 function expCost(e) {
   var base = e.costFn ? e.costFn() : e.cost;
   // Surveyed Approaches (v0.42): knowing the way is most of the walk.
-  var vm = policyVigorMult() * (S.upgrades.surveyedApproaches ? 0.85 : 1) * (S.upgrades.ironShodWheels ? 0.90 : 1);
+  var vm = isWildsExpedition(e)
+    ? policyVigorMult() * (S.upgrades.surveyedApproaches ? 0.85 : 1) * (S.upgrades.ironShodWheels ? 0.90 : 1)
+    : 1;
   if (vm === 1 || !base.vigor) return base;
   var out = {};
   for (var r in base) out[r] = r === "vigor" ? Math.round(base[r] * vm) : base[r];
@@ -5277,7 +5633,13 @@ function runExpedition(id) {
   if (campCooldownLeft(e) > 0) return;
   var ec = expCost(e);
   if (!canAfford(ec)) return;
+  // v0.58 DEV NOTE 6 (Jerry): "No need to explain the undo mechanic, show the returns of the
+  // yield." The toast said "Hunt Krugs" beside an Undo button -- it named the mechanic and told
+  // the player nothing they did not already know, at the one moment they most want to know
+  // what they got. The label is rewritten AFTER the run from the actual resource deltas, so it
+  // reports the roll that happened rather than the range that was advertised.
   snapshotUndo(e.name, "hunt");   // v0.55 Part 8: hunts are the one undoable action with rolls
+  var undoBefore = {}; for (var ub in S.res) undoBefore[ub] = S.res[ub];
   pay(ec);
 
   // Spend a banked charge automatically if one is there — no second button.
@@ -5286,6 +5648,18 @@ function runExpedition(id) {
   campEmpowered = empowered ? CHARGE_BONUS : 1;
   try { withYieldFilter(function () { e.run(); }); } finally { campEmpowered = 1; }   // v0.47 Part 4.6
   if (empowered) addLog(CHARGE_FLAVOR[e.id] || "The camp was caught in the open.", "champion");
+  // v0.58 DEV NOTE 6 — the toast now carries the haul. Vigor is excluded: it is the PRICE, and
+  // the price is already on the button the player just pressed.
+  (function () {
+    var gains = [];
+    for (var gr in S.res) {
+      if (gr === "vigor") continue;
+      var d = S.res[gr] - (undoBefore[gr] || 0);
+      if (d > 0.0001 && RES[gr]) gains.push("+" + fmt(d) + " " + RES[gr].name.toLowerCase());
+    }
+    undoLabel = e.name + (gains.length ? " — " + gains.join(", ") : " — nothing worth carrying home");
+    renderUndoToast();
+  })();
   clearRerollPenalty("hunt", "war-band");   // v0.55 Part 8: one attempt, then the marker clears
 
   // Deceive: while Shaco leads, sometimes nobody actually went — yet the loot is here
@@ -5740,7 +6114,8 @@ function showMoraleTooltip(el) {
   if (bd.box > 0) lines += '<div><span style="color:var(--purple)">+' + fmtRate(bd.box) + '</span> Jack in the Boxes (' + S.jackboxes + ")</div>";
   if (bd.floored) lines += '<div><span style="color:var(--gold-bright)">floor</span> morale never falls below 25%</div>';
   tt.innerHTML = '<div style="color:var(--gold-bright);font-weight:600;margin-bottom:4px">Morale · ' + m + '%</div><div class="tt-cost">' + lines +
-    '</div><div class="tt-effect">Morale multiplies all worker output. Poros and True Ice are Freljord materials — they no longer pay morale.</div>';
+    // v0.58 DEV NOTE 8: was "...they no longer pay morale", a sentence about a past build.
+    '</div><div class="tt-effect">Morale multiplies all worker output. Poros and True Ice are Freljord materials, and pay no morale.</div>';
   tt.style.display = "block";
   positionTooltip(el, tt);
 }
@@ -5780,7 +6155,14 @@ function ttCostRows(cost, rates, caps, isSub) {
     if (!RES[r]) continue;
     var need = cost[r], have = S.res[r] || 0, short = have < need;
     var eta = "";
-    if (short && !isSub) {
+    // v0.58 DEV NOTE 3 (Jerry): "The tooltip for when the material is not enough should also
+    // provide an ETA next to the number in parentheses... This is true in most places but not
+    // true for the LAYERED crafting (for example: if I don't have enough beams, it will require
+    // 1000 timber to craft — it should tell me an ETA next to the 1000 timber)."
+    // The `&& !isSub` guard suppressed the ETA on exactly the row that needed it most: the
+    // sub-row is the RAW material the player is actually waiting on, and the parent row is a
+    // craft that resolves instantly the moment the sub-row fills. Removed.
+    if (short) {
       if (caps && caps[r] !== undefined && caps[r] < need) eta = ' <i class="blocked">(storage too small)</i>';
       else {
         var rate = (rates && rates[r]) || 0;
@@ -5924,16 +6306,17 @@ function effectLines(b) {
     if (!ttResKnown(r)) continue;                      // v0.53, Jerry directive 2
     line("Max " + RES[r].name.toLowerCase(), "+" + ttNum(b.caps[r] * cm), "+" + ttNum(b.caps[r] * cm * n));
   }
-  // v0.56 Part 5: a conditional cap is stated whether or not it is active, so the Warehouse
-  // advertises the Silos payoff BEFORE the player researches it rather than after.
-  if (b.capsIf) {
-    var gate = UPGRADES.find(function (u) { return u.id === b.capsIf.upgrade; });
+  // v0.58 DEV NOTE 2 (Jerry): "Warehouses should not say +provisions until the discovery is
+  // actually unlocked. No spoilers!" — this OVERTURNS v0.56 Part 5's stated intent, which was
+  // to advertise the Silos payoff before it is researched. The directive is the ruling: RR's
+  // tooltip layer already refuses to name a resource the player has never seen (ttResKnown,
+  // v0.53 directive 2) and a cap that does not exist yet is the same class of spoiler. The
+  // conditional line is now printed ONLY when its gate is satisfied.
+  if (b.capsIf && S.upgrades[b.capsIf.upgrade]) {
     for (r in b.capsIf.caps) {
       if (!ttResKnown(r)) continue;
-      var on = !!S.upgrades[b.capsIf.upgrade];
       out.push("Max " + RES[r].name.toLowerCase() + ": +" + ttNum(b.capsIf.caps[r] * cm) + " each" +
-        (on ? (n > 1 ? " (currently +" + ttNum(b.capsIf.caps[r] * cm * n) + ")" : "")
-            : " — once " + (gate ? gate.name : b.capsIf.upgrade) + " is researched"));
+        (n > 1 ? " (currently +" + ttNum(b.capsIf.caps[r] * cm * n) + ")" : ""));
     }
   }
   if (b.cultureCapPct && ttResKnown("culture")) line("Max culture", "+" + ttPct(b.cultureCapPct), "+" + ttPct(b.cultureCapPct * n));
@@ -5964,7 +6347,7 @@ function effectLines(b) {
   if (b.crowdRelief) out.push("Overcrowding unhappiness: −" + ttPct(b.crowdRelief) + " each (currently −" +
     ttPct(limitedDR(b.crowdRelief * n, MORALE_RELIEF_LIMIT)) + ", ceiling −" + ttPct(MORALE_RELIEF_LIMIT) + ")");
   if (b.poroSacrifice) out.push("Unlocks the Poro sacrifice: " + PORO_SACRIFICE_COST +
-    " Poros → one Poro Tear per Eye. Poros no longer pay morale, so the Eye has an uncontested claim on them");
+    " Poros → one Poro Tear per Eye. Poros pay no morale, so the Eye has an uncontested claim on them");
   if (b.convert) out.push(convertLine(b) + (b.autoprod ? " — driven by the Chembarrels" : ""));
   return out;
 }
@@ -6474,13 +6857,16 @@ function renderVillage(el) {
     var fc = festivalCost();
     var fOn = festivalActive();
     html += '<div class="panel"><h2>Festival</h2>' +
+      // v0.58 DEV NOTE 12 — the panel states the new effect and the new duration. The
+      // remaining time is now read off the TICK counter, in game-months, because the festival
+      // is denominated in game time.
       '<div style="font-size:11px;font-style:italic;margin-bottom:8px">Kittens hold festivals; so does everyone who has ever survived a hard winter. ' +
-      'For ' + FESTIVAL_MINUTES + ' minutes the settlement wants for no comfort at all — regardless of what is actually in the larder — ' +
-      'and the songs written during one outlast it. Held ' + (S.festivals || 0) + ' time' + ((S.festivals || 0) === 1 ? "" : "s") + '.</div>' +
+      'For a full year afterwards the settlement carries itself differently, and the songs written during one outlast it. ' +
+      'Held ' + (S.festivals || 0) + ' time' + ((S.festivals || 0) === 1 ? "" : "s") + '.</div>' +
       '<div class="btn-grid"><button id="btn-festival"' + (fOn || !canAfford(fc) ? " disabled" : "") + '>' +
-      '<span class="b-name">' + (fOn ? "Festival under way (" + Math.ceil((S.festivalUntil - simNow()) / 60000) + "m)" : "Hold a Festival") + '</span>' +
+      '<span class="b-name">' + (fOn ? "Festival under way (" + festivalSeasonsLeft() + " seasons left)" : "Hold a Festival") + '</span>' +
       '<span class="b-cost">' + costHtml(fc) + '</span>' +
-      '<span class="b-desc">Full comfort for ' + FESTIVAL_MINUTES + ' minutes, +' + Math.round(30 + 8 * count("bardsHearth")) + ' culture, +' + Math.round(20 + 10 * count("archive")) + ' knowledge.</span>' +
+      '<span class="b-desc">Morale +' + Math.round((FESTIVAL_MORALE_MULT - 1) * 100) + '% for one year, +' + Math.round(30 + 8 * count("bardsHearth")) + ' culture, +' + Math.round(20 + 10 * count("archive")) + ' knowledge.</span>' +
       "</button></div></div>";
   }
 
@@ -6494,10 +6880,10 @@ function renderVillage(el) {
     fb.onclick = function () { holdFestival(); };
     fb.onmouseenter = function () {
       showTooltip(fb, { title: "Hold a Festival",
-        desc: "Worth most when the larder is thin. Mushrooms are what a settlement of this size can spare.",
+        desc: "Mushrooms, plumes and a year's worth of the larder. What a settlement of this size can spare.",
         cost: festivalCost(),
-        effects: ["Every comfort counts as fully stocked for " + FESTIVAL_MINUTES + " minutes",
-                  "Morale: as though every comfort kind were in stock"] });
+        effects: ["Morale +" + Math.round((FESTIVAL_MORALE_MULT - 1) * 100) + "% for one full game-year",
+                  "Applied to the finished morale figure, so it is worth the same share in every state"] });
     };
     fb.onmouseleave = hideTooltip;
   }
