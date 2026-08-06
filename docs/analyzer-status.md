@@ -4,9 +4,16 @@ Standing status for the Analyzer cycle. Read alongside `STANDING-RULINGS.md` (cl
 do not re-litigate) and the latest `docs/HANDOFF-v0.NN.md` (the map of the shipped build).
 
 **Always-read tier**, at the start of every session before any other work: `rr-current-state.md`
-(in the claude.ai project), `current-build-spec.md` at the repo root, and
+(in the claude.ai project), `current-build-spec.md` at the repo root **if one is present**, and
 `BUILDER_PROTOCOL.md` at the repo root (the two-tier verification cadence — cheap single-seed
 check per spec part, full multi-seed suite once at the end, never the full suite per part).
+Also `OFF-CYCLE-PROTOCOL.md` when the round is being built from Jerry's gameplay notes rather
+than from a spec.
+
+**`current-build-spec.md` is present ONLY while a spec is awaiting a builder.** The round that
+consumes it *moves* it to `docs/specs/` — it is never copied and left behind. If the file is at
+the root and the cycle table below says no spec is pending, the file is a leftover and the
+table wins.
 
 ---
 
@@ -14,9 +21,9 @@ check per spec part, full multi-seed suite once at the end, never the full suite
 
 | | |
 |---|---|
-| Last shipped build | **v0.57**, tagged `v0.57` |
-| Last consumed spec | `docs/specs/rr-analyzer-v057-spec.md` |
-| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.58, THE CONVERGENCE ROUND** |
+| Last shipped build | **v0.58**, tagged `v0.58` — the Convergence round |
+| Last consumed spec | `docs/specs/rr-analyzer-v058-spec.md` |
+| Current spec, awaiting a builder | **none — no spec is pending.** The next Analyzer cycle verifies `v0.58` and writes `current-build-spec.md` for v0.59. The copy of the v0.58 spec still sitting at the repo root is **consumed**; delete it. |
 | Live suites | **26 suites, 1,273 assertions, 0 failures** — re-run and confirmed 2026-08-06 |
 | Parity ledger | **220 rows — PARITY 54, EASIER 38, HARDER 1, UNVERIFIED 127** |
 | Era 3 | **1,734.6 median of three seeds, spread 1,672.1–1,784.1 (×1.07). ALL THREE SEEDS INSIDE the 1,400–2,300 target.** |
