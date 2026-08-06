@@ -454,16 +454,84 @@ export async function runSim(page, years, seed = 1) {
       return S.pop - a;
     }
 
+    // ========================================================================================
+    // v0.57 PART 4 — THE BOT'S FOOD POLICY.
+    //
+    // THE DEFECT, measured across five v0.56 slices and three rounds: manageJobs() staffed ONE
+    // FARMER at every milestone, in every era, at every population from 36 to 220. Net
+    // provisions at Sparks by v0.56 slice ran -6.5 / -59.9 / -68.0 / +25.7 / -27.9 per second
+    // with held/cap at 56% / 99% / 81% / 99% / 91%. The settlement sat between its food ceiling
+    // and its starvation floor, and which it touched first decided a millennium of the run --
+    // which is the mechanism behind v0.56's 2.6x Era-3 spread. §16: fix the bot, do not price
+    // around it.
+    //
+    // WHY THE OLD RULE DID NOTHING. It read
+    //     if (provNet < 0.5 && idleCount() > 0) { assignTo("farmer", 1); return; }
+    // and both halves were wrong for the settlement this game now produces:
+    //   (a) `idleCount() > 0` -- once every wanderer holds a job the clause cannot fire at all,
+    //       so a fully-employed settlement starves without ever reassigning anyone. That is
+    //       exactly the state the bot reaches by Sparks and never leaves.
+    //   (b) `net("provisions")` is the CURRENT net. In Firstbloom it reads healthy; the crisis
+    //       arrives one season later, and a policy that only reacts to today's number is always
+    //       three-quarters of a year late on a mechanic whose whole point is the calendar.
+    //
+    // THE RULE, stated because every future food number depends on it:
+    //
+    //   1. PROJECT, do not react. Net provisions is evaluated at the WORST seasonal multiplier
+    //      of the coming year -- Deepwinter -- by reading computeRates() with S.tick moved to a
+    //      winter tick and put straight back. computeRates() is a pure read.
+    //   2. STAFF UNDER PROJECTED DEFICIT, taking an idle wanderer if there is one and otherwise
+    //      PULLING one off the largest non-farm job. This is the half that was missing.
+    //   3. UNSTAFF ONLY WHEN BOTH hold: the provisions stock is at (>=98% of) its ceiling AND
+    //      projected winter net is comfortably positive. Unstaffing on a positive CURRENT net
+    //      alone is what let the settlement walk into every winter under-farmed.
+    //   4. NEVER below one farmer, and never past a hard share of the population, so the policy
+    //      cannot collapse the settlement into a monoculture that produces nothing else.
+    //
+    // NO PRICE IS CHANGED TO COMPENSATE. If this makes food easy, that is next round's ruling,
+    // taken with a working instrument behind it.
+    // ========================================================================================
+    const FARM_MAX_SHARE = 0.45;      // a settlement is not a farm; leave 55% for everything else
+    const WINTER_HEADROOM = 2.0;      // provisions/s of projected winter surplus before unstaffing
+    function projectedWinterNet() {
+      // move to the first tick of the next Deepwinter, read, and put S.tick straight back.
+      const perSeason = TICKS_PER_DAY * DAYS_PER_SEASON;
+      const idx = Math.floor(S.tick / perSeason);
+      const winterTick = (Math.floor(idx / 4) + 1) * 4 * perSeason - perSeason;   // winter is season 3
+      const save = S.tick;
+      S.tick = winterTick;
+      let v;
+      try { v = computeRates().provisions; } finally { S.tick = save; }
+      return v;
+    }
+    function largestNonFarmJob() {
+      let best = null, n = 0;
+      JOBS.forEach(j => { if (j.id !== "farmer" && (S.jobs[j.id] || 0) > n) { n = S.jobs[j.id]; best = j.id; } });
+      return n > 0 ? best : null;
+    }
     function manageJobs() {
       // shed everyone occasionally and re-lay the mix, cheap enough at this cadence
       const targets = {};
       const pop = S.pop;
       if (!pop) return;
       const provNet = net("provisions");
-      // farmers first: keep food positive
-      let farmers = S.jobs.farmer || 0;
-      if (provNet < 0.5 && idleCount() > 0) { assignTo("farmer", 1); return; }
-      if (provNet > 6 && farmers > 1) { assignJob("farmer", -1); return; }
+      const winterNet = projectedWinterNet();
+      const farmers = S.jobs.farmer || 0;
+      const capsNow = caps();
+      const stockFull = capsNow.provisions > 0 && S.res.provisions >= capsNow.provisions * 0.98;
+      const farmCeiling = Math.max(1, Math.floor(pop * FARM_MAX_SHARE));
+
+      // (2) staff under PROJECTED deficit -- idle first, then pull off the largest other job.
+      if (winterNet < 0 && farmers < farmCeiling) {
+        if (idleCount() > 0) { assignTo("farmer", 1); return; }
+        const donor = largestNonFarmJob();
+        if (donor) { assignJob(donor, -1); assignJob("farmer", 1); return; }
+      }
+      // (3) unstaff ONLY when the stock is at ceiling AND winter is comfortably covered.
+      if (stockFull && winterNet > WINTER_HEADROOM && farmers > 1) { assignJob("farmer", -1); return; }
+      // the old current-net release, kept but now gated on winter too, so a good summer alone
+      // can no longer strip the settlement before Deepwinter.
+      if (provNet > 6 && winterNet > WINTER_HEADROOM && farmers > 1) { assignJob("farmer", -1); return; }
       if (idleCount() <= 0) return;
 
       const want = [];
