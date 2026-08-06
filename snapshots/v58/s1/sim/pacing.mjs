@@ -186,61 +186,6 @@ const seed = +(process.argv[process.argv.indexOf("--seed") + 1] || 1) || 1;
 const r = await runSim(page, years, seed);
 console.log(`(${((Date.now() - t0) / 1000).toFixed(1)}s wall)\n`);
 const m = r.milestones;
-// ============================================================================================
-// v0.58 PART 2 — THE CONVERGENCE BAND, RE-DERIVED FROM SOURCE. THE TARGET WAS THE FAILURE.
-//
-// The 5-8%-at-Sparks band has stood since v0.46, has failed five consecutive rounds, and NO
-// DOCUMENT IN THIS REPOSITORY DERIVES IT. pacing.mjs's own v0.57 ruling says it "may not be
-// re-based to the measured value in any round that does not also do the Convergence work."
-// v0.58 DOES the work -- Part 2 ports Kittens' missing Chapel -- so this is the sanctioned
-// path, and the re-derivation is from the SOURCE, not from what we happen to measure.
-//
-// THE ARITHMETIC, shown in full because a band nobody can re-derive is how this happened.
-// worshipBonus() is 0.01 x unlimitedDR(worship, 1000), unlimitedDR(v,s) = (sqrt(1+8v/s)-1)/2,
-// which is Kittens' Solar Revolution shape exactly (§3, closed, untouched this round).
-// Solving for the worship each bonus level demands:
-//
-//     bonus b  =>  worship w = 1000 x ((2b/0.01 + 1)^2 - 1) / 8
-//
-//     b = 1.00%  ->  w =   1,000     <-- KITTENS' OWN ANCHOR (see below)
-//     b = 2.00%  ->  w =   3,000
-//     b = 3.00%  ->  w =   6,000
-//     b = 4.00%  ->  w =  10,000
-//     b = 5.00%  ->  w =  15,000     <-- the old band's FLOOR
-//     b = 8.00%  ->  w =  36,000     <-- the old band's CEILING
-//
-// THE ANCHOR NOBODY HAD TAKEN: **Kittens gates Solar Revolution at 1,000 worship, and at 1,000
-// worship this identical formula delivers exactly 1.00%.** A player who has just unlocked the
-// source's equivalent upgrade gets ONE PER CENT. RR's measured 1.42-3.71% at Sparks is already
-// ABOVE the source's unlock-point value; the old 5-8% band was asking for 15x to 36x the
-// source's unlock threshold, at a milestone that arrives well before RR's religion tree is
-// mature. It was never derived from anything.
-//
-// IT BECOMES A FLOOR, NOT A BAND, AND THAT CHANGE IS THE HONEST PART OF THIS RE-DERIVATION.
-//
-// I first re-derived it as a 1-4% band: floor at Kittens' 1,000-worship / 1.00% gate, ceiling at
-// 10,000 worship "an order of magnitude past that gate". Then I measured the Chapel and the
-// settlement read **16,137 worship at Sparks, 5.2% Convergence** -- above my own new ceiling.
-//
-// THE FLOOR IS SOURCED AND THE CEILING WAS NOT. The floor is a real fact about Kittens: it
-// gates Solar Revolution at 1,000 worship and this identical formula pays exactly 1.00% there.
-// The "order of magnitude" ceiling was MY convenience number with nothing behind it -- which is
-// exactly the defect that produced the 5-8% band in the first place, and re-committing it in
-// the opposite direction would be the same mistake with better manners.
-//
-// So the condition asserts what the source actually supports: **Convergence at Sparks must be
-// AT LEAST the value Kittens pays at its own religion-upgrade gate.** The only ceiling the
-// mechanic has is worshipBonus()'s own hard cap of +1000%, and that is what the upper edge is
-// set to -- deliberately vacuous, and labelled as such, rather than invented.
-//
-// A CEILING NEEDS A SOURCE. If a future round wants a real upper bound it must cite the point
-// it is anchoring to and show the arithmetic, as the floor does here. Recorded for the analyzer.
-var CONVERGENCE_BAND = [1, 1000];
-var CONVERGENCE_ANCHOR = "Kittens gates Solar Revolution at 1,000 worship; this same formula pays exactly 1.00% there";
-var CONVERGENCE_LABEL = "Convergence at Sparks >= " + CONVERGENCE_BAND[0] + "% (v0.58 Part 2: re-derived as a FLOOR — " + CONVERGENCE_ANCHOR + "; the upper edge is worshipBonus()'s own +1000% cap because the source supplies no ceiling)";
-// worship required for a given bonus, printed beside the measurement so the band stays checkable
-const worshipFor = b => Math.round(1000 * (Math.pow(2 * b / 0.01 + 1, 2) - 1) / 8);
-
 const row = (k, label) => console.log(`  ${label.padEnd(34)} ${m[k] !== undefined ? "year " + m[k] : "NEVER"}`);
 console.log("MILESTONES");
 row("voidStudies", "Void Studies (Era 1 complete)");
@@ -269,7 +214,7 @@ if (m.sparks !== undefined && m.icathia !== undefined)
     `(v0.52 baseline 826.5; target 1,400-2,300; distance to minimum ${(1400 - (m.icathia - m.sparks)).toFixed(1)})`);
 else console.log("ERA 3 LENGTH: n/a (Sparks or Icathia not reached)");
 // v0.49 Part 6 — the category Part 1.7 cut from five members to Kittens' two.
-["sparks", "hexcore", "icathia", "final"].forEach(k => {
+["sparks", "hexcore", "icathia"].forEach(k => {
   const s = r.snaps && r.snaps[k];
   if (!s) return;
   const cm = s.catMonument;
@@ -292,8 +237,6 @@ else console.log("ERA 3 LENGTH: n/a (Sparks or Icathia not reached)");
   console.log(`  Petricite Quarries @${k}: ${s.ratioBuildings ? s.ratioBuildings.quarry : "?"}` +
     `   Arcane Reactors: ${s.arcaneReactor ?? "?"}   Foundries: ${s.hextechFoundry ?? "?"}` +
     `   Augment Chambers: ${s.augmentChamber ?? "?"}   Shimmer Refineries: ${s.shimmerRefinery ?? "?"}` +
-    `   Chem-Forgeworks: ${s.chemForgeworks ?? "?"}   Rift Anchors: ${s.riftAnchor ?? "?"}` +
-    `   [hexgear ${s.hexgearHeld ?? "?"} · riftsteel ${s.riftsteelHeld ?? "?"} · voidessence ${s.voidessenceHeld ?? "?"}]` +
     `   shimmer ${s.shimmerPerSec ?? "?"}/s`);
 });
 
@@ -416,10 +359,7 @@ if (r.capOutPct) {
   const ERA3 = ["zaunore", "coalgas", "hexore", "shimmer"];
   // deepest milestone the run actually reached — a short slice-comparison run stops before
   // Icathia and would otherwise report every raw as "unmeasured".
-  // v0.58 Part 7.2: "final" FIRST. A milestone snapshot fires the instant its tech lands, so a
-  // consumer gated on that tech is always measured at zero copies there. The end-of-run state is
-  // the only place a sink shipped this round can have had time to exist.
-  const balAt = ["final", "icathia", "deepWorks", "hexcore", "chemtech", "sparks"]
+  const balAt = ["icathia", "deepWorks", "hexcore", "chemtech", "sparks"]
     .find(k => r.snaps && r.snaps[k] && r.snaps[k].resourceBalance);
   const bal = balAt ? r.snaps[balAt].resourceBalance : {};
   if (balAt) console.log(`  (balance measured at ${balAt})`);
@@ -446,58 +386,6 @@ if (r.capOutPct) {
   const twelve = Object.keys(r.capOutPct).filter(k => k !== "vigor" && k !== "knowledge");
   const avg = twelve.length ? twelve.reduce((a, k) => a + r.capOutPct[k], 0) / twelve.length : 0;
   console.log(`  spread: worst ${Object.values(r.capOutPct)[0] ?? 0}%, average across ${twelve.length} multiplied resources ${avg.toFixed(1)}%`);
-  // ---- v0.58 PART 3 + PART 7.1 — THE SCHOLARSHIP FAMILY, CLASSIFIED BEFORE IT IS CUT ----
-  // The spec's order is explicit and it is the whole point of the slice: "culture's
-  // resourceBalance classification is reported BEFORE any compensating change", and "run
-  // resourceBalance on Renown and classify it BEFORE changing any number." §24 exists because
-  // v0.56 sized two ceilings off cap-out fractions and moved them by 3 points and 0 points.
-  // A resource that sits full waiting for one lumpy purchase reads 97% at cap whether its
-  // ceiling is X or 3X, so the cap-out fraction is not evidence about the ceiling at all.
-  //
-  // Renown's substantive conditions are stated here in absolute terms rather than as a
-  // percentage, because a percentage is exactly the wrong shape of target for a lumpy sink:
-  //   (a) the tenth champion is reached, and
-  //   (b) the ceiling clears the largest SINGLE purchase (recruitCost of the tenth, ~9,611).
-  const sch = balAt && r.snaps[balAt] ? r.snaps[balAt].scholarship : null;
-  if (sch) {
-    console.log(`\nv0.58 PART 3 — THE SCHOLARSHIP FAMILY (measured at ${balAt})`);
-    console.log(`  rungs held ${sch.owned}/${sch.of} [${(sch.held || []).join(", ") || "none"}]` +
-      `   product now ×${sch.product}   all-five multiplicative ×${sch.fullProduct}` +
-      `   all-five ADDITIVE ×${sch.additiveWouldGive}`);
-    ["culture", "devotion", "renown"].forEach(k => {
-      const b = bal[k] || {};
-      const cls = b.kind === "no-sink" ? "NO SINK AT ALL"
-        : b.kind === "lumpy-only" ? "LUMPY SINK ONLY — a ceiling change cannot move this"
-        : (b.pcRatio > 1.5 ? "stock-limited" : "flow-limited");
-      console.log(`     ${k.padEnd(8)} cap ${String(sch.caps ? sch.caps[k] : "—").padStart(9)}` +
-        `  held ${String(sch.heldRes ? sch.heldRes[k] : "—").padStart(9)}` +
-        `  cap-out ${String((r.capOutPct[k] ?? 0) + "%").padStart(6)}` +
-        `  delivered ×${String(sch.delivered ? sch.delivered[k] : "—").padStart(7)}` +
-        `  P/C ${String(b.pcRatio ?? "—").padStart(6)}  ${String(b.lumpySinks ?? "?").padStart(2)} lumpy sinks   ${cls}`);
-    });
-    // ---- v0.58 PART 7.1 — THE <70% RENOWN TRIGGER IS CLOSED BY CLASSIFICATION ----
-    // v0.57 left a trigger reading "renown time-at-cap below 70%" and the round arrived at
-    // 71.7 / 72.8 / 72.9 — 1.7 points away. The tempting close is another percentage point on
-    // renownCapPct. §24 exists to stop exactly that: Renown has NO continuous consumer and
-    // ~20 lumpy sinks, the largest being the tenth champion at a single 9,611 lump, so the
-    // stock refills to the ceiling BETWEEN purchases and sits there. Its cap-out fraction
-    // measures the gap between champion purchases, not the tightness of the ceiling — raising
-    // the ceiling moves that fraction by approximately nothing, which is what v0.56 already
-    // demonstrated twice on Era-3 raws before §24 was written.
-    // The percentage target is therefore RETIRED for Renown and replaced by the two substantive
-    // conditions a lumpy sink can actually fail: the ladder completes, and the ceiling clears
-    // the largest SINGLE purchase.
-    const renB = bal.renown || {};
-    const clears = sch.caps && sch.caps.renown >= sch.largestRenownPurchase;
-    console.log(`  RENOWN (Part 7.1): kind=${renB.kind || "?"}, ${renB.continuousConsumers ?? "?"} continuous consumers, ` +
-      `${renB.lumpySinks ?? "?"} lumpy sinks → the <70% cap-out target is the WRONG SHAPE for this resource and is RETIRED.`);
-    console.log(`     substantive condition A — ceiling clears the largest single purchase: ` +
-      `${sch.caps ? sch.caps.renown : "—"} vs ${sch.largestRenownPurchase} → ${clears ? "PASS" : "FAIL"}`);
-    console.log(`     substantive condition B — the champion ladder completes: ` +
-      `${sch.championsRecruited}/10 recruited at this milestone (the ladder condition is judged at full length, not here)`);
-  }
-  console.log(`  tenth champion: ${m.tenthChampionRecruited !== undefined ? "recruited y" + m.tenthChampionRecruited
-    : m.tenthChampionAffordable !== undefined ? "affordable y" + m.tenthChampionAffordable + " (not recruited)" : "NEVER"}`);
 }
 const tm = r.trades.atMilestone;
 const perYear = (n, y) => y ? +(n / y).toFixed(2) : 0;
@@ -508,20 +396,6 @@ if (m.sparks !== undefined && m.icathia !== undefined) {
     `  (ratio ×${atSparks ? (era3 / atSparks).toFixed(2) : "n/a"}, target ≤ 3)`);
 }
 console.log(`TRADES total: ${r.trades.total}`);
-// v0.58 Part 5: the banking reserve's own activity count. Zero here means the policy never
-// fired and the spread collapse (if any) came from somewhere else.
-console.log(`TRADE BANKING: the reserve held an expedition back ${r.tradeReserveBlocks ?? "?"} times`);
-// v0.58 Part 3 diagnostic — why the bot refused, counted, with the closest it ever came.
-if (r.tradeRefusedBy) console.log(`TRADE REFUSALS: route affordable on ${r.tradeAffordableTicks} bot-ticks; ` +
-  `refused by ${Object.entries(r.tradeRefusedBy).map(([k2, v2]) => `${k2} ×${v2}`).join(", ") || "nothing"}` +
-  `   best fraction of ceiling ever held: ${Object.entries(r.tradeFracMax || {}).map(([k2, v2]) => `${k2} ${(100 * v2).toFixed(1)}%`).join(", ") || "—"} (needs 60%)`);
-// Per FACTION, because the routes charge different goods and an aggregate hides which route the
-// bot was actually living on. v0.58 Part 2 took trades from 142 to 0 and the aggregate could not
-// say why; the per-route split can.
-if (r.tradeFaction) Object.entries(r.tradeFaction).forEach(([fid, fx]) => {
-  console.log(`     route ${fid.padEnd(10)} open ${String(fx.openTicks).padStart(6)} ticks · affordable ${String(fx.affordable).padStart(5)} · ` +
-    `surplus-ok ${String(fx.surplusOk).padStart(5)} · refused by ${Object.entries(fx.refusedBy || {}).map(([k3, v3]) => `${k3} ×${v3}`).join(", ") || "nothing"}`);
-});
 
 // ---- v0.40 morale pass conditions ----
 const after60 = r.samples.filter(s => s.year > 60);
@@ -556,37 +430,21 @@ if (late.length) {
 if (m.sparks !== undefined) {
   const atSparks = r.samples.find(s => s.year >= m.sparks);
   const last = r.samples[r.samples.length - 1];
-  console.log(`\nCONVERGENCE  ${atSparks ? atSparks.worshipBonus + "% at Sparks (floor " + CONVERGENCE_BAND[0] + "%, sourced)" : "n/a"}   ${last.worshipBonus}% at end (worship ${last.worship})`);
-  // v0.58 Part 2: worship at Sparks, reported directly, plus the band's own arithmetic so the
-  // target can be re-derived from the printout without opening the source.
-  ["sparks", "hexcore", "icathia"].forEach(k => {
-    const t = (r.snaps && r.snaps[k] || {}).targon;
-    if (t) { console.log(`  TARGON @${k.padEnd(8)} shrine ${t.shrine} · CHAPEL ${t.chapel} · sanctum ${t.sanctum} · marus ${t.marus} · ` +
-      `${t.acolytes} acolytes = ${t.devotionPerSec} devotion/s · worship ${t.worship} · ${t.ascends} ascents`);
-      if (!t.chapel) console.log(`     chapel not built: visible ${t.chapelVisible}, affordable ${t.chapelAfford}, ` +
-        `cost ${JSON.stringify(t.chapelCost)} vs held ore ${t.oreHeld} culture ${t.cultureHeld} parchment ${t.parchmentHeld} (seen ${t.parchmentSeen})`); }
-  });
-  console.log(`  worship at Sparks: ${atSparks ? atSparks.worship : "n/a"}` +
-    `   the ${CONVERGENCE_BAND[0]}% floor needs ${worshipFor(CONVERGENCE_BAND[0] / 100)} worship` +
-    `   (Kittens' Solar Revolution gate = 1,000 worship = 1.00% on this same formula)`);
+  console.log(`\nCONVERGENCE  ${atSparks ? atSparks.worshipBonus + "% at Sparks (target 5-8%)" : "n/a"}   ${last.worshipBonus}% at end (worship ${last.worship})`);
 }
 const peak = Math.max(...r.samples.map(s => s.pop));
 console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHED" : "not reached"})`);
 // ---- v0.57 Part 5 — the Scholarship census, dated to v0.58 as a restructure, measured here ----
 {
-  const sc = (r.snaps && (r.snaps.final || r.snaps.icathia || r.snaps.deepWorks || r.snaps.hexcore || r.snaps.sparks) || {}).scholarship;
+  const sc = (r.snaps && (r.snaps.icathia || r.snaps.deepWorks || r.snaps.hexcore || r.snaps.sparks) || {}).scholarship;
   if (sc) {
-    // v0.58 Part 3: the census that DATED the restructure now REPORTS it. The line is additive,
-    // so the figures are a Σ and a 1+Σ, and the retired chain is kept alongside as the
-    // counterfactual — a cut that stops stating what it cut from stops being auditable.
-    console.log("\nv0.57 PART 5 / v0.58 PART 3 — THE SCHOLARSHIP LINE, NOW AN ADDITIVE ACCUMULATOR");
+    console.log("\nv0.57 PART 5 — THE SCHOLARSHIP LINE (the multiplicative chain §19 missed)");
     console.log(`  rungs reached by the instrument: ${sc.owned} of ${sc.of}  [${sc.held.join(", ")}]`);
-    console.log(`  Σ held ${sc.sigmaHeld} → ×${sc.product}   Σ all five ${sc.sigmaFull} → ×${sc.fullProduct}` +
-      `   the RETIRED multiplicative chain on the same members: ×${sc.retiredChainWouldGive}`);
+    console.log(`  delivered product at that state: ×${sc.product}   fully stacked: ×${sc.fullProduct}` +
+      `   the SAME MEMBERS READ ADDITIVELY would give: ×${sc.additiveWouldGive}`);
     console.log(`  delivered per resource: ` + Object.entries(sc.delivered).map(([k, v]) => `${k} ×${v}`).join("  "));
-    console.log(`  → the v0.58 Part 3 restructure is a CUT from ×${sc.retiredChainWouldGive} to ×${sc.fullProduct} ` +
-      `(${(100 * (1 - sc.fullProduct / sc.retiredChainWouldGive)).toFixed(1)}% at five rungs), ` +
-      `applied to a resource sitting at ${(r.capOutPct || {}).culture ?? "?"}% of its ceiling. SHIPPED.`);
+    console.log(`  → the v0.58 restructure is a CUT from ×${sc.fullProduct} to ×${sc.additiveWouldGive}, ` +
+      `applied to the resource already at ${(r.capOutPct || {}).culture ?? "?"}% of its ceiling. Dated, not shipped.`);
   }
 }
 // v0.50 Part 5 — what a PLAYER could run, rather than what the bot did.
@@ -596,12 +454,14 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
   console.log(`TRADE AFFORDABILITY @${k}: ${ct.route} costs ${JSON.stringify(ct.cost)} — ` +
     `${ct.affordable ? "AFFORDABLE" : "BLOCKED by " + ct.binding.join(", ")}; ` +
     `vigor income ${ct.vigorPerGameYear}/game-year = ${ct.tradesPerGameYear} trades a player could run`);
-  // v0.58 Part 3: affordable and will-actually-trade are different questions — print the second one.
-  if (ct.surplusPer) console.log(`     bot's surplus rule: ${ct.surplusOk ? "SATISFIED" : "REFUSED"} — ` +
-    Object.entries(ct.surplusPer).map(([k2, v2]) => `${k2}: ${v2}`).join("  |  "));
 });
 const gap = (a, b) => (m[a] !== undefined && m[b] !== undefined) ? +(m[b] - m[a]).toFixed(1) : undefined;
 const chemToHex = gap("chemtech", "hexcore");
+// v0.58 Part 1 hoists the Convergence band into a named constant so the condition table can be
+// read without prose archaeology. The BAND ITSELF is unchanged in this slice -- Part 2 is the
+// round that re-derives it, and doing both in one slice would make neither attributable.
+var CONVERGENCE_BAND = [5, 8];
+var CONVERGENCE_LABEL = "Convergence " + CONVERGENCE_BAND[0] + "-" + CONVERGENCE_BAND[1] + "% at Sparks";
 const checks = [
   // ==========================================================================
   // v0.53 Part 6 — RE-BASED, with its reason recorded, and the reason is a measurement.
@@ -667,41 +527,10 @@ const checks = [
     shape: "max", value: m.firstChampion, test: v => v !== undefined && v < 120,
     why: "a CEILING condition — 'no player should still be championless at y120'. A ceiling is " +
          "about the worst draw by construction, so it asserts the max." },
-  // ==========================================================================
-  // v0.58 PART 6 — THE POPULATION RULING. "130 wanderers before year 600" is RETIRED and
-  // replaced by a PEAK-POPULATION BAND. This is a ruling, and the reason is recorded here
-  // rather than in a build report that nobody reads at the point of use.
-  //
-  // THE FACTS THE RULING RESTS ON:
-  //   * The milestone has failed FIVE consecutive rounds. On v0.57 it read y1,415-1,726
-  //     against a y600 target. A condition that has failed five rounds without a ruling is
-  //     not a condition; it is a note.
-  //   * Peak population settled at 181-185 on all three seeds, and EVERY OTHER NUMBER IN THE
-  //     PROJECT IMPROVED when it did. Morale's 90-140 band crossed 80% for the first time in
-  //     the project's history at exactly the moment peak population fell from 220 to 181-185.
-  //   * KITTENS GOVERNS POPULATION BY HUT CAPACITY AND CATNIP, NOT BY A MILESTONE YEAR. There
-  //     is no "N kittens by year Y" anywhere in the source. A BAND is the source-shaped
-  //     statement; a milestone year is an RR-original invention that was never derived.
-  //
-  // WHY NOT THE OTHER POSITION. Holding 130-by-y600 would require moving CONSUMPTION, the
-  // Farmstead or the housing line -- and all three are at VERIFIED SOURCE PARITY right now.
-  // That change would be a deliberate RR-original divergence and would have to be labelled
-  // EASIER in the ledger. Breaking parity to rescue an underived target is backwards.
-  //
-  // AND EXPLICITLY NOT A RE-BASE. The band is NOT set to the measured 181-185; it is set to
-  // 150-220, the range across which morale's own pass condition was observed to hold. Setting
-  // the edges to the measurement is the trap this file's Convergence ruling names by name.
-  //
-  // JERRY: this is the ruling the spec said needed you. It is shipped so the round is not
-  // blocked, and it is the ONE item in v0.58 that should be overturned by a word from you
-  // rather than by a measurement.
-  // ==========================================================================
-  { id: "popBand", label: "peak population inside the 150-220 band (v0.58 Part 6: replaces '130 wanderers before y600')",
-    shape: "median", value: peak,
-    test: v => v !== undefined && v >= 150 && v <= 220,
-    why: "a STEADY-STATE condition, not a pace condition. Kittens sets population by housing " +
-         "capacity and food, so the honest question is where the settlement settles, not when " +
-         "it passes a number. Median because the band is about the typical settlement." },
+  { id: "pop130", label: "130 wanderers before year 600",
+    shape: "median", value: m.pop130, test: v => v !== undefined && v < 600,
+    why: "a growth-pace condition, so a distribution. See Part 6's ruling above the table — " +
+         "this condition is being RULED on this round, not merely re-shaped." },
   { id: "sparks", label: "Sparks before year 500",
     shape: "max", value: m.sparks, test: v => v !== undefined && v < 500,
     why: "a CEILING condition. Era 3 must open for every player, not for the median player, so " +
