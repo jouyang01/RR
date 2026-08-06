@@ -942,7 +942,11 @@ var JOBS = [
   // v0.55 Part 3.3: `catnip: 1`/tick x 5 ticks/s = 5.000/s, the source's exact value.
   // v0.55 directive 5: farmers now take the season, so the parenthetical had to go — it was
   // the only place the old exemption was documented.
-  { id: "farmer",     name: "Farmer",     desc: "+5 provisions/s (the harvest follows the calendar)", prod: { provisions: 5 } },
+  // v0.57 Part 2: the parenthetical goes with the mechanic. This string was the ONLY place the
+  // behaviour was ever documented in-game, which is why Jerry read it off the Wanderers tab and
+  // why a wrong one is a real defect rather than a cosmetic one. The Farmstead's own "Seasonal"
+  // effect line (effectLines(), `b.seasonal`) still says it, because the BUILDING still is.
+  { id: "farmer",     name: "Farmer",     desc: "+5 provisions/s", prod: { provisions: 5 } },
   // v0.45 Part 4 — worker base rates at Kittens parity. Kittens ticks 5/s, so per-second
   // is perTick x 5, read from js/village.js: woodcutter wood 0.018 -> 0.09/s (RR was
   // 3.33x over), scholar science 0.035 -> 0.175/s (1.71x over), priest faith 0.0015 ->
@@ -4034,25 +4038,32 @@ function computeRates(bdRes) {
     var mult = (jobMult[j.id] || 1) * (1 + (jobBoosts[j.id] || 0)) * mor * policyMult("worker") * skillMult(j.id);
     for (var r in j.prod) {
       if (r === "hexore" && !S.techs.hexcore) continue; // prospectors can't quarry what nobody has conjectured
-      // v0.55, DIRECTIVE 5 — FARMERS TAKE THE SEASON. This is the round's real Deepwinter
-      // lever: at farmMult 0.25 the settlement's entire job-based food supply drops 75% for a
-      // quarter of every year, which is what winter is supposed to do. Until now `farmMult`
-      // reached buildings ONLY (`if (b.seasonal && r === "provisions")` above), so a
-      // settlement fed by farmers was season-proof and Deepwinter was a rounding error.
+      // v0.57 PART 2 — FARMERS DO NOT TAKE THE SEASON, AND THIS REVERSES v0.55's DIRECTIVE 5.
       //
-      // LABEL, AND IT IS THE FIRST `HARDER` IN THE PARITY LEDGER: this is an RR-ORIGINAL
-      // DIVERGENCE, NOT A PARITY FIX. Resolved against source this round, which the v0.55
-      // spec Part 0.1 left open: `js/village.js updateResourceProduction()` applies skill,
-      // rank, leader and happiness to a job's output and NO season or weather term;
-      // `getWeatherMod` lives in `js/calendar.js` and is not called from the job path; and the
-      // Kittens wiki's Game Mechanics page states it outright — "Seasons affect catnip
-      // production from catnip fields, but do not affect production from farmers."
-      // Jerry's directive stands and ships. It makes RR HARDER than the source, deliberately.
+      // v0.55 shipped `if (r === "provisions") jv *= farmMult;` here on a directive whose
+      // stated premise was that Kittens' farmers are seasonal. The builder then DISPROVED that
+      // premise from source in the same round and shipped it anyway, labelled RR-ORIGINAL /
+      // HARDER -- the charter's first HARDER label -- precisely so it could be revisited
+      // without re-deriving the argument. Jerry has now revisited it:
+      //
+      //   "Farmers provision production should not be impacted by winter."   -- v0.57 directive 2
+      //
+      // The reversal moves RR TOWARD the source, so the ledger row goes HARDER -> PARITY and
+      // the project's HARDER count falls from 2 to 1. The citations are unchanged and they were
+      // right the first time: `js/village.js updateResourceProduction()` applies skill, rank,
+      // leader and happiness to a job's output and NO season or weather term; `getWeatherMod`
+      // lives in `js/calendar.js` and is never called from the job path; and the Kittens wiki's
+      // Game Mechanics page says it in one sentence -- "Seasons affect catnip production from
+      // catnip fields, but do not affect production from farmers."
+      //
+      // WHAT KEEPS ITS SEASON: buildings with `seasonal: true` (the loop above, `:b.seasonal`).
+      // That is Kittens' catnip FIELD, which IS seasonal in the source. Deepwinter still bites
+      // the Farmstead line; it no longer bites the farmer.
+      //
+      // STANDING-RULINGS §17 is AMENDED, not deleted -- the history is the point.
       var jv = j.prod[r] * n * mult * (1 + (boosts[r] || 0));
-      if (r === "provisions") jv *= farmMult;
       rates[r] += jv;
       track(r, n + "× " + j.name + " (morale " + Math.round(mor * 100) + "%" +
-        (r === "provisions" ? ", " + season.name.toLowerCase() + " ×" + farmMult.toFixed(2) : "") +
         (skillMult(j.id) > 1.0005 ? ", skill +" + Math.round((skillMult(j.id) - 1) * 100) + "%" : "") + ")", jv);
     }
   });

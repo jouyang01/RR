@@ -222,15 +222,26 @@ const seasons = await page.evaluate(() => {
 });
 const springAmt = seasons.spring.farmerAmt, summerAmt = seasons.summer.farmerAmt,
       winterAmt = seasons.winter.farmerAmt;
-check("8 — farmer output takes the season at all four: spring ×1.5, summer/autumn ×1.0, winter ×0.25",
-  Math.abs(springAmt / summerAmt - 1.5) < 1e-6 &&
-  Math.abs(seasons.autumn.farmerAmt / summerAmt - 1) < 1e-6 &&
-  Math.abs(winterAmt / summerAmt - 0.25) < 1e-6,
+// v0.57 Part 2 RE-POINT, and this one is a REVERSAL rather than a re-point of a magnitude.
+// v0.55 shipped seasonal farmers on a directive whose stated premise -- that Kittens' farmers
+// are seasonal -- this suite's own round then DISPROVED from source, and it shipped labelled
+// RR-ORIGINAL / HARDER precisely so it could be revisited on the label. Jerry's v0.57 directive
+// 2 revisits it: "Farmers provision production should not be impacted by winter." The reversal
+// moves RR TOWARD the source (js/village.js updateResourceProduction() carries no season term),
+// so the ledger row goes HARDER -> PARITY.
+//
+// The assertion is INVERTED rather than deleted, which is this project's rule for a retired
+// behaviour: a future round that re-seasons the farmer has to come back here and say so.
+// Superseded by: v0.57 Part 2.
+check("8 — farmer output is IDENTICAL in all four seasons — the season term is gone from the job",
+  Math.abs(springAmt - summerAmt) < 1e-9 && Math.abs(seasons.autumn.farmerAmt - summerAmt) < 1e-9 &&
+  Math.abs(winterAmt - summerAmt) < 1e-9,
   Object.entries(seasons).map(([k, v]) => `${k} ${v.farmerAmt}`).join(" | "));
-check("8 — winter output falls exactly 75%",
-  Math.abs(1 - winterAmt / summerAmt - 0.75) < 1e-9, `${winterAmt} vs ${summerAmt}`);
-check("8 — and the multiplier is applied to provisions ONLY, not to every job",
-  /if \(r === "provisions"\) jv \*= farmMult;/.test(CODE));
+check("8 — winter costs the farmer nothing at all",
+  Math.abs(winterAmt / summerAmt - 1) < 1e-9, `${winterAmt} vs ${summerAmt}`);
+check("8 — and no season term survives on the job path, on stripped source",
+  !/if \(r === "provisions"\) jv \*= farmMult;/.test(CODE) &&
+  !/season\.name\.toLowerCase\(\)/.test(CODE.slice(CODE.indexOf("JOBS.forEach"))));
 
 // ============================================================================
 // PASS CONDITIONS 9, 10 — the Granary and the shared bound

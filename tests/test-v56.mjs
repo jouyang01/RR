@@ -66,7 +66,16 @@ const store = await page.evaluate(() => {
   return {
     delivered,
     scope: Object.fromEntries(capped.map(r => [r, CAP_SCOPE[r] || "MISSING"])),
-    uncovered: capped.filter(r => !CAP_SCOPE[r]),
+    // v0.57 Part 1: the invariant strengthens from "CAP_SCOPE is total" to "every capped
+    // resource is in EXACTLY ONE family". Until v0.57, culture/devotion/knowledge/vigor were in
+    // CAP_SCOPE as "none" AND in SCHOLAR_CAPS or CAP_MULT_EXEMPT — two families each, with the
+    // storage loop's ternary silently deciding which one won. Renown joining SCHOLAR_CAPS while
+    // still reading `broad` in CAP_SCOPE would have made that table state a figure the code did
+    // not deliver.
+    family: Object.fromEntries(capped.map(r => [r, capFamilyOf(r)])),
+    uncovered: capped.filter(r => capFamilyOf(r) === null),
+    multiFamily: capped.filter(r =>
+      [CAP_MULT_EXEMPT[r], SCHOLAR_CAPS[r], CAP_SCOPE[r]].filter(Boolean).length !== 1),
     stray: Object.keys(CAP_SCOPE).filter(r => RES[r] === undefined || RES[r].baseCap === undefined),
     barnSum: +BARN_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
     wareSum: +WAREHOUSE_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
@@ -80,9 +89,10 @@ check("3 — `masonryMult` is gone from the source; nothing multiplies a chain o
   !/\["expandedStores", 1\.75\]/.test(CODE));
 check("3 — two ADDITIVE accumulators, at the source's own sums (barn 4.35, warehouse 1.80)",
   store.barnSum === 4.35 && store.wareSum === 1.8, `barn Σ ${store.barnSum}, warehouse Σ ${store.wareSum}`);
-check("3 — every capped resource lands in EXACTLY ONE tier, and no tier names a non-resource",
-  store.uncovered.length === 0 && store.stray.length === 0,
-  `${Object.keys(store.scope).length} capped resources, tiers ${store.tiers.join("/")}`);
+check("3 — every capped resource lands in EXACTLY ONE cap FAMILY, and no tier names a non-resource",
+  store.uncovered.length === 0 && store.stray.length === 0 && store.multiFamily.length === 0,
+  `${Object.keys(store.family).length} capped resources; ` +
+  `uncovered [${store.uncovered.join(",")}] multi-family [${store.multiFamily.join(",")}] stray [${store.stray.join(",")}]`);
 // PASS CONDITION 4. The spec's own table states ×14.84 and ×2.075, which imply a barn sum of
 // 4.30 — the source's 4.35 minus `strenghtenBuild`'s 0.05, which the SAME SPEC's prose counts,
 // and which its warehouse sum of 1.80 also counts. The spec disagrees with itself by one
@@ -94,12 +104,18 @@ check("4 — fully stacked: narrow ×14.98 · broad ×2.80 · quarter ×2.0875 �
   Math.abs(store.delivered.provisions - 2.0875) < 1e-3 &&
   Math.abs(store.delivered.voidessence - 1.00) < 1e-9,
   `timber ×${store.delivered.timber}, gold ×${store.delivered.gold}, provisions ×${store.delivered.provisions}, voidessence ×${store.delivered.voidessence}`);
-check("4 — ...and every resource's delivered multiplier matches its declared tier, with no exceptions",
-  Object.keys(store.scope).every(r => {
+check("4 — ...and every MASONRY resource's delivered multiplier matches its declared tier",
+  Object.keys(store.family).filter(r => store.family[r] === "masonry").every(r => {
     const want = { narrow: 14.98, broad: 2.80, quarter: 2.0875, none: 1.00 }[store.scope[r]];
     return store.delivered[r] === undefined || Math.abs(store.delivered[r] - want) < 1e-3;
   }),
-  Object.entries(store.scope).map(([r, t]) => `${r}:${t}=${store.delivered[r] ?? "—"}`).join(" "));
+  Object.entries(store.family).map(([r, f]) =>
+    `${r}:${f === "masonry" ? store.scope[r] : f}=${store.delivered[r] ?? "—"}`).join(" "));
+check("4 — ...and NO scholar- or exempt-family resource is moved by the Masonry line at all",
+  Object.keys(store.family).filter(r => store.family[r] !== "masonry")
+    .every(r => store.delivered[r] === undefined || Math.abs(store.delivered[r] - 1) < 1e-9),
+  Object.keys(store.family).filter(r => store.family[r] !== "masonry")
+    .map(r => `${r} ×${store.delivered[r] ?? "—"}`).join(" "));
 check("4 — the quarter tier is GATED on Silos, exactly as `js/resources.js` gates catnip",
   store.gate === "chemtechSilos" && store.noSilos === 1 && store.withSilos === 2.0875,
   `without ${store.gate}: ×${store.noSilos}; with: ×${store.withSilos}`);
@@ -108,9 +124,14 @@ check("4 — the quarter tier is GATED on Silos, exactly as `js/resources.js` ga
 // that the harness measures every capped resource rather than the two it used to.
 const SIMCORE = readFileSync(new URL("../sim/simcore.mjs", import.meta.url), "utf8");
 const PACING = readFileSync(new URL("../sim/pacing.mjs", import.meta.url), "utf8");
+// v0.57 Part 6 RE-POINT: the printed condition string changed when pass condition 5 was
+// RESTATED — the 30–60% cap-out band now applies only to stock-limited raws, because three of
+// its four resources turned out to be lumpy-sink-only and a ceiling cannot move them. What this
+// assertion is about is the INSTRUMENTATION, which is unchanged and now richer.
+// Superseded by: v0.57 Part 6.
 check("5 — the harness records time-at-cap for EVERY capped resource, not just vigor and crystals",
   /const capTicks = \{\}/.test(SIMCORE) && /capOutPct:/.test(SIMCORE) &&
-  /Era-3 raws in a 30-60% cap-out band/.test(PACING));
+  /30-60% cap-out band/.test(PACING));
 
 // ============================================================================
 // JERRY'S DIRECTIVE — the provisions cap, and Deepwinter
@@ -253,8 +274,14 @@ check("11 — with no leader, all four seasons are bit-identical to v0.55: 1.5 /
   leona.without.spring === 1.5 && leona.without.summer === 1 &&
   leona.without.autumn === 1 && leona.without.winter === 0.25,
   JSON.stringify(leona.without));
-check("11 — ...and the seasonal-farmer line v0.55 shipped is untouched (STANDING-RULINGS §17)",
-  /if \(r === "provisions"\) jv \*= farmMult;/.test(CODE));
+// v0.57 Part 2 RE-POINT: §17 is AMENDED by Jerry's v0.57 directive 2, which is the mechanism
+// §17's own preamble provides for. The farmer's season term is removed; what this assertion was
+// really guarding -- that Part 3's Leona work did not disturb the seasonal path -- now belongs
+// to the BUILDING line, which is the one the source actually makes seasonal.
+// Superseded by: v0.57 Part 2.
+check("11 — ...and the SEASONAL BUILDING line is untouched — that is the one the source makes seasonal",
+  /if \(b\.seasonal && r === "provisions"\) amt \*= farmMult;/.test(CODE) &&
+  !/if \(r === "provisions"\) jv \*= farmMult;/.test(CODE));
 
 // ============================================================================
 // PASS CONDITIONS 12, 13, 14 — reporting requirements
@@ -351,8 +378,14 @@ check("16 — Part 4: farmer count and net food are emitted at all four mileston
   /\$\{f\.farmers\} farmers/.test(PACING) && /net \$\{f\.netPerSec\}/.test(PACING));
 check("16 — Part 5's storage table is emitted per milestone, so the tiers are read off a run",
   /narrow\[/.test(PACING) && /quarter\[/.test(PACING) && /held\/cap:/.test(PACING));
-check("16 — VERSION is v0.56 and the footer is rendered from it",
-  unchanged.version === "v0.56" &&
+// v0.57 ship RE-POINT — THE FOURTH CONSECUTIVE OCCURRENCE of the same mistake, and the v0.57
+// spec §0.1 called it before it happened: "the literal-pin mistake has now recurred in four
+// consecutive rounds." v0.53 pinned it, v0.54 fixed v0.53 and pinned its own, v0.55 fixed v0.54
+// and pinned its own, v0.56 fixed v0.55 and pinned its own. A round's suite may pin its own
+// literal; the moment the next round ships, that pin is a check designed to fail.
+// Superseded by: v0.57 ship discipline.
+check("16 — VERSION is well-formed and the footer is rendered from it",
+  /^v\d+\.\d+$/.test(unchanged.version) &&
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1),
   unchanged.version);
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));
