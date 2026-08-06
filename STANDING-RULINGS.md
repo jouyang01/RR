@@ -423,7 +423,27 @@ the rung; assign by role.**
 
 ---
 
-## 17. Kittens' farmers are NOT seasonal — closed v0.55, and the divergence ships anyway
+## 17. Kittens' farmers are NOT seasonal — ruled v0.55, REVERSED BY JERRY v0.57
+
+> **AMENDMENT, v0.57 — the divergence is retired and RR now matches the source.** Jerry's v0.57
+> directive 2: *"Farmers provision production should not be impacted by winter."* The season
+> term is removed from the farmer job; **buildings with `seasonal: true` keep theirs**, which is
+> Kittens' catnip field and is seasonal in the source. The ledger row moves **HARDER → PARITY**
+> and the project's HARDER count falls 2 → 1.
+>
+> **This entry is amended and not deleted, and that is deliberate: the history is the ruling.**
+> A directive arrived whose stated premise about the source was false. The builder disproved the
+> premise, shipped the directive anyway because directives override, and **labelled it honestly
+> as RR-ORIGINAL / HARDER rather than as a parity fix.** Two rounds later Jerry read the label
+> and reversed it. That is the labelling machinery working exactly as §16 intends, end to end,
+> and it is the strongest argument the charter has produced for why an honest label costs
+> nothing and buys a great deal.
+>
+> The original ruling and its citations follow unchanged. **The citations were right the first
+> time** — nothing below is retracted; only the design decision on top of it is.
+
+### The original ruling, v0.55 — retained verbatim
+
 
 Jerry's v0.55 directive was stated as a parity claim: *"Kitten's farmers are affected by
 seasonality."* **They are not.** Resolved against the raw source this round:
@@ -442,10 +462,10 @@ the first HARDER label the charter has produced, and the ruling that proves the 
 machinery does something. Deepwinter now cuts the settlement's entire job-based food supply by
 75% for a quarter of every year, which is what winter was always advertised to do and never did.
 
-**Do not "fix" this back to parity in a later round without a directive.** It is deliberate, it
-is labelled, and its cost is measured (see BUILD REPORT v0.55 §6). Equally, **do not cite it as
-precedent for guessing at the source** — the reason it is a clean divergence rather than a bug
-is that somebody read `js/village.js` before shipping it.
+~~**Do not "fix" this back to parity in a later round without a directive.**~~ **A directive
+arrived — v0.57, above.** The rest stands: **do not cite this as precedent for guessing at the
+source.** The reason it was a clean divergence rather than a bug, and the reason it could be
+reversed cheaply, is that somebody read `js/village.js` before shipping it.
 
 ---
 
@@ -562,6 +582,121 @@ dirty roster and reports assertions that fail only there. Run it after any chang
 multiplier. It documents its own one known artefact — `loadFromString()` merges a save over
 `freshState()`, so poisoning `freshState()` re-dirties containers a block legitimately cleared —
 so that a reader does not "fix" a non-bug.
+
+---
+
+---
+
+## 22. Renown is not a material — closed v0.57
+
+> Jerry, v0.57: *"Renown should not be in materials storage cap multiplier. Renown should be in
+> Culture/Devotion's cap multipliers line."*
+
+**The source settles which family Renown cannot be in, even though Renown itself has no Kittens
+counterpart.** `js/resources.js addBarnWarehouseRatio` touches **seven material effect names and
+nothing else** — wood, minerals, iron, coal, titanium, gold, catnip. Kittens relieves its
+non-material ceilings by entirely different machinery: science through `libraryRatio`, culture
+through **Ziggurats at +8% per copy**, faith through the Temple line. **A non-material resource
+on the material storage line is a category error in the source's own terms.**
+
+Renown moves from `CAP_SCOPE` `broad` (×2.80) into `SCHOLAR_CAPS`, beside culture and devotion.
+
+**The invariant strengthens with it.** It was *"`CAP_SCOPE` is total over capped resources"*; it
+is now **"every capped resource is in EXACTLY ONE of `CAP_MULT_EXEMPT` / `SCHOLAR_CAPS` /
+`CAP_SCOPE`"**, decided in one place by `capFamilyOf()` and asserted by enumeration. Until v0.57,
+`culture`, `devotion`, `knowledge` and `vigor` were each in **two** families — listed in
+`CAP_SCOPE` as `"none"` while also being members of `SCHOLAR_CAPS` or `CAP_MULT_EXEMPT` — with
+the storage loop's ternary silently deciding which won. Renown joining `SCHOLAR_CAPS` while
+still reading `broad` would have made that table state a figure the code did not deliver.
+
+**The dedicated line shipped, and it shipped because a stated trigger fired.** Jerry
+pre-authorised it conditionally: ship it if, after the move, the tenth champion is not affordable
+within 2,500 game-years **or** Renown's time-at-cap does not fall below 70%. Measured on the
+post-move build: time-at-cap **88.7% → 83.1%**, not below 70%, and the tenth champion never
+affordable. Both halves fired.
+
+**`renownCapPct: 0.08` on the Hall of Heroes — Kittens' own Ziggurat figure, additive per copy,
+and NOT a fourth Discovery chain.** §19 has ruled the multiplicative-chain shape out of existence
+for the material line and §23 below dates the same fix for the Scholarship line; a third one
+would have been the sixth RR-invented rule. It joins the existing `cultureCapPct` summation.
+**It is applied AFTER the three deed grants**, so it lifts the whole ceiling — placed before
+them it multiplied only the building sum and delivered ×1.7565 at ten Halls where the additive
+shape says ×1.80. `test-v57` states the assertion as `1 + 0.08n` precisely so placement is
+checkable.
+
+**The ten `renown:` fields in `CHAMPS` are deleted.** `recruitCost()` built the price entirely
+from `RECRUIT_BASE × RECRUIT_RATIO^n` and copied only the *non*-Renown components of a champion's
+own cost, so Shaco 320 through Zilean 540 — 4,140 in total — sat in the content table looking
+exactly like prices and were never read. Deleted rather than wired: wiring them would change the
+recruit ladder, which is a balance change §5 forbids putting in a round already moving Renown's
+ceiling. **The `if (r !== "renown")` guard went with them, and the two had to move together.**
+
+---
+
+## 23. The Scholarship line is the multiplicative chain §19 missed — dated to v0.58
+
+`SCHOLAR_LINE` is still applied as `scholarMult *= u[1]` across five members — **the identical
+shape §19 ruled out of existence for the material line one round earlier**, surviving on culture,
+devotion and, from §22, renown. Kittens' Law is category-general: additive within a category,
+multiplicative only between. Five members of one category multiplied is the same violation
+whichever resources it governs.
+
+**It is NOT shipped in v0.57, and the reason is attribution, not capacity.** Converting the line
+to additive at its natural reading (0.25 + 0.30 + 0.30 + 0.35 + 0.40 = Σ 1.60 → **×2.60**) is a
+**cut** from ×3.9926, applied to `culture`, which is already at **97.3%** time-at-cap — and
+v0.57 moves Renown *onto* that same line. Shipping both in one round would mean neither was
+attributable.
+
+**v0.58, first slice, together with the culture ceiling itself.** They are one problem, and the
+fix has to be sized against the source's actual culture mechanism — **Ziggurat +8% per copy**,
+which RR already ports as `cultureCapPct` — not against the chain's current product.
+
+---
+
+## 24. A cap-out fraction only measures a STOCK-limited resource — closed v0.57
+
+v0.56 sized two Era-3 ceilings from cap-out fractions and moved them by **3 points and 0
+points**. The reason is that a cap-out fraction cannot distinguish three situations, and all
+three are present in this game:
+
+| kind | what it means | what a cap change does |
+|---|---|---|
+| **continuous consumer** | something draws it every tick (a `convert` input, or eating) | the ceiling binds only if gross/consumed is well above 1 |
+| **lumpy sink only** | nothing draws it per tick; buildings, techs, Discoveries, crafts or champions buy it in lumps | **nothing.** A high cap-out means "the player sat full waiting to spend" |
+| **no sink at all** | neither | nothing — it is a design question, not a tuning one |
+
+**Measured: all four Era-3 raws are lumpy-sink-only.** Shimmer has ten lumpy sinks and sits at
+100% held/cap; hexore has two and sits at 0%. Pass condition 5's 30–60% cap-out band is
+**restated to apply only to stock-limited resources**, and the snapshot now carries `held`,
+`gross`, `consumed`, `pcRatio`, `continuousConsumers` and `lumpySinks` for every capped resource
+so the next round cannot size a cap without seeing which kind it is.
+
+**Two traps worth naming.** `gross` must switch off only the converters that **consume** the
+resource — v0.56's first attempt switched off every converter and read `gross 0/s` for zaunore,
+because the Sump Mine that *produces* it is a converter too. And the lumpy-sink scan must read
+**dynamically priced** sinks: champion recruit and train prices are built by
+`recruitCost()`/`trainCost()`, not declared in a `cost` field, so a purely static scan reported
+**Renown as having no sink at all** moments after §22 moved its entire storage family.
+
+---
+
+## 25. No milestone-year claim from a single seed — closed v0.57
+
+v0.56 measured a **2.6× Era-3 spread** on one build (700.6 / 1,709.3 / 1,835.3) and the v0.57
+analyzer reproduced two of the three independently. **`sim/pacing.mjs --seeds N` is now the
+instrument**: it launches N seeds as concurrent child processes and reports **median, min, max
+and spread** for every milestone-derived figure.
+
+**The output separates the two classes and labels them**, and that separation is the ruling:
+
+- **ENSEMBLE figures** — milestone years, Era 3, and anything derived from them. **May only be
+  quoted with a median and a spread.**
+- **SINGLE-RUN figures** — cap-out fractions, morale band, peak population, delivered
+  multipliers, and anything `tests/` measures. Verified stable across seeds; quote plainly.
+
+**A report must not be able to quote one as the other, so the output does not let it.** Every
+Era-3 comparison in BUILD REPORTS v0.44 through v0.56 is one draw from a distribution whose width
+was never taken; they are not wrong, their error bars were never measured.
 
 ---
 

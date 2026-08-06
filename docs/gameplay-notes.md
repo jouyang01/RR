@@ -171,3 +171,44 @@ This is not a bug tracker and not a spec. It is the input to one.
   documented remedy — re-run on an idle box — worked by luck. **§21**, and
   `tools/fixture-sweep.mjs` is now the standing detector.
 
+---
+
+## v0.57 — Jerry's two directives, and the round that gave the instrument error bars
+
+- ~~**"Renown should not be in materials storage cap multiplier. Renown should be in
+  Culture/Devotion's cap multipliers line."**~~ — **v0.57, Part 1**, and the directive is better
+  grounded than the ruling it replaces. `js/resources.js addBarnWarehouseRatio` touches **seven
+  material effect names and nothing else**; Kittens relieves non-material ceilings by other
+  machinery entirely. Renown moves into `SCHOLAR_CAPS`. Jerry's conditional then fired on
+  measurement — time-at-cap 88.7% → **83.1%**, not below the 70% trigger, and the tenth champion
+  still never affordable — so the **dedicated line ships too**: `renownCapPct 0.08` per Hall of
+  Heroes, which is **Kittens' own Ziggurat figure** on the additive per-copy shape RR already
+  uses for culture. Not a fourth Discovery chain. **STANDING-RULINGS §22.**
+- ~~**"Double check consumption."**~~ — **checked, nothing to change.** `CONSUMPTION 4.25`,
+  farmer 5.000/s, ratio **1.17647** — Kittens' `catnipPerKitten −0.85 × 5` against `catnip: 1 ×
+  5`, exact. Asserted so it stays that way.
+- ~~**"The wanderers tab says Farmers (the harvest follows the calendar) when in reality,
+  Farmers provision production should not be impacted by winter."**~~ — **v0.57, Part 2, and it
+  REVERSES v0.55's directive 5.** The string Jerry read was accurate, which is the point: v0.55
+  shipped seasonal farmers on a premise about the source that the builder disproved in the same
+  round, and it shipped labelled **RR-ORIGINAL / HARDER** precisely so it could be revisited on
+  the label. Jerry read the label and reversed it. The season term is gone from the farmer;
+  **seasonal BUILDINGS keep theirs**, which is Kittens' catnip field and *is* seasonal in the
+  source. Ledger row **HARDER → PARITY**. Leona keeps her lead and it still means something —
+  her blast radius simply returns to buildings. **§17, amended not deleted.**
+- ~~**The bot has no food policy.**~~ — **v0.57, Part 4.** `manageJobs()` staffed **one farmer**
+  at every milestone in every era at every population from 36 to 220, because the old rule could
+  only fire when somebody was idle and only reacted to *today's* net. It now **projects to
+  Deepwinter**, **pulls a worker off the largest other job** when nobody is idle, and unstaffs
+  only when the stock is at ceiling *and* winter is covered. Measured immediately: 1 farmer →
+  **17** at Sparks pre-Part-2, then back to **4** once winter stopped quartering them.
+- ~~**Single-seed pacing numbers.**~~ — **v0.57, Part 3.** `--seeds N` launches seeds
+  concurrently and reports median/min/max/spread, with **ensemble figures printed separately
+  from single-run figures** so a report cannot quote one as the other. **§25.**
+- ~~**"EASIER 32" in four documents against the ledger's own 29.**~~ — **v0.57, Part 7.1.** The
+  ledger was right and the prose was wrong. The **generator now aborts** rather than write a
+  file whose verdict buckets do not sum to its own row count, and `test-v57` checks the
+  summary table against the rows it summarises. Found while adding the guard: the `carpentry`
+  row's verdict said HARDER while its own note said *"i.e. EASIER"* — same class of defect,
+  fixed.
+

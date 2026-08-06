@@ -14,12 +14,12 @@ check per spec part, full multi-seed suite once at the end, never the full suite
 
 | | |
 |---|---|
-| Last shipped build | **v0.56**, tagged `v0.56` |
-| Last consumed spec | `docs/specs/rr-analyzer-v056-spec.md` |
-| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — produces v0.57** |
-| Live suites | **25 suites, 1,219 assertions, 0 failures** — re-run and confirmed 2026-08-05 |
-| Parity ledger | **208 rows — PARITY 50, EASIER 29, HARDER 2, UNVERIFIED 127** (corrected: 32 does not sum to 208; the generated ledger says 29) |
-| Era 3 | **1,709.3 game-years, MEDIAN OF THREE SEEDS — inside the 1,400–2,300 target for the first time.** Spread 700.6 / 1,709.3 / 1,835.3 on the same build. |
+| Last shipped build | **v0.57**, tagged `v0.57` |
+| Last consumed spec | `docs/specs/rr-analyzer-v057-spec.md` |
+| Current spec, awaiting a builder | **none — the cycle is at the analyzer** |
+| Live suites | **26 suites, 1,273 assertions, 0 failures** — re-run and confirmed 2026-08-06 |
+| Parity ledger | **220 rows — PARITY 54, EASIER 38, HARDER 1, UNVERIFIED 127** |
+| Era 3 | **1,734.6 median of three seeds, spread 1,672.1–1,784.1 (×1.07). ALL THREE SEEDS INSIDE the 1,400–2,300 target.** |
 
 ## THE CHARTER — read this before any balance argument (STANDING-RULINGS §16, ruled by Jerry v0.55)
 
@@ -196,6 +196,73 @@ Challenger at Sparks (62%), 132 of 191 at Icathia**, top bank 116× the threshol
 - **`1 farmers` at every milestone**, with net food **−6.501/s at Sparks** and **−61.837/s at
   Hexcore**. The settlement banks instead of farming. Same shape as "1 tinkerer" — an instrument
   statement before a game statement, and §16 says do not price around it.
+
+## v0.57 SHIPPED — the spread collapses, and the instrument is trustworthy again
+
+All seven parts shipped plus Jerry's two directives. Full argument in
+`docs/BUILD-REPORT-v0.57.md`; the map is `docs/HANDOFF-v0.57.md`.
+
+### THE FINDING: IT WAS THE BOT
+
+v0.56 measured a **×2.62** Era-3 spread on one build and could not say whether the chaos came
+from the game or from an instrument with no food policy. **Part 4 answered it.**
+
+| | v0.56 | **v0.57** |
+|---|---|---|
+| Era 3, per seed | 700.6 / 1,709.3 / 1,835.3 | **1,672.1 / 1,734.6 / 1,784.1** |
+| **spread** | **×2.62** | **×1.07** |
+| seeds inside the 1,400–2,300 target | 2 of 3 | **3 of 3** |
+| tenth champion | never, on any build | **y1,450.7 / 1,570.7 / 1,640.8** |
+
+`manageJobs()` staffed **one farmer** at every milestone in every era at every population from 36
+to 220, because the old rule could only fire when somebody was idle and only reacted to *today's*
+net. It now projects to Deepwinter, pulls a worker off the largest other job when nobody is idle,
+and unstaffs only when the stock is at ceiling *and* winter is covered. **Builds can be compared
+again**, and every Era-3 comparison from v0.44 to v0.56 can now be re-taken cheaply.
+
+### What else shipped
+
+- **Part 3, the ensemble.** `--seeds N` launches seeds concurrently and prints ENSEMBLE figures
+  separately from SINGLE-RUN figures, so a report cannot quote one as the other. §25.
+- **Part 2, farmers lose the season** — Jerry's directive 2, **reversing v0.55's directive 5**.
+  This is the charter closing its own loop: v0.55 shipped on a false premise about the source,
+  the builder disproved the premise and labelled it **HARDER** anyway, and two rounds later Jerry
+  read the label and reversed it. §17 amended, ledger row **HARDER → PARITY**.
+- **Part 1, Renown leaves the material line** — `addBarnWarehouseRatio` touches seven MATERIAL
+  effect names and nothing else, so a non-material resource there is a category error in the
+  source's own terms. Renown → `SCHOLAR_CAPS`. Jerry's objective trigger then fired on
+  measurement (time-at-cap 83.1%, not below 70%; tenth champion never affordable), so the
+  dedicated line shipped too: **`renownCapPct 0.08` per Hall of Heroes, Kittens' own Ziggurat
+  figure on the additive per-copy shape.** Ten dead `renown:` prices deleted. §22.
+- **Parts 5–7:** the Scholarship census, pass condition 5 restated, the ledger prose corrected
+  with a generator that now aborts rather than write a file that does not add up. §§23–24.
+
+### What the next analysis owes, in priority order
+
+1. **Restate every milestone pass condition as a MEDIAN WITH A SPREAD.** The builder re-based
+   Rites of Targon to y75 from v0.56's two seeds and the ensemble reads 70.3 / 76.7 / 83.3 — it
+   fails on two of three. **A scalar threshold against a ×1.18 figure is a coin toss**, and the
+   instrument now reports both numbers. This is the natural follow-on to Part 3 and it is the
+   apparatus's weakest remaining point.
+2. **Take the Convergence round — it is five times deferred and it REGRESSED this round.**
+   4.17/4.40% → 1.42/2.87/3.71%. Worship is ascent-driven and the food policy holds population
+   lower for longer, so the regression is a measured consequence of v0.57's own work.
+3. **The Scholarship restructure is a 35% cut, not 20%.** The instrument reaches **5 of 5** rungs
+   (×3.9926), not the 3 of 5 the v0.57 spec assumed by analogy with storage. v0.58's first slice,
+   sized against `cultureCapPct` (Ziggurat +8%), **with renown now riding the same line**.
+4. **`firstTrade` spreads ×4.46** while everything else collapsed to ×1.07–1.37. It is the most
+   chaotic figure left and points straight at the trade-banking policy, deferred four rounds —
+   the same class of defect Part 4 just fixed for food.
+5. **Rule on target population.** 130 wanderers reads y1,415–1,726 against y600 and got worse;
+   peak population is 181–185. Every other number improved *because* population stopped running
+   away. Five rounds failed without a ruling.
+6. **Renown is at 72% time-at-cap against a <70% trigger** and appears in the "sitting at ceiling
+   waiting to spend" list. Check whether it is partly lumpy-sink-bound (§24) before adding
+   another percentage.
+7. **Pass condition 5 classifies all four Era-3 raws as lumpy-sink-only or flow-limited**, so the
+   30–60% band applies to none of them. Give one a continuous consumer or retire the band.
+
+---
 
 ## v0.56 SHIPPED — the storage round, and the instrument's error bars
 
