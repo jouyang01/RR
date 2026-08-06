@@ -228,7 +228,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.56";
+var VERSION = "v0.57";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -911,7 +911,44 @@ var BUILDINGS = [
   { id: "hallOfHeroes", name: "Hall of Heroes", group: "Industry", tech: "callToArms",
     lore: "Trophies, banners, a mural nobody remembers commissioning, and a bard who won't stop.",
     effect: "Somewhere to hold the Renown your deeds earn.",
-    cost: { timber: 250, ore: 450, culture: 60, gold: 40 }, ratio: 1.15, caps: { renown: 250 } },
+    // ========================================================================================
+    // v0.57 PART 1 STEP 2 — THE DEDICATED RENOWN LINE. Jerry pre-authorised it and made the
+    // trigger objective: ship it if, after moving Renown onto the Scholarship line, EITHER the
+    // tenth champion is not affordable within 2,500 game-years OR Renown's time-at-cap does not
+    // fall below 70%. MEASURED ON THE POST-MOVE BUILD, 1,400 game-years, seed 1:
+    //
+    //     Renown time at cap  88.7% (v0.56)  ->  83.1%.  NOT below 70%.
+    //     Tenth champion      NEVER AFFORDABLE inside 1,400 years (it was never affordable
+    //                         inside 2,500 on the v0.56 build either).
+    //
+    // BOTH halves fire. The line ships.
+    //
+    // THE SHAPE IS THE SOURCE'S, and the spec is explicit that it must not be a fourth
+    // Discovery chain: §19 has just ruled the multiplicative-chain shape out of existence for
+    // the material line and Part 5 shows the Scholarship line is the same shape still standing.
+    // Kittens relieves a non-material ceiling with a PER-COPY BUILDING PERCENTAGE -- Ziggurat
+    // `+8% culture cap each`, additive and unbounded -- and RR already ships that analogue as
+    // `cultureCapPct` (Watcher's Eye 0.08, Ice-Wrought Spire 0.04, summed additively). The
+    // Renown analogue is the same field on RR's renown building.
+    //
+    // SIZED AT 20 COPIES, and the count is stated because a percentage is meaningless without
+    // one (v0.52 §3.2 set that practice). Measured ceilings, 20 Halls + 10 Training Grounds +
+    // the three tech grants, at the 3-of-5 Scholarship state the instrument actually reaches:
+    //
+    //     flat 250/copy only          bare  5,810    with Scholarship 12,274
+    //     + renownCapPct 0.08 x 20    bare 14,818    with Scholarship 31,303
+    //
+    // The tenth champion costs 9,611 in one lump and all ten cost 28,333 cumulatively. The flat
+    // line covered the lump with 28% headroom and never came close to the cumulative figure;
+    // with this line the settlement can bank the whole ladder. 0.08 is Kittens' own Ziggurat
+    // figure, taken rather than tuned.
+    //
+    // ADDITIVE, NOT MULTIPLICATIVE. It joins the existing `cultureCapPct` summation shape at
+    // computeCaps() -- one accumulator per copy, applied once -- so it cannot become the sixth
+    // RR-invented multiplicative rule.
+    // ========================================================================================
+    cost: { timber: 250, ore: 450, culture: 60, gold: 40 }, ratio: 1.15,
+    caps: { renown: 250 }, renownCapPct: 0.08 },
   // ---- Era 1: Mount Targon ----
   { id: "shrine", name: "Shrine of the Solari", group: "Targon", tech: "ritesOfTargon",
     lore: "Gold leaf and first light. The climb begins with a prayer.",
@@ -1190,42 +1227,42 @@ var TECHS = [
 //   free and instant; deciding WHO is the point.
 // ============================================================
 var CHAMPS = [
-  { id: "shaco", name: "Shaco", cls: "Assassin", cost: { renown: 320, plumes: 60 },
+  { id: "shaco", name: "Shaco", cls: "Assassin", cost: { plumes: 60 },
     passive: { key: "camp", base: 15, desc: "Ambush: camp yields +15%" },
     lead: "Deceive — expeditions have a 30% chance to cost no Vigor",
     flavor: "The jester followed his boxes here. Nobody invited him.",
     skill: "Deceive — strikes from angles the jungle didn't know it had" },
-  { id: "leona", name: "Leona", cls: "Tank", cost: { renown: 340, devotion: 900 },
+  { id: "leona", name: "Leona", cls: "Tank", cost: { devotion: 900 },
     passive: { key: "devotion", base: 20, desc: "Solari Radiance: devotion production +20%" },
     // v0.56 Part 3: the lead text is DERIVED from LEONA_SEASON_RELIEF below the CHAMPS array,
     // because the old prose promised something the new clause deliberately does not do.
     lead: "Zenith Blade — Deepwinter and cold snaps never touch the harvest",
     flavor: "The dawn, armored and patient.",
     skill: "Zenith Blade — the sun does not miss" },
-  { id: "twitch", name: "Twitch", cls: "Marksman", cost: { renown: 400, mushrooms: 90 },
+  { id: "twitch", name: "Twitch", cls: "Marksman", cost: { mushrooms: 90 },
     passive: { key: "caravan", base: 12, desc: "Contraband: caravan yields +12%" },
     // v0.54 directive 11: fatigue is deleted, so "ignore merchant fatigue" was a lead that did
     // nothing at all. Twitch's contraband now shows up as cargo rather than as an exemption.
     lead: "Spray and Pray — every cargo slot on every route is +15% likelier to land",
     flavor: "Smells worse than the deal he's offering. The deal is good though.",
     skill: "Spray and Pray — somehow everything falls off the wagon into your ledger" },
-  { id: "jarvan", name: "Jarvan IV", cls: "Fighter", cost: { renown: 380, steel: 300 },
+  { id: "jarvan", name: "Jarvan IV", cls: "Fighter", cost: { steel: 300 },
     passive: { key: "village", base: 8, desc: "Demacian Command: village production +8%" },
     lead: "Demacian Standard — wanderers arrive nearly twice as fast",
     flavor: "A prince without a throne still stands like one.",
     skill: "Cataclysm — walls rise where he plants his standard" },
-  { id: "caitlyn", name: "Caitlyn", cls: "Marksman", cost: { renown: 500, gold: 500 },
+  { id: "caitlyn", name: "Caitlyn", cls: "Marksman", cost: { gold: 500 },
     passive: { key: "gold", base: 15, desc: "Sheriff's Eye: gold production +15%" },
     // v0.54 directive 11 — reworked; merchant fatigue no longer exists (directive 10).
     lead: "Ace in the Hole — every caravan earns +5 Renown, every cargo slot opens five caravans early, and every slot is +10% likelier to land",
     flavor: "The paperwork is always in order. Always.",
     skill: "Ace in the Hole — one perfect shot, ledgers balanced" },
-  { id: "swain", name: "Swain", cls: "Mage", cost: { renown: 380, culture: 700 },
+  { id: "swain", name: "Swain", cls: "Mage", cost: { culture: 700 },
     passive: { key: "knowledge", base: 12, desc: "Administrative Vision: knowledge production +12%" },
     lead: "Raven Ledger — Research and Discoveries cost 20% less",
     flavor: "The ravens audit everything.",
     skill: "Demonic Ascension — efficiency becomes something stranger" },
-  { id: "bard", name: "Bard", cls: "Support", cost: { renown: 460, culture: 550 },
+  { id: "bard", name: "Bard", cls: "Support", cost: { culture: 550 },
     passive: { key: "culture", base: 20, desc: "Traveler's Song: culture production +20%" },
     lead: "Tempered Fate — a chime rings now and then, granting a burst of a random stocked resource",
     flavor: "Meep. (High praise.)",
@@ -1241,17 +1278,17 @@ var CHAMPS = [
   // Steadfast Presence, her actual W. `lead` is GENERATED below from the same guards
   // computeCaps() uses — the old string promised "even Renown", which stopped being
   // true in v0.43 and had been lying for two versions.
-  { id: "poppy", name: "Poppy", cls: "Tank", cost: { renown: 380, timber: 1800 },
+  { id: "poppy", name: "Poppy", cls: "Tank", cost: { timber: 1800 },
     passive: { key: "vigor", base: 15, desc: "Steadfast Presence: vigor production +15%" },
     lead: "(generated)",
     flavor: "Still looking for the hero this hammer belongs to.",
     skill: "Keeper's Verdict — nothing gets past her, especially rats near the granary" },
-  { id: "heimerdinger", name: "Heimerdinger", cls: "Mage", cost: { renown: 440, tome: 10 },
+  { id: "heimerdinger", name: "Heimerdinger", cls: "Mage", cost: { tome: 10 },
     passive: { key: "craft", base: 12, desc: "Inventor's Ingenuity: craft yields +12%" },
     lead: "UPGRADE!!! — crafts consume 20% fewer materials",
     flavor: "The workshop has never been louder, or better.",
     skill: "UPGRADE!!! — the turrets craft now, apparently" },
-  { id: "zilean", name: "Zilean", cls: "Support", cost: { renown: 540, devotion: 800 },
+  { id: "zilean", name: "Zilean", cls: "Support", cost: { devotion: 800 },
     passive: { key: "respawn", base: 15, desc: "Chronoshift: camp respawns 15% faster" },
     lead: "Time Warp — every cooldown in the wilds and on the roads runs 25% faster",
     flavor: "He has already seen you recruit him. He liked it.",
@@ -1326,11 +1363,28 @@ var CHAMP_RUNG_GATE = [
   { hexcore: 4 },                                          // 9:  capstone assembled
   { hexcore: 10, hexcrete: 2 }                             // 10: deep Era 3
 ];
+// v0.57 Part 1.4 — TEN DEAD PRICES DELETED FROM `CHAMPS`.
+//
+// Every champion carried a `renown:` figure in its `cost` -- Shaco 320 through Zilean 540,
+// summing to 4,140 -- and NOT ONE OF THEM WAS EVER READ. This function builds the Renown price
+// entirely from `RECRUIT_BASE x RECRUIT_RATIO^n` and then copied only the NON-Renown components
+// of the champion's own cost, so the ten figures sat in the content table looking exactly like
+// prices while the actual ladder ran 250 / 375 / 563 / ... / 9,611 beside them.
+//
+// They are DELETED rather than wired, and the choice matters: wiring them would change the
+// recruit ladder, which is a balance change this round did not ask for and which §5's one-lever
+// rule forbids putting in a round that is already moving Renown's ceiling. Deleting them costs
+// nothing and removes ten numbers that lied.
+//
+// The `if (r !== "renown")` guard goes with them -- pass condition 2 requires no `!== "renown"`
+// special case to survive anywhere, and with the fields gone the guard has nothing to guard.
+// The two must move together: keeping the fields without the guard would have let them
+// OVERRIDE the ladder price silently.
 function recruitCost(id) {
   var n = championsRecruited();
   var c = { renown: Math.round(RECRUIT_BASE * Math.pow(RECRUIT_RATIO, n)) };
   var d = champDef(id);
-  for (var r in d.cost) if (r !== "renown") c[r] = d.cost[r];
+  for (var r in d.cost) c[r] = d.cost[r];
   var gate = CHAMP_RUNG_GATE[n] || {};
   for (var g in gate) c[g] = (c[g] || 0) + gate[g];
   return c;
@@ -1661,7 +1715,26 @@ function scholarMultOf(id) {
 // buildings plus the clamped Morellonomicon term and nothing else, exactly as Kittens
 // does it. The prose is generated from SCHOLAR_CAPS so it cannot drift from the code
 // the next time the line's membership changes.
-var SCHOLAR_CAPS = { culture: 1, devotion: 1 };
+// v0.57 PART 1 — RENOWN LEAVES THE MATERIAL LINE (Jerry's directive 1).
+//
+//   "Renown should not be in materials storage cap multiplier. Renown should be in
+//    Culture/Devotion's cap multipliers line."
+//
+// v0.56 Part 5 retired `Math.sqrt(masonryMult)` and put Renown in CAP_SCOPE as `broad` (x2.80)
+// beside gold, the Zaun raws and crystals, on the stated reasoning that "gold's role is the
+// closest either has". That was flagged in the same breath as an RR-ORIGINAL design ruling and
+// not as parity, and the directive that replaces it is BETTER GROUNDED THAN THE RULING WAS:
+//
+//   `js/resources.js addBarnWarehouseRatio` touches SEVEN MATERIAL EFFECT NAMES AND NOTHING
+//   ELSE -- wood, minerals, iron, coal, titanium, gold, catnip. Kittens relieves its
+//   NON-material ceilings by entirely different machinery: science through `libraryRatio`,
+//   culture through Ziggurats at +8% each, faith through the Temple line. A non-material
+//   resource on the material storage line is a category error IN THE SOURCE'S OWN TERMS --
+//   and Renown, earned socially and spent on champions, is not a material.
+//
+// Renown has no Kittens counterpart at all, so its TIER is still an RR-original decision. What
+// the source settles is which FAMILY it cannot be in.
+var SCHOLAR_CAPS = { culture: 1, devotion: 1, renown: 1 };
 // v0.45 Part 5 (= the re-issued Amendment A1). Kittens' science ceiling inside RR's
 // era window is Σ(building scienceMax) plus the clamped compendium term and NOTHING
 // else (js/workshop.js:2769-2786). Knowledge therefore takes no storage multiplier at
@@ -1768,14 +1841,34 @@ var WAREHOUSE_LINE = [["expandedStores", 0.25], ["ironboundStores", 0.50], ["hex
 //           knowledge, vigor    -- already CAP_MULT_EXEMPT for two separately sourced
 //                                  reasons (workshop.js:2769-2786; manpower absent from
 //                                  addBarnWarehouseRatio). Listed so the table is total.
+// v0.57 Part 1: CAP_SCOPE now holds ONLY the resources that are actually on the Masonry line.
+// Until this round it also carried `culture`, `devotion`, `knowledge` and `vigor` as "none"
+// while those same four were ALSO members of SCHOLAR_CAPS or CAP_MULT_EXEMPT -- two families
+// each, with the storage loop's `SCHOLAR_CAPS[rs] ? ... : ...` silently deciding which one won.
+// That is how `renown: "broad"` would have become a lie the moment it joined SCHOLAR_CAPS: the
+// table would have claimed x2.80 while the code delivered the Scholarship product.
+//
+// THE INVARIANT IS NOW "EXACTLY ONE FAMILY", not "CAP_SCOPE is total", and capFamilyOf() below
+// is the single place it is decided. test-v57 asserts it by enumeration over every capped
+// resource, which is strictly stronger than the totality guard it replaces.
 var CAP_SCOPE = {
   timber: "narrow", ore: "narrow", steel: "narrow", mana: "narrow",
   gold: "broad", zaunore: "broad", coalgas: "broad", hexore: "broad", shimmer: "broad",
-  crystals: "broad", renown: "broad",
+  crystals: "broad",
   provisions: "quarter",
-  voidessence: "none", culture: "none", devotion: "none",
-  knowledge: "none", vigor: "none"
+  voidessence: "none"
 };
+// The one place a capped resource's cap family is decided. Three families, mutually exclusive:
+//   exempt     -- takes NO storage multiplier at all (knowledge, vigor; two separately sourced
+//                 reasons, see CAP_MULT_EXEMPT)
+//   scholar    -- takes the Scholarship product (culture, devotion, and from v0.57 renown)
+//   masonry    -- takes the barn/warehouse accumulators at its CAP_SCOPE tier
+function capFamilyOf(r) {
+  if (CAP_MULT_EXEMPT[r]) return "exempt";
+  if (SCHOLAR_CAPS[r]) return "scholar";
+  if (CAP_SCOPE[r]) return "masonry";
+  return null;                       // a capped resource with no family is a defect, not a default
+}
 // Kittens gates catnip's quarter-share on the `silos` workshop upgrade. RR's fourth Masonry
 // rung is literally named Chemtech Silos, so the gate ports one-for-one.
 var QUARTER_GATE = "chemtechSilos";
@@ -1796,7 +1889,10 @@ function storageMultFor(r, ratios) {
 var POPPY_CAP_MULT = 1.08;
 function capMultNames() {
   return Object.keys(RES).filter(function (r) {
-    return RES[r].baseCap !== undefined && !CAP_MULT_EXEMPT[r] && !SCHOLAR_CAPS[r] && r !== "renown";
+    // v0.57 Part 1: the `r !== "renown"` special case is GONE. Renown is a member of
+    // SCHOLAR_CAPS now, so the SCHOLAR_CAPS guard already excludes it and a second, redundant
+    // guard beside it is exactly how a resource ends up half-in and half-out of a family.
+    return RES[r].baseCap !== undefined && !CAP_MULT_EXEMPT[r] && !SCHOLAR_CAPS[r];
   }).length;
 }
 // Derived, never written. The previous string named resources the guards had already
@@ -3765,8 +3861,14 @@ function computeCaps() {
   // craft line can at most double the building-derived ceiling. See that block below.
   // Percentage culture-cap sources (Watcher's Eye). Additive per copy within the
   // category, per the Kittens rule \u2014 never compounding.
-  var cultPct = 0;
-  BUILDINGS.forEach(function (b) { if (b.cultureCapPct) cultPct += b.cultureCapPct * count(b.id); });
+  var cultPct = 0, renPct = 0;
+  BUILDINGS.forEach(function (b) {
+    if (b.cultureCapPct) cultPct += b.cultureCapPct * count(b.id);
+    // v0.57 Part 1 step 2 — the dedicated Renown line, on the SAME per-copy additive shape.
+    // Kittens' Ziggurat is `+8% culture cap each`; RR ports it as `cultureCapPct` and this is
+    // the Renown twin, on the Hall of Heroes. One accumulator, applied once, never compounding.
+    if (b.renownCapPct) renPct += b.renownCapPct * count(b.id);
+  });
   if (cultPct > 0) caps.culture = Math.round(caps.culture * (1 + cultPct));
   // Renown ceiling also widens with the deeds you are capable of doing. Keeping the
   // champion requirement on Sparks (per direction) means Renown must be holdable
@@ -3774,6 +3876,12 @@ function computeCaps() {
   if (S.techs.trade) caps.renown += 40;          // Trade Routes: your name travels the roads
   if (S.techs.drakeLore) caps.renown += 60;      // Drake Hunt: a settlement that kills drakes is spoken of
   if (S.techs.voidStudies) caps.renown += 80;    // Baron Hunt: and one that faces the Void is legend
+  // v0.57 Part 1 step 2: the Renown percentage is applied AFTER the three deed grants, so it
+  // lifts the WHOLE Renown ceiling exactly as cultureCapPct lifts the whole culture one. Placed
+  // before the grants it multiplied only the building sum and delivered ×1.7565 at ten Halls
+  // where the additive shape says ×1.80 — a quarter of the line silently missing. The
+  // assertion in test-v57 is stated as `1 + 0.08n` precisely so that placement is checkable.
+  if (renPct > 0) caps.renown = Math.round(caps.renown * (1 + renPct));
   // v0.41 §2.1: Tomes no longer widen the Archive by themselves. Uncapping them in
   // v0.40 closed a 1,745-year gap but overshot — the Era-3 tech ladder became gated
   // on FUR income, which is a Wilds resource with none of Era 3's crafting depth
@@ -3833,12 +3941,16 @@ function computeCaps() {
   var mountainMult = 1 + drakeBonus("mountain", DRAKE_CAP.mountain);
   for (var r2 in caps) { if (CAP_MULT_EXEMPT[r2]) continue; caps[r2] *= mountainMult; }
   // Keeper's Verdict, rescoped (v0.45 Part 8.1 / Jerry's directive): material caps only,
-  // +8%. Knowledge, the Scholarship lines (Culture & Devotion), Renown and Vigor are all
-  // excluded — the same three guards poppyLeadDesc() generates its prose from, so the
-  // tooltip cannot drift away from this loop the way the old one did.
+  // +8%. Knowledge, Vigor and the Scholarship lines are excluded — the same guards
+  // poppyLeadDesc() generates its prose from, so the tooltip cannot drift away from this loop
+  // the way the old one did.
+  // v0.57 Part 1: the `r3 !== "renown"` special case is GONE for the same reason as the one in
+  // capMultNames() — Renown is in SCHOLAR_CAPS, so the SCHOLAR_CAPS guard covers it. Poppy's
+  // lead excludes Renown exactly as it did before; it now does so through the family rather
+  // than through a name.
   if (leaderIs("poppy")) {
     for (var r3 in caps) {
-      if (CAP_MULT_EXEMPT[r3] || SCHOLAR_CAPS[r3] || r3 === "renown") continue;
+      if (CAP_MULT_EXEMPT[r3] || SCHOLAR_CAPS[r3]) continue;
       caps[r3] *= POPPY_CAP_MULT;
     }
   }
@@ -5825,6 +5937,9 @@ function effectLines(b) {
     }
   }
   if (b.cultureCapPct && ttResKnown("culture")) line("Max culture", "+" + ttPct(b.cultureCapPct), "+" + ttPct(b.cultureCapPct * n));
+  // v0.57 Part 1 step 2: the Renown twin, stated per copy and in total exactly as its culture
+  // counterpart is, so the Hall of Heroes advertises the whole of what it does.
+  if (b.renownCapPct && ttResKnown("renown")) line("Max renown", "+" + ttPct(b.renownCapPct), "+" + ttPct(b.renownCapPct * n));
   for (r in b.jobBoost || {})
     line(jobName(r) + " effectiveness", "+" + ttPct(jobBoostPerCopy(b, r)), "+" + ttPct(jobBoostTotal(r)) + " from all buildings");
   for (r in b.boost || {}) {

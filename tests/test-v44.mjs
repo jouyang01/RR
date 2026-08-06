@@ -184,8 +184,14 @@ const ceil = await page.evaluate(() => {
   const timberBare = (() => { S.upgrades = {}; return computeCaps().timber; })();
   S.upgrades = { expandedStores: 1, ironboundStores: 1, hexRunedStores: 1, chemtechSilos: 1 };
   const timberFull = computeCaps().timber;
+  // v0.57 Part 1: measured with the BUILDINGS still standing — the old block cleared them one
+  // line earlier, so a naive addition here would have read a 63-renown ceiling off an empty
+  // settlement. (STANDING-RULINGS §21: reset what you baseline, and do not baseline what you
+  // have just reset.)
+  const scholar3 = (() => { S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1 };
+                            return Math.round(computeCaps().renown); })();
   S.buildings = {}; S.upgrades = {}; S.techs = {};
-  return { hallCap: hall.caps.renown, bare: Math.round(bare), chem: Math.round(chem),
+  return { hallCap: hall.caps.renown, bare: Math.round(bare), chem: Math.round(chem), scholar3,
            renownX: +(chem / bare).toFixed(4), timberX: +(timberFull / timberBare).toFixed(4) };
 });
 check("Hall of Heroes is +250 Renown", ceil.hallCap === 250, String(ceil.hallCap));
@@ -197,13 +203,15 @@ check("Hall of Heroes is +250 Renown", ceil.hallCap === 250, String(ceil.hallCap
 // (1+3.55)(1+1.55) = ×11.6025 and renown (broad: warehouse only) takes ×2.55.
 // The properties under test are unchanged: renown rises with the era SUB-LINEARLY against
 // materials, and materials take the whole line. Superseded by: v0.56 Part 5.
-check("Renown rises sub-linearly against materials, on the warehouse tier",
-  Math.abs(ceil.renownX - (1 + 0.25 + 0.50 + 0.45 + 0.35)) < 0.01 && ceil.renownX < ceil.timberX,
-  `renown ×${ceil.renownX} against timber ×${ceil.timberX}`);
+// v0.57 Part 1 RE-POINT: Renown is not a material and no longer takes the material line at all.
+// Superseded by: v0.57 Part 1.
+check("the Masonry line does not touch Renown — ×1.00, exactly",
+  Math.abs(ceil.renownX - 1) < 1e-9, `renown ×${ceil.renownX} against timber ×${ceil.timberX}`);
 check("materials still take the FULL line — both accumulators, multiplied between categories",
   Math.abs(ceil.timberX - (1 + 0.75 + 0.80 + 1.00 + 1.00) * (1 + 0.25 + 0.50 + 0.45 + 0.35)) < 0.01,
   `×${ceil.timberX}`);
-check("the Chemtech ceiling clears the tenth rung's 9,611 Renown", ceil.chem > 9611, String(ceil.chem));
+check("the Chemtech-era ceiling still clears the tenth rung's 9,611 Renown — via Scholarship now",
+  ceil.scholar3 > 9611, `${ceil.bare} bare → ${ceil.scholar3} at 3 of 5 Scholarship rungs`);
 
 // ==================== Part 2.5 — the re-priced ladder ====================
 const lad = await page.evaluate(() => {
@@ -285,8 +293,12 @@ const sch = await page.evaluate(() => {
 check("Scholarship no longer touches the knowledge cap at all",
   Math.abs(sch.kX - 1) < 1e-9, `×${sch.kX}`);
 check("it still multiplies Culture by ×3.99", Math.abs(sch.cX - 3.99) < 0.02, `×${sch.cX}`);
-check("SCHOLAR_CAPS is culture and devotion only",
-  JSON.stringify(sch.capNames) === JSON.stringify(["culture", "devotion"]), JSON.stringify(sch.capNames));
+// v0.57 Part 1 RE-POINT: RENOWN JOINS THE FAMILY, on Jerry's directive 1. What this assertion
+// has always been about is that the Scholarship line does not reach KNOWLEDGE (asserted above,
+// and still true) — the membership list itself moves when a directive moves it.
+// Superseded by: v0.57 Part 1.
+check("SCHOLAR_CAPS is culture, devotion and — from v0.57 — renown",
+  JSON.stringify(sch.capNames) === JSON.stringify(["culture", "devotion", "renown"]), JSON.stringify(sch.capNames));
 check("and the prose no longer promises Knowledge storage — generated, not restated",
   !sch.mentionsKnowledge, sch.prose);
 

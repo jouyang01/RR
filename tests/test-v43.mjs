@@ -79,11 +79,16 @@ const renown = await page.evaluate(() => {
   S.upgrades.voidwardStores = 1;
   const icathia = computeCaps().renown;
   // vigor must stay exempt
+  // v0.57 Part 1: the line that actually moves Renown now. The instrument reaches 3 of the 5
+  // Scholarship rungs in a measured run, so that is the state the affordability claim is made at.
+  const scholar3 = (() => { S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1 };
+                            return computeCaps().renown; })();
   const vBare = (() => { S.upgrades = {}; return computeCaps().vigor; })();
   S.upgrades = { expandedStores: 1, ironboundStores: 1, hexRunedStores: 1, chemtechSilos: 1, voidwardStores: 1 };
   const vMasonry = computeCaps().vigor;
   S.buildings = {}; S.upgrades = {}; S.techs = {};
   return { bare: Math.round(bare), chemtech: Math.round(chemtech), icathia: Math.round(icathia),
+           scholar3: Math.round(scholar3),
            vigorExempt: Math.abs(vBare - vMasonry) < 1e-9 };
 });
 // v0.44 Part 2.2 superseded v0.43's magnitude with sqrt(Masonry), because the full
@@ -98,11 +103,18 @@ const renown = await page.evaluate(() => {
 // ladder out of reach. At "broad" it is 14,815. The property this assertion has always been
 // about — the ceiling rises with the era, sub-linearly, and clears the tenth champion — is
 // unchanged and is asserted directly below. Superseded by: v0.56 Part 5.
-check("Renown rises with the storage era on the warehouse (broad) tier, not on a square root",
-  Math.abs(renown.chemtech / renown.bare - (1 + 0.25 + 0.50 + 0.45 + 0.35)) < 0.02 &&
-  Math.abs(renown.icathia / renown.bare - (1 + 0.25 + 0.50 + 0.45 + 0.35 + 0.25)) < 0.02,
+// v0.57 Part 1 RE-POINT: Renown LEAVES THE MATERIAL LINE ENTIRELY, on Jerry's directive 1.
+// `js/resources.js addBarnWarehouseRatio` touches seven MATERIAL effect names and nothing else,
+// and Kittens relieves its non-material ceilings by different machinery altogether — so a
+// non-material resource on the storage line is a category error in the source's own terms.
+// Renown joins SCHOLAR_CAPS beside culture and devotion, and the Masonry upgrades no longer
+// move it AT ALL. That is the property this assertion becomes.
+// Superseded by: v0.57 Part 1.
+check("Renown is untouched by the Masonry line — it is not a material",
+  renown.bare === renown.chemtech && renown.chemtech === renown.icathia,
   `${renown.bare} bare → ${renown.chemtech} at Chemtech Silos → ${renown.icathia} at Voidward`);
-check("the Chemtech-era ceiling covers the tenth champion's 9,611 Renown", renown.chemtech > 9611, String(renown.chemtech));
+check("...and the SCHOLARSHIP line is what lifts it now, clearing the tenth champion's 9,611",
+  renown.scholar3 > 9611, `${renown.bare} bare → ${renown.scholar3} at 3 of 5 Scholarship rungs`);
 check("Vigor stays exempt — it is a transient flow, not a store", renown.vigorExempt);
 
 // ==================== Part 1.2 — the recruitment ladder ====================
