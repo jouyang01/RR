@@ -1041,6 +1041,17 @@ export async function runSim(page, years, seed = 1) {
         if ((S.res.hexcore || 0) >= 1) mark("firstHexcore");
         if (S.pop >= 75) mark("pop75");
         if (S.pop >= 130) mark("pop130");
+        // v0.57 Part 1 pass condition 3/4: the year the TENTH champion first becomes affordable.
+        // Jerry's conditional -- "if the culture and devotion multipliers are not sufficient for
+        // renown to unlock all champions" -- turns on this exact quantity, and inferring it from
+        // a ceiling is not the same thing: a ceiling says the stock CAN reach the price, this
+        // says a settlement DID. Measured against recruitCost() of the first unrecruited
+        // champion once nine are held, which is what the tenth rung actually costs.
+        if (!S.champs || Object.keys(S.champs).filter(k => S.champs[k] && S.champs[k].r).length >= 9) {
+          const tenth = CHAMPS.find(d => !(S.champs[d.id] && S.champs[d.id].r));
+          if (tenth && canAfford(recruitCost(tenth.id))) mark("tenthChampionAffordable");
+        }
+        if (CHAMPS.every(d => S.champs[d.id] && S.champs[d.id].r)) mark("tenthChampionRecruited");
         if ((S.ascends || 0) >= 1) mark("firstAscent");
       }
 

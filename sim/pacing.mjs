@@ -24,6 +24,117 @@
 // inseparable. Recorded in docs/analyzer-status.md.
 // ============================================================================
 import { openGame, runSim } from "./simcore.mjs";
+
+// ============================================================================
+// v0.57 PART 3 — THE SEED ENSEMBLE.
+//
+// v0.56 measured what nobody had measured: three seeds on ONE shipped build gave Era 3 lengths
+// of 700.6 / 1,709.3 / 1,835.3 -- a 2.6x spread. Every Era-3 comparison in every build report
+// from v0.44 to v0.56 is one draw from a distribution whose width was never taken. HANDOFF §2
+// made "no milestone-year claim from a single seed" binding; this is what makes it affordable.
+//
+// `--seeds N` runs N seeds CONCURRENTLY as child processes (2,500-year runs take ~1,600 s alone
+// and ~2,900 s two-up on a 2-core box, so sequential N=3 would be over two hours) and reports
+// MEDIAN, MIN, MAX and SPREAD for every milestone-derived figure.
+//
+// THE TWO CLASSES ARE PRINTED SEPARATELY AND LABELLED, and that separation is the point of the
+// Part. Milestone years, Era 3 and anything derived from them are ENSEMBLE figures and may only
+// be quoted with a median and a spread. Cap-out fractions, the morale band, peak population and
+// delivered multipliers are SINGLE-RUN figures -- v0.56 verified they agree across seeds to
+// within a few tenths -- and are reported from the median seed's run. A report should not be
+// able to quote one as if it were the other, so the output does not let it.
+//
+// Each child emits one `##MACHINE {json}` line; the parent aggregates that and nothing else, so
+// the aggregation cannot drift from the prose the child prints above it.
+import { spawn } from "child_process";
+import { fileURLToPath } from "url";
+
+const argOf = (name, dflt) => {
+  const i = process.argv.indexOf(name);
+  const eq = process.argv.find(a => a.startsWith(name + "="));
+  if (eq) return eq.split("=")[1];
+  return i >= 0 && process.argv[i + 1] !== undefined ? process.argv[i + 1] : dflt;
+};
+const seedsWanted = +(argOf("--seeds", process.argv.includes("--ensemble") ? 3 : 1)) || 1;
+const IS_CHILD = process.argv.includes("--child");
+
+if (seedsWanted > 1 && !IS_CHILD) {
+  const self = fileURLToPath(import.meta.url);
+  const passthrough = process.argv.slice(2).filter((a, i, arr) =>
+    a !== "--ensemble" && a !== "--seeds" && arr[i - 1] !== "--seeds" &&
+    !a.startsWith("--seeds=") && a !== "--seed" && arr[i - 1] !== "--seed");
+  const seeds = Array.from({ length: seedsWanted }, (_, i) => i + 1);
+  console.log(`ENSEMBLE: ${seedsWanted} seeds, launched CONCURRENTLY (seeds ${seeds.join(", ")})\n`);
+  const t00 = Date.now();
+  const runs = await Promise.all(seeds.map(sd => new Promise(res => {
+    const c = spawn(process.execPath, [self, ...passthrough, "--seed", String(sd), "--child"],
+      { cwd: process.cwd() });
+    let out = "";
+    c.stdout.on("data", d => out += d);
+    c.stderr.on("data", d => out += d);
+    c.on("close", () => {
+      const line = out.split("\n").find(l => l.startsWith("##MACHINE "));
+      res({ seed: sd, text: out, machine: line ? JSON.parse(line.slice(10)) : null });
+    });
+  })));
+  const wall = ((Date.now() - t00) / 1000).toFixed(1);
+  const ok = runs.filter(x => x.machine);
+  if (!ok.length) { console.log("ENSEMBLE FAILED — no child produced a machine line"); console.log(runs[0].text.slice(-3000)); process.exit(1); }
+  const num = (a) => a.filter(v => typeof v === "number" && isFinite(v));
+  const med = a => { const x = num(a).slice().sort((p, q) => p - q); if (!x.length) return undefined;
+                     return x.length % 2 ? x[(x.length - 1) / 2] : +((x[x.length / 2 - 1] + x[x.length / 2]) / 2).toFixed(4); };
+  const stat = key => {
+    const vals = ok.map(x => x.machine[key]);
+    const n = num(vals);
+    if (!n.length) return { median: undefined, min: undefined, max: undefined, spread: undefined, never: vals.length };
+    return { median: med(vals), min: Math.min(...n), max: Math.max(...n),
+             spread: +(Math.max(...n) / Math.max(Math.min(...n), 1e-9)).toFixed(2),
+             missing: vals.length - n.length };
+  };
+  const ENSEMBLE_KEYS = ["sparks", "icathia", "era3", "ritesOfTargon", "voidStudies", "firstAscent",
+                         "firstChampion", "pop75", "pop130", "chemtech", "hexcore", "deepWorks",
+                         "firstTrade", "tenthChampionYear"];
+  console.log(`(${wall}s wall for ${seedsWanted} concurrent seeds)\n`);
+  console.log("========================================================================");
+  console.log("ENSEMBLE FIGURES — milestone-derived. QUOTE THESE ONLY WITH A SPREAD.");
+  console.log("========================================================================");
+  console.log("  " + "figure".padEnd(22) + "median".padStart(10) + "min".padStart(10) + "max".padStart(10) + "  spread   per-seed");
+  for (const k of ENSEMBLE_KEYS) {
+    const st = stat(k);
+    if (st.median === undefined) { console.log("  " + k.padEnd(22) + "     NEVER on any seed"); continue; }
+    console.log("  " + k.padEnd(22) + String(st.median).padStart(10) + String(st.min).padStart(10) +
+      String(st.max).padStart(10) + ("  x" + st.spread).padStart(9) + "   " +
+      ok.map(x => x.machine[k] === undefined || x.machine[k] === null ? "—" : x.machine[k]).join(" / ") +
+      (st.missing ? `   (${st.missing} seed(s) never reached it)` : ""));
+  }
+  // the median seed is the one whose Era 3 IS the median; its full text is printed below so the
+  // single-run figures come from one internally-consistent run rather than an average of runs
+  // that never happened.
+  const e3 = stat("era3");
+  const medianRun = ok.slice().sort((a, b) => (a.machine.era3 ?? 1e9) - (b.machine.era3 ?? 1e9))[Math.floor(ok.length / 2)];
+  console.log(e3.median === undefined
+    ? `\n  Era 3: NOT REACHED on any seed at ${argOf("--years", "150")} game-years — no ensemble figure. MEDIAN SEED = ${medianRun.seed} (by pass-condition order).`
+    : `\n  Era 3 median ${e3.median} game-years, spread ${e3.min}-${e3.max} (x${e3.spread}).  MEDIAN SEED = ${medianRun.seed}.`);
+  console.log("\n========================================================================");
+  console.log(`SINGLE-RUN FIGURES — from the MEDIAN SEED (${medianRun.seed}) only.`);
+  console.log("These are stable across seeds (v0.56 verified) and are NOT ensemble figures.");
+  console.log("========================================================================");
+  const SINGLE = ["peakPop", "moraleBandPct", "convergenceAtSparks", "renownAtCapPct",
+                  "cultureAtCapPct", "crystalsAtCapPct", "provisionsAtCapPct", "tradesTotal"];
+  SINGLE.forEach(k => {
+    const vals = ok.map(x => `${x.seed}:${x.machine[k]}`).join("  ");
+    console.log("  " + k.padEnd(22) + String(medianRun.machine[k]).padStart(10) + "     all seeds: " + vals);
+  });
+  console.log("\n----- FULL OUTPUT OF THE MEDIAN SEED (" + medianRun.seed + ") -----\n");
+  console.log(medianRun.text);
+  ok.filter(x => x !== medianRun).forEach(x => {
+    console.log(`\n----- SEED ${x.seed} (pass conditions only) -----`);
+    const i = x.text.indexOf("PASS CONDITIONS");
+    console.log(i >= 0 ? x.text.slice(i) : "(no pass-condition block)");
+  });
+  process.exit(0);
+}
+
 const years = +(process.argv.find(a => a.startsWith("--years"))?.split("=")[1] ?? process.argv[process.argv.indexOf("--years") + 1] ?? 150);
 const fileArg = process.argv[process.argv.indexOf("--file") + 1];
 const { browser, page, errors } = await openGame(process.argv.includes("--file") ? fileArg : undefined);
@@ -325,5 +436,33 @@ console.log("\nPASS CONDITIONS");
 let fail = 0;
 checks.forEach(([n, ok, v]) => { if (!ok) fail++; console.log(`  ${ok ? "PASS" : "FAIL"}  ${n}${v !== undefined ? "  (year " + v + ")" : ""}`); });
 if (errors.length) console.log("\nCONSOLE ERRORS:", errors.slice(0, 5));
+
+// v0.57 Part 3: the one machine-readable line the ensemble parent aggregates. Everything in it
+// is already printed in prose above, so the two cannot disagree -- and the ENSEMBLE keys are
+// separated from the SINGLE-RUN keys here, at the source, rather than in the reader's head.
+{
+  const atSparks = m.sparks !== undefined ? r.samples.find(s2 => s2.year >= m.sparks) : null;
+  const cap = r.capOutPct || {};
+  console.log("##MACHINE " + JSON.stringify({
+    seed,
+    // ---- ensemble: milestone-derived, never quote without a spread ----
+    voidStudies: m.voidStudies, ritesOfTargon: m.ritesOfTargon, firstAscent: m.firstAscent,
+    firstChampion: m.firstChampion, pop75: m.pop75, pop130: m.pop130, sparks: m.sparks,
+    chemtech: m.chemtech, hexcore: m.hexcore, deepWorks: m.deepWorks, icathia: m.icathia,
+    firstTrade: m.firstTrade,
+    era3: (m.sparks !== undefined && m.icathia !== undefined) ? +(m.icathia - m.sparks).toFixed(1) : null,
+    // v0.57 Part 1 pass condition 3: the year the tenth champion first became affordable, which
+    // is what Jerry's conditional turns on. Recorded by the sim, not inferred from a ceiling.
+    tenthChampionYear: m.tenthChampionRecruited ?? m.tenthChampionAffordable ?? null,
+    tenthChampionAffordable: m.tenthChampionAffordable ?? null,
+    // ---- single-run: stable across seeds, quote plainly ----
+    peakPop: peak, moraleBandPct: bandPct,
+    convergenceAtSparks: atSparks ? atSparks.worshipBonus : null,
+    renownAtCapPct: cap.renown ?? 0, cultureAtCapPct: cap.culture ?? 0,
+    crystalsAtCapPct: cap.crystals ?? 0, provisionsAtCapPct: cap.provisions ?? 0,
+    tradesTotal: r.trades ? r.trades.total : null,
+    passFail: fail
+  }));
+}
 await browser.close();
 process.exit(fail ? 1 : 0);
