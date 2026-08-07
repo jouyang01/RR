@@ -450,6 +450,18 @@ const evts = await page.evaluate(() => {
   S.buildings = { archive: 40, trainingGround: 20 };
   const c = computeCaps();
   S.scuttlerActive = true;
+  // v0.59 PART 7 — A §21 DEFECT, found by the analyzer and fixed here rather than re-run away.
+  //
+  // This measured a DELTA on two resources it never reset. `clickScuttler()` is correct — it
+  // pays max(15, round(cap.vigor x 0.06)), which is 186 against a 3,100 ceiling — but `gain()`
+  // CLAMPS at the ceiling, so when an earlier block left vigor above that ceiling the delta came
+  // back hugely negative (-9,996,500 was the observed figure) and the assertion failed under a
+  // full sweep while passing on an idle box.
+  //
+  // THE IDLE-BOX RE-RUN IS EXACTLY THE REMEDY §21 WAS WRITTEN TO RETIRE. Zeroing the two
+  // resources before baselining them makes the measurement independent of everything that ran
+  // before it, which is the whole property §21 asks for.
+  S.res.knowledge = 0; S.res.vigor = 0;
   const k0 = S.res.knowledge, v0 = S.res.vigor;
   clickScuttler();
   const o = { scout, krug, scuttlerK: S.res.knowledge - k0, scuttlerV: S.res.vigor - v0,
@@ -545,9 +557,21 @@ check("§1 — the version is a POINT release off v0.58; integers stay reserved 
   /^v0\.\d\d\.\d+$/.test(version) && version === "v0.58.1", version);
 check("§1 — ...and the footer is rendered from the constant",
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1));
-check("§3 — the consumed v0.58 spec is GONE from the repo root", (() => {
-  try { readFileSync(new URL("../current-build-spec.md", import.meta.url)); return false; }
-  catch (e) { return true; }
+// RE-POINTED at v0.59, superseded by v0.59 spec Part 0 (a new analyzer round legitimately
+// restores `current-build-spec.md` at the repo root). The v0.58.1 form asserted the file's
+// ABSENCE, which was correct for exactly as long as no new spec existed — i.e. it was a
+// version-pinned assertion in disguise, and rule 7 of HANDOFF v0.58.1 §5 says don't write those.
+// What the assertion was actually FOR is that a CONSUMED spec is not left lying at the root to
+// be implemented twice. That property is version-independent and is what is asserted now:
+// the v0.58 spec is archived under docs/specs/, and whatever sits at the repo root is not it.
+check("§3 — the consumed v0.58 spec is archived, and the repo root does not still hold it", (() => {
+  let archived = false, rootIsV058 = false;
+  try { readFileSync(new URL("../docs/specs/rr-analyzer-v058-spec.md", import.meta.url)); archived = true; } catch (e) {}
+  try {
+    const root = readFileSync(new URL("../current-build-spec.md", import.meta.url), "utf8");
+    rootIsV058 = /v0\.58\b/.test(root.slice(0, 4000)) && !/v0\.(59|6\d|\d\d\d)/.test(root.slice(0, 4000));
+  } catch (e) { /* absent is also fine — that is the between-rounds state */ }
+  return archived && !rootIsV058;
 })());
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));
 
