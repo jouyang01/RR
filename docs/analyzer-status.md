@@ -25,10 +25,10 @@ table wins.
 | Previous spec-produced build | **v0.58**, tagged `v0.58` — the Convergence round |
 | Last consumed spec | `docs/specs/rr-analyzer-v058-spec.md` (consumed by v0.58) |
 | Last consumed dev notes | `docs/specs/rr-devnotes-v0.58.1.md` (consumed by v0.58.1) |
-| Current spec, awaiting a builder | **none — no spec is pending.** The next Analyzer cycle verifies `v0.58.1` and writes `current-build-spec.md` for **v0.59**. Integers remain reserved 1:1 for spec rounds; off-cycle work took the point release. |
-| Live suites | **28 suites, 1,436 assertions, 0 failures** — re-run and confirmed at v0.58.1 |
-| Parity ledger | **226 rows — PARITY 57, EASIER 41, HARDER 2, UNVERIFIED 126** |
-| Era 3 | **v0.58 measured 1,403.9 median of three seeds, spread 1,310.2–1,497.6 (×1.14), inside the 1,400–2,300 target but on its LOWER edge; Icathia reached on 2 of 3 seeds.** v0.58.1's own three-seed figure is in `docs/BUILD-REPORT-v0.58.1.md` §8 — **re-measure, do not trust a pre-run baseline.** |
+| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.59, "the Granary is being deleted on every load, and it is a reused id".** Written against the `v0.58.1` tag. Integers remain reserved 1:1 for spec rounds; off-cycle work took the point release. |
+| Live suites | **28 suites — the analyzer measured 1,435 passed against the report's 1,436, with `test-v581` assertion 36 failing on a full sweep and passing alone.** A §21 fixture defect, not a game bug; v0.59 Part 7 fixes it. |
+| Parity ledger | **226 rows — PARITY 57, EASIER 41, HARDER 2, UNVERIFIED 126** — reproduced exactly by the analyzer at v0.58.1 |
+| Era 3 | **v0.58 measured 1,403.9 median of three seeds, spread 1,310.2–1,497.6 (×1.14), inside the 1,400–2,300 target but on its LOWER edge; Icathia reached on 2 of 3 seeds.** v0.58.1's own three-seed figure is in `docs/BUILD-REPORT-v0.58.1.md` §8 — **re-measure, do not trust a pre-run baseline.** **The v0.59 analyzer could NOT re-measure: its three-seed ensemble passed 70 minutes and was still running at hand-off, so every Era-3 figure in the v0.59 spec is the report's, flagged as such. Budget 75–90 minutes.** |
 
 **The cycle table was six rounds stale before v0.58.1 and is corrected here.** It had been
 carrying v0.58's suite and ledger counts from v0.57 (26/1,273 and 220 rows) and an Era 3 figure
@@ -96,6 +96,85 @@ save/load only). RR's is `w.jx[w.j] += dt` — **1 xp per second worked, Challen
 hours of single-job work**. The rank *thresholds* are already close to source in shape and
 exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
 interim labelled UNVERIFIED — do not invent a citation.
+
+## v0.59 — the analyzer's verification pass
+
+**Almost everything reproduces, and two of Jerry's bug reports are real.** Verified from a fresh
+clone at the `v0.58.1` tag, from disk.
+
+**Reproduces exactly.** The parity ledger: **226 rows — PARITY 57, EASIER 41, HARDER 2,
+UNVERIFIED 126**, summing correctly. `VERSION v0.58.1`. §29 as shipped delivers **culture ×1.05
+and devotion ×1.00** on a fully-stacked state — exactly what Jerry's notes 15 and 16 asked for,
+so `OFF-CYCLE-PROTOCOL.md` §5's first two re-checks pass. The rank ladder tops at **Challenger
+18,200 / +0.1875**. `XP_PER_SECOND 0.5`, `XP_CAP 25,556`, `RENOWN_DEED_RATE 0.34`. Both audit
+graphs zero.
+
+**One discrepancy against the report.** The report claims **1,436** assertions, 0 failures; my
+full sweep counts **1,435 passed** with **`test-v581` assertion 36 failing** — *"the Rift
+Scuttler scales with max knowledge and max Vigor: FAIL +400 knowledge of 10000 cap, **+−9,996,500
+vigor** of 3100"*. It passes 2/2 when `test-v581` is run alone. **The game code is correct; the
+assertion is a §21 fixture defect** (`tests/test-v581.mjs:446–465`): it captures `v0 = S.res.vigor`
+and measures a delta without resetting the resource it baselines, so an earlier block that leaves
+vigor above the ceiling makes `gain()` clamp and the delta go hugely negative. `clickScuttler()`
+itself is right — `SCUTTLER_KNOWLEDGE_PCT 0.04`, `SCUTTLER_VIGOR_PCT 0.06`, both floored, +186 of
+3,100 on a clean state, which is exactly 6%. **The idle-box re-run is what hid it, which is the
+precise remedy §21 exists to retire.** v0.59 Part 7.
+
+### The MAJOR BUG: `granary` is a reused id, and the migration eats it on every load
+
+**Dev note 9 confirmed, root-caused, and demonstrated.** Seven Granaries and three Storehouses,
+serialised and reloaded, come back as **zero Granaries and ten Storehouses**.
+
+`index.html:6501–6505`, inside `loadFromString()`:
+
+```js
+var legacy = (fresh.buildings.granary || 0) + (fresh.buildings.runestone || 0);
+if (legacy) {
+  fresh.buildings.storehouse = (fresh.buildings.storehouse || 0) + legacy;
+  delete fresh.buildings.granary; delete fresh.buildings.runestone;
+}
+```
+
+This is the **v0.10-era migration that folded the OLD Granary into the Storehouse** — and
+**v0.56 Part 3.4 shipped a NEW building on the same id `granary`** (`index.html:546–550`,
+Kittens' `pasture` analogue, `provisions 100 + timber 10`, ratio 1.15, `eatCut 0.005`). The
+migration has been eating it ever since. The cost is worse than losing the building: the count is
+carried 1:1 into a far more expensive one, so the player simultaneously loses the `eatCut` they
+bought and gains free Storehouse cap.
+
+**Why no suite caught it, and this is the structural lesson.** `simcore` loads `freshState()`,
+which has no Granaries, so `legacy` is always 0 and the simulator never touches the path.
+`test-v56` asserts the Granary *exists*; nothing round-trips it through `serialize()` →
+`loadFromString()`. **Every save migration in the file sits in the same blind spot.** v0.59 Part 1
+ships the fix, a new standing ruling against id reuse, and a round-trip assertion for every
+migrated id.
+
+### Dev note 10 — renown really is expedition-only
+
+**Confirmed by enumeration: no building and no job produces renown.** Every source is
+`gainRenown(n)` — itself gated `if (S.techs.callToArms)` — called from expedition resolution and
+scaled by `RENOWN_DEED_RATE 0.34`, plus Caitlyn's per-caravan clause when she leads. Two callers
+in the whole file. Spending a Wilds charge is the only way to earn it, exactly as Jerry reports.
+This is not a regression; it is the shipped design, and it is what makes first-champion land at
+**140.9**. v0.59 Part 2 sizes the fix through `RENOWN_DEED_RATE` rather than adding sources.
+
+### §29's citations, and a third behaviour hiding in `SCHOLAR_CAPS`
+
+`OFF-CYCLE-PROTOCOL.md` §5's re-check turned up one solid citation and one that does not exist.
+**Golden Spire's ×1.5 faith-max slice is real** — `js/buildings.js:1929–1931`. **There is no
+`faithMaxRatio` anywhere in the Kittens repo**, so §29's appeal to one is a phantom; the figure
+it justifies must be re-sourced or labelled. **Culture's ×1.05 remains UNVERIFIED.** Separately,
+`SCHOLAR_CAPS` now has **three members and three distinct behaviours** — renown kept ×2.60 while
+culture and devotion moved — which is a family that no longer behaves like a family. v0.59 Part 5.
+
+### Carried into the spec as open items
+
+- **Era 3 at 907** versus the 1,400–2,300 band — v0.59 Part 3 asks Jerry to rule, because the
+  charter makes this a Kittens-rung question and not a bot question.
+- **The rank ladder's 102% parity debt** (note 11) is recorded as a ledger row, not a re-balance.
+- **My own three-seed ensemble did not finish inside the session** — past 70 minutes and still
+  running at hand-off. Every Era-3 figure quoted above is the report's, not mine. The next round
+  must budget **75–90 minutes** for the ensemble and re-measure rather than inherit.
 
 ## v0.58 — the analyzer's verification pass
 
