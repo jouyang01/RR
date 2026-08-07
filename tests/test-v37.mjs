@@ -108,8 +108,11 @@ const b2 = await page.evaluate(() => {
     isFlatAdd: /shrine = limitedDR\(count\("shrine"\)/.test(morale.toString()) && /m \+= shrine/.test(morale.toString())
   };
 });
-check("Altar of the Dawn exists at threshold 400, costing 300 devotion + 200 gold",
-  b2.exists && b2.threshold === 400 && b2.cost.devotion === 300 && b2.cost.gold === 200, JSON.stringify(b2.cost));
+// RE-POINTED v0.58.1, superseded by NOTE 6.1: "Devotion cost for the revelations should be
+// higher. It should force players to build more religion buildings." 300 -> 1,200. The
+// THRESHOLD, which is what this assertion is really about, is untouched at 400.
+check("Altar of the Dawn exists at threshold 400, costing 1,200 devotion + 200 gold",
+  b2.exists && b2.threshold === 400 && b2.cost.devotion === 1200 && b2.cost.gold === 200, JSON.stringify(b2.cost));
 check("worship techs stay ordered by threshold", b2.orderedByThreshold);
 check("the term uses the real building id 'shrine' so it actually fires", b2.usesRealBuildingId);
 check("it is a flat add, not a penalty reducer (different job from the Hearth)", b2.isFlatAdd);
@@ -171,7 +174,11 @@ const target = await page.evaluate(() => {
     shrineTerm: /S\.wtechs && S\.wtechs\.sunAltar/.test(src),
     // v0.40 Part 2.1: poroMoraleBonus is deleted and boxes are LDR-bounded
     poro: !/poroMoraleBonus/.test(src),
-    jack: /var box = limitedDR\(2 \* S\.jackboxes, MORALE_BOX_LIMIT\);/.test(src),
+    // RE-POINTED v0.58.1, superseded by NOTE 32: the boxes are linear for the first five and
+    // go through strictDR — which bites from the first unit and has a true asymptote — after
+    // that. `limitedDR` was the wrong primitive here precisely because it is LINEAR below 75%
+    // of its limit, so seven boxes paid full freight and the curve only bent at fifteen.
+    jack: /var box = 2 \* Math\.min\(5, boxN\) \+ strictDR\(2 \* Math\.max\(0, boxN - 5\), MORALE_BOX_LIMIT\);/.test(src),
     floor: /return Math\.max\(25, Math\.round\(m\)\);/.test(src)
   };
 });

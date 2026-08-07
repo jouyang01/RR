@@ -75,23 +75,34 @@ const ranks = await page.evaluate(() => {
   // probe has to name the job it is asking about. The thresholds and the curve are unchanged
   // — only which number they are read from moved.
   const at = xp => rankOf({ j: "farmer", jx: { farmer: xp } }).id;
-  o.boundaries = [at(0), at(99), at(100), at(11499), at(11500), at(1e9)];
+  o.boundaries = [at(0), at(99), at(100), at(11499), at(18200), at(1e9)];
   const prog = xp => rankProgress({ j: "farmer", jx: { farmer: xp } });
   o.progressMid = Math.abs(prog(225) - 0.5) < 0.01;                  // halfway Silver→Gold
   o.progressTop = prog(1e9) === 1;
   // ...and the point of the directive: the SAME wanderer holds different ranks in different
   // trades, and only the one they are working counts.
-  const w2 = { nm: "X", j: "miner", jx: { miner: 11500, jungler: 50 }, t: "none" };
+  const w2 = { nm: "X", j: "miner", jx: { miner: 18200, jungler: 50 }, t: "none" };
   o.perJob = rankOf(w2, "miner").id === "challenger" && rankOf(w2, "jungler").id === "bronze" &&
              rankOf(w2).id === "challenger";                          // defaults to their trade
-  o.movingResets = (function () { var m = { nm: "Y", j: "jungler", jx: { miner: 11500 }, t: "none" };
+  o.movingResets = (function () { var m = { nm: "Y", j: "jungler", jx: { miner: 18200 }, t: "none" };
                                   return rankOf(m).id === "bronze"; })();
   return o;
 });
 check("nine League-rank tiers, Bronze → Challenger", ranks.nine === 9 && ranks.topIsChallenger && ranks.names[0] === "Bronze", ranks.names.join(" → "));
 check("thresholds and bonuses both climb monotonically", ranks.monotonic, JSON.stringify(ranks.thresholds));
 check("top tier preserves Kittens' real 18.75% endpoint", ranks.endpointPreserved);
-check("rank boundaries resolve correctly", JSON.stringify(ranks.boundaries) === JSON.stringify(["bronze", "bronze", "silver", "grandmaster", "challenger", "challenger"]), JSON.stringify(ranks.boundaries));
+// RE-POINTED v0.58.1, superseded by NOTE 11: "The amount of exp it takes wanderers to go from
+// Master -> Grandmaster should double. The amount of exp it takes from grandmaster ->
+// challenger should also double." The GAPS double, so Grandmaster 7,500 -> 10,200 and
+// Challenger 18,200 -> 18,200 while Bronze through Master are untouched. Every fixture here
+// that pinned an XP figure at or above Grandmaster resolves one rank lower now, which is the
+// change working; the RESOLUTION LOGIC this block guards is unchanged.
+// RE-POINTED v0.58.1, superseded by NOTE 11 (the top two rungs of the ladder double:
+// Grandmaster 7,500 -> 10,200, Challenger 11,500 -> 18,200). Every fixture in this block that
+// pinned an XP figure at or above Grandmaster now resolves one rank lower, which is the change
+// working. The RESOLUTION LOGIC these assertions guard — per-trade banks, only the worked trade
+// counting, ranks averaging rather than stacking — is untouched, so only the fixtures move.
+check("rank boundaries resolve correctly (v0.58.1 note 11: the top two rungs doubled)", JSON.stringify(ranks.boundaries) === JSON.stringify(["bronze", "bronze", "silver", "grandmaster", "challenger", "challenger"]), JSON.stringify(ranks.boundaries));
 check("XP progress bar fills between ranks and caps at the top", ranks.progressMid && ranks.progressTop);
 check("v0.54 directive 8 — one wanderer, a different rank in each trade, and only the worked one counts",
   ranks.perJob, JSON.stringify(ranks.perJob));
@@ -136,7 +147,7 @@ const xp = await page.evaluate(() => {
     return { prod: f, bd: bd };
   };
   const bronze = farmerProd();
-  S.wanderers.forEach(w => { w.xp = 11500; w.jx = { farmer: 11500 }; });
+  S.wanderers.forEach(w => { w.xp = 18200; w.jx = { farmer: 18200 }; });
   const challenger = farmerProd();
   o.skillLifts = challenger.prod > bronze.prod;
   o.skillExact = Math.abs(challenger.prod / bronze.prod - 1.1875) < 0.0001;

@@ -141,10 +141,15 @@ const gate = await page.evaluate(() => {
     r10hexcore: rungs[9].hexcore, r10hexcrete: rungs[9].hexcrete
   };
 });
-check("the ladder is 250 × 1.5^n", gate.ratio === 1.5 &&
-  JSON.stringify(gate.renown) === JSON.stringify([250, 375, 563, 844, 1266, 1898, 2848, 4271, 6407, 9611]),
+// RE-POINTED v0.58.1, superseded by NOTE 31: "Let's increase how much renown each champion
+// takes to make it a little harder to get champions at the start." RECRUIT_BASE 250 -> 400;
+// the RATIO is untouched at 1.5, deliberately, because the note is about the START and the base
+// is the term that governs it. Note 31.2's constraint — the ladder must stay finishable — is a
+// measured pass in BUILD REPORT §8, not an assumption.
+check("the ladder is 400 × 1.5^n (v0.58.1 note 31)", gate.ratio === 1.5 &&
+  JSON.stringify(gate.renown) === JSON.stringify([400, 600, 900, 1350, 2025, 3038, 4556, 6834, 10252, 15377]),
   JSON.stringify(gate.renown));
-check("cumulative Renown to ten is 28,333", gate.cumulative === 28333, String(gate.cumulative));
+check("cumulative Renown to ten is 45,332", gate.cumulative === 45332, String(gate.cumulative));
 check("the gate table has exactly ten rungs, the first three free of it",
   gate.gateLength === 10 && gate.early);
 // rung 6 in CHAMPS order is Swain, whose signature cost is already 700 culture, so the
@@ -194,7 +199,10 @@ const ceil = await page.evaluate(() => {
   return { hallCap: hall.caps.renown, bare: Math.round(bare), chem: Math.round(chem), scholar3,
            renownX: +(chem / bare).toFixed(4), timberX: +(timberFull / timberBare).toFixed(4) };
 });
-check("Hall of Heroes is +250 Renown", ceil.hallCap === 250, String(ceil.hallCap));
+// RE-POINTED v0.58.1 — note 31.1 drops the per-copy percentage and raises the flat grant to 900
+// so note 31.2's "the player can still build enough renown cap" stays true at the new ladder.
+check("Hall of Heroes is +900 Renown, flat and alone (v0.58.1 notes 30 + 31.1)",
+  ceil.hallCap === 900, String(ceil.hallCap));
 // v0.56 Part 5 RE-POINT (both lines): the multiplicative Masonry chain is gone. Kittens'
 // `js/resources.js addBarnWarehouseRatio` runs TWO ADDITIVE accumulators — barnRatio Σ 4.35
 // and warehouseRatio Σ 1.80 across six workshop upgrades each — applied at three different
@@ -295,14 +303,21 @@ check("Scholarship no longer touches the knowledge cap at all",
 // RE-POINTED v0.58, superseded by SPEC PART 3. The line is an additive accumulator now:
 // ×2.60 at all five rungs, down from the chain's ×3.9926. The invariant this assertion guards
 // — the Scholarship line REACHES culture and does not reach knowledge — is untouched.
-check("it still raises Culture, now at the additive ×2.60 (v0.58 Part 3)",
-  Math.abs(sch.cX - 2.60) < 0.02, `×${sch.cX}`);
+// RE-POINTED v0.58.1, superseded by NOTE 15 / STANDING-RULINGS §29: CULTURE LEAVES THE
+// SCHOLARSHIP LINE ENTIRELY. Kittens' fixed-multiplier culture ceiling is ×1.05 and RR's was
+// ×6.43; the structural half of closing that gap is that culture takes no whole-cap multiplier
+// at all, so the Scholarship line reaches renown alone. The line is still additive (§23a) and
+// still delivers ×2.60 — to renown — and that is asserted in test-v58.
+check("it no longer raises Culture at all — §29 moves culture to CAP_MULT_EXEMPT",
+  Math.abs(sch.cX - 1) < 0.02, `culture ×${sch.cX}`);
 // v0.57 Part 1 RE-POINT: RENOWN JOINS THE FAMILY, on Jerry's directive 1. What this assertion
 // has always been about is that the Scholarship line does not reach KNOWLEDGE (asserted above,
 // and still true) — the membership list itself moves when a directive moves it.
 // Superseded by: v0.57 Part 1.
-check("SCHOLAR_CAPS is culture, devotion and — from v0.57 — renown",
-  JSON.stringify(sch.capNames) === JSON.stringify(["culture", "devotion", "renown"]), JSON.stringify(sch.capNames));
+// RE-POINTED v0.58.1 — §29. Membership is renown alone; the INVARIANT (exactly one family per
+// capped resource, capFamilyOf total and single-valued) is untouched and asserted in test-v58.
+check("SCHOLAR_CAPS is renown alone after v0.58.1 §29",
+  JSON.stringify(sch.capNames) === JSON.stringify(["renown"]), JSON.stringify(sch.capNames));
 check("and the prose no longer promises Knowledge storage — generated, not restated",
   !sch.mentionsKnowledge, sch.prose);
 

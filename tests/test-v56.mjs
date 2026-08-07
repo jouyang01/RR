@@ -388,7 +388,9 @@ check("16 — Part 5's storage table is emitted per milestone, so the tiers are 
 // literal; the moment the next round ships, that pin is a check designed to fail.
 // Superseded by: v0.57 ship discipline.
 check("16 — VERSION is well-formed and the footer is rendered from it",
-  /^v\d+\.\d+$/.test(unchanged.version) &&
+  // RE-POINTED v0.58.1: OFF-CYCLE-PROTOCOL §1 — off-cycle rounds take a POINT release
+  // (v0.NN.M) so integers stay reserved 1:1 for analyzer-spec rounds. The shape admits one.
+  /^v\d+\.\d+(\.\d+)?$/.test(unchanged.version) &&
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1),
   unchanged.version);
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));

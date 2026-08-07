@@ -113,8 +113,13 @@ check("the compendium line is CLAMPED to the building cap — at most a doubling
   know.doublesExactly, `${know.base} building cap → ${know.absurd} with unlimited compendia`);
 // RE-POINTED v0.58, superseded by SPEC PART 3. v0.42 cut the chain ×22.4 → ×3.99; v0.58 retires
 // the chain outright for an additive accumulator at ×2.60. Same assertion, one more cut.
-check("Scholarship cut from ×22.4 to ×3.99 (v0.42) and now to ×2.60 additive (v0.58 Part 3)",
-  Math.abs(know.scholarMult - 2.60) < 0.02, `×${know.scholarMult}`);
+// RE-POINTED v0.58.1, superseded by NOTE 15 / STANDING-RULINGS §29: CULTURE LEAVES THE
+// SCHOLARSHIP LINE ENTIRELY. Kittens' fixed-multiplier culture ceiling is ×1.05 and RR's was
+// ×6.43; the structural half of closing that gap is that culture takes no whole-cap multiplier
+// at all, so the Scholarship line reaches renown alone. The line is still additive (§23a) and
+// still delivers ×2.60 — to renown — and that is asserted in test-v58.
+check("Scholarship: ×22.4 (v0.41) → ×3.99 (v0.42) → ×2.60 additive (v0.58) → off culture entirely (v0.58.1)",
+  Math.abs(know.scholarMult - 1) < 0.02, `culture ×${know.scholarMult}`);
 check("and v0.44 Part 2.5.2 takes it off the knowledge cap entirely", know.knowledgeUntouched === true);
 check("the Morellonomicon recipe is Kittens' compendium, rescaled",
   know.recipe && know.recipe.tome === 30 && know.recipe.knowledge === 9000 && know.gatedOnCrossRef,
@@ -287,8 +292,10 @@ check("Atlas Gauntlets applies to every camp, and the comfort ceiling does the c
   `unconditional: ${!content.gauntlets}, at Σ 5.00 materials/comfort = ${JSON.stringify(content.splitAtFullSigma)}`);
 check("Grey Scrubbers cuts converter mana draw", content.scrubbers);
 check("Voidglass Lenses gives Observatories +50% knowledge cap", Math.abs(content.lenses - 1.5) < 0.01, `×${content.lenses}`);
-check("Progress Day Parade widens culture ×1.35 and discounts caravans 15%",
-  Math.abs(content.parade.culture - 1.35) < 0.01 && Math.abs(content.parade.caravan - 0.85) < 0.01,
+// RE-POINTED v0.58.1, superseded by NOTE 15 / §29: the Parade is the ONE fixed multiplier
+// culture keeps, cut ×1.35 -> ×1.05 — Jerry's figure, and Kittens' magnitude. Caravans untouched.
+check("Progress Day Parade widens culture ×1.05 (v0.58.1 §29) and discounts caravans 15%",
+  Math.abs(content.parade.culture - 1.05) < 0.01 && Math.abs(content.parade.caravan - 0.85) < 0.01,
   JSON.stringify(content.parade));
 check("Standing Orders cuts champion training 25%", Math.abs(content.orders - 0.75) < 0.01, `×${content.orders}`);
 check("Surveyed Approaches cuts expedition Vigor 15%", Math.abs(content.approaches - 0.85) < 0.01, `×${content.approaches}`);

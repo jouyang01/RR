@@ -471,9 +471,15 @@ const xp = await page.evaluate(() => {
 // literal here would make this the third assertion in the project designed to fail on the
 // next release. Superseded by: v0.56 Part 1(a).
 check("16 — the accrual rate is a named constant, and it is slower than v0.54's 1/s",
+// RE-POINTED v0.58.1, superseded by NOTE 19 (Jarvan's passive becomes "wanderers earn more
+// experience"). The accrual now reads `XP_PER_SECOND * (1 + champPassive("xp")/100)`, so the
+// two literal-source assertions below could no longer match. The PROPERTY this has always
+// guarded — the rate is a NAMED CONSTANT with one place to reprice it, and the two banks are
+// fed from the same expression — is unchanged and is what is asserted now.
   xp.rate === 0.5 && /var XP_PER_SECOND = 0\.5;/.test(CODE) &&
-  /w\.jx\[w\.j\] = Math\.min\(\(w\.jx\[w\.j\] \|\| 0\) \+ dt \* XP_PER_SECOND, XP_CAP\);/.test(CODE) &&
-  /w\.xp = \(w\.xp \|\| 0\) \+ dt \* XP_PER_SECOND;/.test(CODE), `XP_PER_SECOND ${xp.rate}`);
+  /var xpRate = XP_PER_SECOND \* \(1 \+ champPassive\("xp"\) \/ 100\);/.test(CODE) &&
+  /w\.jx\[w\.j\] = Math\.min\(\(w\.jx\[w\.j\] \|\| 0\) \+ dt \* xpRate, XP_CAP\);/.test(CODE) &&
+  /w\.xp = \(w\.xp \|\| 0\) \+ dt \* xpRate;/.test(CODE), `XP_PER_SECOND ${xp.rate}`);
 check("16 — 20 virtual seconds of work banks 20 × the rate into the worked trade",
   Math.abs(xp.bankedIn20s - 20 * xp.rate) < 1.5, `${xp.bankedIn20s} in 20 s at ${xp.rate}/s`);
 // The Kittens skill increment could NOT be located: `js/village.js` carries the rank table but
@@ -581,7 +587,9 @@ check("19 — auditCostGraph() and auditRawGraph() are both still zero",
 // v0.55 fixed it — and v0.55's own suite then did it a third time. The shape is what this
 // assertion is for; the value is pinned in test-v56. Superseded by: v0.56 ship discipline.
 check("20 — VERSION is well-formed and the footer is rendered from it",
-  /^v\d+\.\d+$/.test(unchanged.version) &&
+  // RE-POINTED v0.58.1: OFF-CYCLE-PROTOCOL §1 — off-cycle rounds take a POINT release
+  // (v0.NN.M) so integers stay reserved 1:1 for analyzer-spec rounds. The shape admits one.
+  /^v\d+\.\d+(\.\d+)?$/.test(unchanged.version) &&
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1),
   unchanged.version);
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));

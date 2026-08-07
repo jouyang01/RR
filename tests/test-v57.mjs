@@ -85,9 +85,14 @@ const renown = await page.evaluate(() => {
 check("1 — every capped resource is in EXACTLY ONE cap family, and none is in none",
   renown.multiFamily.length === 0 && renown.unfamilied.length === 0,
   `multi-family [${renown.multiFamily.join(",")}] unfamilied [${renown.unfamilied.join(",")}]`);
-check("1 — renown is in SCHOLAR_CAPS, beside culture and devotion",
+// RE-POINTED v0.58.1, superseded by NOTES 15 and 16 / STANDING-RULINGS §29 — a NEW EXPLICIT
+// RULING FROM JERRY, recorded rather than applied silently. Culture and devotion leave
+// SCHOLAR_CAPS for CAP_MULT_EXEMPT, because Kittens' fixed-multiplier ceilings are ×1.05 and
+// ×1.5-on-one-building's-slice against RR's ×6.43 and ×10.36. §22's INVARIANT is untouched and
+// is what this block should now be measuring: exactly one family per capped resource.
+check("1 — renown is in SCHOLAR_CAPS, and after §29 it is there ALONE",
   renown.family.renown === "scholar" &&
-  JSON.stringify(renown.scholarKeys) === JSON.stringify(["culture", "devotion", "renown"]),
+  JSON.stringify(renown.scholarKeys) === JSON.stringify(["renown"]),
   JSON.stringify(renown.scholarKeys));
 check("1 — the Masonry line does not move Renown by one point",
   renown.flat === renown.withMasonry, `${renown.flat} bare → ${renown.withMasonry} with all five Masonry rungs`);
@@ -102,8 +107,12 @@ check("2 — no `!== \"renown\"` special case survives anywhere, on stripped sou
   !/!== "renown"/.test(CODE), (CODE.match(/!== "renown"/g) || []).join(" "));
 check("2 — ...and the Scholarship prose NAMES Renown, generated rather than restated",
   /Renown/.test(renown.scholarProse), renown.scholarProse);
-check("2 — ...and Poppy's lead prose still excludes it, through the family rather than a name",
-  /Renown/.test(renown.poppyProse) && !/r3 !== "renown"/.test(CODE), renown.poppyProse);
+// RE-POINTED v0.58.1, superseded by NOTE 45: "Poppy leader bonus description does not need to
+// say what it doesn't touch, only what it does." The exclusion list is gone from the PROSE. The
+// mechanism it documented is unchanged and is still asserted: the guard is the FAMILY, never a
+// name, so `r3 !== "renown"` must still appear nowhere.
+check("2 — ...and Poppy's lead still excludes Renown through the FAMILY, never a name",
+  !/r3 !== "renown"/.test(CODE) && !/untouched/.test(renown.poppyProse), renown.poppyProse);
 // Condition 2's MEASUREMENT (time at cap on 3 seeds) and condition 3's (tenth-champion year)
 // are run figures; what is asserted here is that the ensemble reports them.
 check("2/3 — the ensemble reports Renown time-at-cap and the tenth-champion year per seed",
@@ -111,12 +120,17 @@ check("2/3 — the ensemble reports Renown time-at-cap and the tenth-champion ye
   /tenthChampionAffordable/.test(SIMCORE));
 // Step 2 shipped because Jerry's objective trigger fired: 83.1% time-at-cap (not below 70%) and
 // no tenth champion inside 1,400 years, measured on the post-move build. BUILD REPORT §5.
-check("3/5 — the dedicated Renown line is a PER-COPY PERCENTAGE at Kittens' own Ziggurat 0.08",
-  renown.pctPerCopy === 0.08 && renown.cultureTwin.some(([, v]) => v === 0.08),
+// RE-POINTED v0.58.1, superseded by NOTE 31.1: "Hall of Heroes gives flat Max Renown and % max
+// renown. Let's just change it to flat max renown." The percentage is DELETED and the flat grant
+// rises 250 -> 900 so note 31.2's constraint survives the new recruit ladder. The CULTURE twin —
+// Kittens' Ziggurat 0.08, which is what made the shape defensible — is untouched and is what
+// this assertion now guards.
+check("3/5 — renownCapPct is GONE (note 31.1); the culture twin keeps Kittens' Ziggurat 0.08",
+  renown.pctPerCopy === undefined && renown.cultureTwin.some(([, v]) => v === 0.08),
   `renownCapPct ${renown.pctPerCopy}; culture twin ${JSON.stringify(renown.cultureTwin)}`);
-check("3/5 — ...and it is ADDITIVE per copy: the lift is 1+0.08n, not (1.08)^n",
-  Math.abs(renown.lift.at10 - 1.8) < 0.02 && Math.abs(renown.lift.at20 - 2.6) < 0.02 &&
-  Math.abs(renown.lift.at40 - 4.2) < 0.02,
+check("3/5 — ...and with the percentage gone the Hall's ceiling is purely LINEAR in copies",
+  Math.abs(renown.lift.at10 - 1) < 0.02 && Math.abs(renown.lift.at20 - 1) < 0.02 &&
+  Math.abs(renown.lift.at40 - 1) < 0.02,
   `×${renown.lift.at10} at 10 · ×${renown.lift.at20} at 20 · ×${renown.lift.at40} at 40 copies`);
 // RE-POINTED v0.58, superseded by SPEC PART 3 + PART 7.1. The 35% cut takes the 20-Hall
 // ceiling at three rungs from 27,946 to just under the 28,333 CUMULATIVE ladder — and Part 7.1
@@ -129,8 +143,10 @@ check("3 — the ceiling clears the LARGEST SINGLE PURCHASE (v0.58 Part 7.1's su
   `ceiling ${renown.withScholar3} (3 rungs) / ${renown.withScholar5} (5) vs tenth ${renown.tenth} vs cumulative ${renown.cumulative}`);
 check("4 — the ten dead `renown:` fields are DELETED from CHAMPS",
   renown.champsWithRenownField.length === 0, renown.champsWithRenownField.join(", ") || "none");
-check("4 — ...and the ladder still prices the tenth champion at 9,611, with its signature cost",
-  renown.tenthLive === 9611 && renown.tenthCarriesSignature,
+// RE-POINTED v0.58.1 — note 31 raises RECRUIT_BASE 250 -> 400, so the tenth is 15,377. The
+// property is that the ladder is BUILT from the constants and still carries a signature cost.
+check("4 — ...and the ladder prices the tenth champion at 15,377, with its signature cost",
+  renown.tenthLive === 15377 && renown.tenthCarriesSignature,
   `${renown.tenthLive} renown, plus signature/rung components`);
 check("4 — ...and recruitCost() no longer filters a field that no longer exists",
   /for \(var r in d\.cost\) c\[r\] = d\.cost\[r\];/.test(CODE));
@@ -350,8 +366,9 @@ check("16 — auditCostGraph() and auditRawGraph() are both still zero",
 // ============================================================================
 // RE-POINTED v0.58: a version assertion is true for one round by construction. It is kept as a
 // FOOTER-RENDERING assertion, which is the property that can actually regress.
+// RE-POINTED v0.58.1: OFF-CYCLE-PROTOCOL §1 admits a POINT release.
 check("17 — VERSION is current and the footer is rendered from it",
-  /^v0\.\d\d$/.test(unchanged.version) &&
+  /^v0\.\d\d(\.\d+)?$/.test(unchanged.version) &&
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1),
   unchanged.version);
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));

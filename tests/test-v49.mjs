@@ -294,8 +294,11 @@ check("...and it renders directly under the civilisation's name, in ZONE 1",
   JSON.stringify(ui.tradeZones));
 check("...with the haul and every opened cargo slot on their own lines",
   ui.tradeYieldLines >= 2, `${ui.tradeYieldLines} yield lines at 20 caravans`);
-check("tooltip edit 3.1 — the caravan tooltip lists what it buys one line at a time",
-  ui.caravanYieldLines >= 4, `${ui.caravanYieldLines} lines`);
+// RE-POINTED v0.58.1, superseded by NOTE 5: slots whose resource the player has never seen are
+// COUNTED, not named, so on a fresh state the list is shorter by design. One line per REVEALED
+// slot is still the property, and the hidden ones get their own summary line.
+check("tooltip edit 3.1 — the caravan tooltip lists each REVEALED slot on its own line",
+  ui.caravanYieldLines >= 2, `${ui.caravanYieldLines} lines`);
 check("champion edit 1 — the recruit card lists neither the class nor the rung",
   ui.noRung && ui.noClass, `rung gone: ${ui.noRung}, class gone: ${ui.noClass}`);
 check("champion edit 2 — XP sits beside the name and the xp/second line is gone",

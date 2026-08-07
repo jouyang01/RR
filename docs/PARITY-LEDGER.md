@@ -21,11 +21,11 @@ suspected speed-up, not a neutral one.
 
 | verdict | count | share |
 |---|---|---|
-| **PARITY** | 56 | 25.2% |
-| **EASIER** | 38 | 17.1% |
-| **HARDER** | 1 | 0.5% |
-| **UNVERIFIED** (parity debt) | 127 | 57.2% |
-| **total rows** | **222** | |
+| **PARITY** | 57 | 25.2% |
+| **EASIER** | 41 | 18.1% |
+| **HARDER** | 2 | 0.9% |
+| **UNVERIFIED** (parity debt) | 126 | 55.8% |
+| **total rows** | **226** | |
 
 ## Standing divergences that are not rows
 
@@ -45,6 +45,9 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | **Wanderer traits** (`TRAIT_LIMIT = 0.15`) | none — Kittens has no per-kitten traits | **EASIER**, hard-bounded | The Trailblazer is the eighth member of `campYieldMult()` after v0.55 Part 4 rebuilt the other seven onto the source's stack. It adds at most 0.15 to Σ 5.10 no matter how many arrive, which moves the delivered multiplier ×5.93 → ×5.98. Small, bounded, and named rather than removed. |
 | **Storage scope** (`CAP_SCOPE`, `BARN_LINE`, `WAREHOUSE_LINE`) | `js/resources.js:866-885 addBarnWarehouseRatio` — two ADDITIVE accumulators (barnRatio Σ 4.35, warehouseRatio Σ 1.80 across six `js/workshop.js` upgrades each) applied at three scopes | **PARITY** | v0.56 Part 5. RR ran ONE multiplicative chain (×22.05 nominal, ×12.6 realised) across twelve resources — a Kittens'-Law violation on top of a scope error. Now ×14.98 narrow / ×2.80 broad / ×2.0875 quarter-after-Silos / ×1.00 none, which are the source's own figures. Renown and Mana are RR-ORIGINAL tier assignments and are stated as design rulings in the source comment, not as parity claims. |
 | **Food storage** (Storehouse, Harbor, Warehouse) | `js/buildings.js:765-767` barn `catnipMax 5000`; wiki *Catnip* — harbour 2,500, warehouse 750 after Silos | **PARITY** | v0.56, Jerry's directive. RR's Storehouse held 7,500 (×1.5 the source) and its Harbor 10,000 (×4), while its Warehouse held none at all against the source's 750. Provisions sat at cap **1.5% of ticks** on the v0.55 build, which is the whole of "Deepwinter is never a problem". |
+| **The wanderer rank ladder** (`RANKS`, Grandmaster 10,200 / Challenger 18,200) | wiki, *Kittens*: Dabbling 0 / Novice 100 / Adequate 500 / Competent 1200 / Skilled 2500 / Proficient 5000 / **Master 9000 → +18.75%** | **HARDER** | **v0.58.1, Jerry's note 11**: *"The amount of exp it takes wanderers to go from Master -> Grandmaster should double. The amount of exp it takes from grandmaster -> challenger should also double."* The GAPS double, not the thresholds, so Bronze through Master are untouched. **RR already asked 11,500 for the same +18.75% Kittens grants at 9,000 — a 27.8% parity debt. At 18,200 that debt is 102%.** A deliberate, Jerry-directed divergence, re-rated here rather than left looking like parity. |
+| **The Festival** (`festivalCost`, `FESTIVAL_MORALE_MULT 1.20`) | `js/village.js holdFestival` — eats the catnip and fur stockpiles, pays happiness | **HARDER** | **v0.58.1 note 1.** It now costs culture and vigor PER HEAD on top of the luxuries, gives no culture back, and pays +20% morale rather than v0.58's +30%. HARDER on every axis except duration: a full game-year (400 days) rather than ten real minutes, and it cannot be layered. The gold reward (250 + 25/Hearth) is RR-original and is what makes it worth holding. |
+| **The Renown economy** (`RECRUIT_BASE 400`, `RENOWN_DEED_RATE 0.34`, Hall of Heroes flat 900) | none — Renown has no Kittens counterpart at all | **HARDER** | **v0.58.1 note 31.** The recruit base rises 250 → 400 (tenth champion 9,611 → 15,377), deed income is cut to a third, the Training Ground's renown ceiling is deleted and the Hall of Heroes loses its per-copy percentage for a flat 900. **Note 31.2 is a hard constraint and it is measured, not assumed: twenty Halls clear 18,210 against the 15,377 tenth champion, and 47,346 with the Scholarship line against the 45,332 cumulative.** |
 | **Wanderer skill cap** (`XP_CAP = 25,556`) | `js/village.js:2622` `var skillsCap = 20001;` and `:2650` `Math.min(kitten.skills[kitten.job] + skillXP, skillsCap)` | **PARITY** | v0.56 Part 1(b), rank-matched by ratio: Kittens caps at 2.22233× its top tier's 9,000, RR's Challenger is 11,500. RR had **no cap at all** and the measured top bank at Icathia was 1,335,491 — 116× the top rank. |
 | **Champions and leader clauses** | none — see the CHAMPIONS and LEADS sections, taken as rows this round (v0.56 Part 7.6) | **EASIER** | Was a single line here for three rounds. Twenty rows now, each labelled. |
 | **`BOOST_LIMIT`'s seven keys** | `game.js:3425–3435`, `<res>Ratio` unbounded | **HARDER** | RR bounds seven resource-boost stacks the source leaves unbounded. `knowledge` is deliberately absent, which is the one key at parity. |
@@ -91,7 +94,7 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | `watchersBelow` | RR-ORIGINAL | 125000 | knowledge 125000 | **UNVERIFIED** | Freljord capstone at 125000 |
 | `kindling` | RR-ORIGINAL | 50000 | knowledge 50000 | **UNVERIFIED** | branch tech at 50000, opens one upgrade |
 
-## BUILDINGS (50)
+## BUILDINGS (51)
 
 | RR id | Kittens counterpart | rung | scale | verdict | note |
 |---|---|---|---|---|---|
@@ -109,16 +112,16 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | `skyrise` | js/buildings.js mansion (manpowerMax 50) | deepWorks | ratio 1.15 · {"hexcrete":4,"alloy":20,"scaffold":8} | **UNVERIFIED** | manpowerMax matches; cost not censused |
 | `storehouse` | js/buildings.js barn (wood 50, ratio 1.75) | cultivation | ratio 1.75 · {"timber":50} | **PARITY** | v0.47 Part 4.4: cost and ratio are the barn's verbatim; gold 10 is the barn's own gold term |
 | `warehouse` | js/buildings.js warehouse | carpentry | ratio 1.15 · {"beam":2,"stoneSlab":3} | **UNVERIFIED** | ported by role from construction; cost not censused |
-| `harbor` | js/buildings.js harbour | smelting | ratio 1.15 · {"stoneSlab":50,"gear":20,"beam":30} | **UNVERIFIED** | ported by role; cost not censused |
+| `harbor` | js/buildings.js harbour | smelting | ratio 1.15 · {"stoneSlab":50,"gear":20,"beam":30,"steel":40} | **UNVERIFIED** | ported by role; cost not censused |
 | `archive` | js/buildings.js library (scienceRatio 0.1) | — | ratio 1.15 · {"timber":40,"mana":50} | **PARITY** | 0.10 exact — the first rung of the science stack that measures x20.8000 at Kittens' own end-of-tree counts |
 | `academy` | js/buildings.js academy (scienceRatio 0.2) | scriptorium | ratio 1.15 · {"timber":100,"ore":140,"mana":150,"knowledge":80} | **PARITY** | 0.20 exact |
-| `observatory` | js/buildings.js observatory (iron 750 + science 1000 + slab 35 + scaffold 50, scienceRatio 0.25) | ritesOfTargon | ratio 1.1 · {"ore":750,"knowledge":1000,"stoneSlab":35,"scaffold":50} | **PARITY** | 0.25 exact; cost transliterated in v0.46 Part 1 |
+| `observatory` | js/buildings.js observatory (iron 750 + science 1000 + slab 35 + scaffold 50, scienceRatio 0.25) | ritesOfTargon | ratio 1.1 · {"steel":150,"knowledge":1000,"stoneSlab":35,"scaffold":35} | **PARITY** | 0.25 exact; cost transliterated in v0.46 Part 1 |
 | `hexLab` | js/buildings.js biolab (science 1500 + slab 100 + plastic 15 + alloy 25, scienceRatio 0.35) | hexcore | ratio 1.1 · {"knowledge":1500,"stoneSlab":100,"plating":15,"alloy":25} | **PARITY** | 0.35 exact; cost transliterated in v0.46 Part 1 with plating for plastic |
 | `forge` | js/buildings.js smelter | smelting | ratio 1.15 · {"timber":80,"ore":200} | **UNVERIFIED** | converter role matches; rates not censused |
 | `tradeDock` | js/buildings.js tradepost (tradeRatio) | trade | ratio 1.15 · {"timber":180,"ore":260,"gold":60} | **UNVERIFIED** | tradeRatio role matches; RR's 0.02/copy not censused against the source's figure |
 | `refinery` | RR-ORIGINAL | hextech | ratio 1.15 · {"gold":150,"steel":25} | **UNVERIFIED** | crystals are RR-original |
 | `workshop` | js/buildings.js workshop (craftRatio) | yordle | ratio 1.15 · {"timber":200,"ore":300,"steel":20,"gold":100} | **UNVERIFIED** | craft-yield role matches; RR's 0.06/copy not censused |
-| `trainingGround` | RR-ORIGINAL | logistics | ratio 1.15 · {"timber":120,"ore":150,"provisions":500} | **UNVERIFIED** | vigor storage and boost; manpower has no building counterpart in the source |
+| `trainingGround` | RR-ORIGINAL | logistics | ratio 1.15 · {"timber":120,"ore":150,"provisions":500} | **HARDER** | v0.58.1 note 30 REMOVES its renown ceiling; it holds vigor and boosts vigor and nothing else now. HARDER: the settlement lost a renown store it used to have, and the Hall of Heroes is the only one left |
 | `sumpMine` | js/buildings.js smelter/calciner autoprod tier | sparks | ratio 1.15 · {"timber":300,"ore":500,"gear":5} | **UNVERIFIED** | STANDING-RULINGS §7 rules the autoprod pattern correct; the rates are not censused |
 | `coalgasVent` | js/buildings.js calciner tier | chemtech | ratio 1.15 · {"timber":250,"ore":420,"steel":20} | **UNVERIFIED** | as sumpMine |
 | `hexQuarry` | js/buildings.js calciner tier | hexcore | ratio 1.15 · {"timber":350,"ore":600,"gear":8} | **UNVERIFIED** | as sumpMine |
@@ -138,6 +141,7 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | `frozenWatcher` | js/religion.js skyPalace (0.50, ratio 1.15) | icathia | ratio 1.25 · {"trueice":2500,"poroTears":600,"frostMegalith":60} | **PARITY** | as frostguardCairn; RR runs ratio 1.25 on this rung against the source's 1.15 |
 | `shimmerRefinery` | RR-ORIGINAL | chemtech | ratio 1.15 · {"plating":4,"alloy":3} | **UNVERIFIED** | shimmer is RR-original; recost by measurement in v0.52 Part 3.2 |
 | `chemForgeworks` | js/buildings.js the converter family (calciner / steamworks: raw + mana in, refined out, repeatable at priceRatio 1.15) | deepWorks | ratio 1.15 · {"hexcrete":6,"plating":150,"alloy":80} | **PARITY** | v0.58 Part 7.2. SHAPE is the source's converter exactly — repeatable, ratio 1.15, raw + mana in, refined good out. The CONTENT is RR-original because shimmer and hexgear are: it exists because §24's classification found shimmer had NO continuous consumer at all (held 100% of ceiling, consumed 0/s, 10 lumpy sinks), and Void Essence had no sink either because Riftsteel (hexgear 375) was unreachable. One converter closes both. Sized at 0.05 shimmer/s in and 0.005 hexgear/s out per copy so P/C lands near 2 at the Refinery family's own scale |
+| `manufactory` | js/buildings.js factory (the INERT-until-upgraded building; RR has never had one) | hexdraulics | ratio 1.15 · {"beam":60,"gear":40,"plating":25,"crystals":60} | **PARITY** | v0.58.1 note 48. SHAPE is Kittens' Factory exactly: a building that does nothing on purchase and becomes whatever its workshop upgrades make it. The CONTENT is RR-original — Kittens' factory boosts craft ratios, this one burns Hextech Crystals as fuel and takes three discoveries — so the shape is parity and the content is a design. The fuel is a genuine constraint rather than flavour: the converter loop refuses to run any building whose inputs are short, so an unfuelled Manufactory is idle and stops drawing crystals |
 | `hexcreteBastion` | RR-ORIGINAL | deepWorks | ratio 1.15 · {"hexcrete":6,"scaffold":10} | **UNVERIFIED** | Era 3 deep storage |
 | `riftAnchor` | js/space.js orbitalArray (eludium 100, ratio 1.15) | icathia | ratio 1.15 · {"riftsteel":3,"hexcrete":40} | **UNVERIFIED** | v0.53 Part 4.3 rank-matches the repeatability and the ratio but NOT the quantity; and it has never been built in a measured run |
 | `hallOfHeroes` | RR-ORIGINAL | callToArms | ratio 1.15 · {"timber":250,"ore":450,"culture":60,"gold":40} | **EASIER** | Renown storage; Renown has no source counterpart |
@@ -146,7 +150,7 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | `sanctum` | RR-ORIGINAL | ritesOfTargon | ratio 1.15 · {"timber":400,"ore":500,"gold":120,"crystals":8,"culture":80} | **UNVERIFIED** | devotion boost carrier, bounded by BOOST_LIMIT |
 | `marus` | RR-ORIGINAL | ritesOfTargon | ratio 1.15 · {"gold":800,"ore":400,"steel":60,"crystals":40,"culture":150} | **UNVERIFIED** | devotion producer at scale |
 
-## UPGRADES (74)
+## UPGRADES (77)
 
 | RR id | Kittens counterpart | rung | scale | verdict | note |
 |---|---|---|---|---|---|
@@ -186,6 +190,9 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | `sumpVentilation` | RR-ORIGINAL | sumpEcology | {"plating":60,"gold":2500} | **UNVERIFIED** | no citation on file — this row is parity debt, not a claim |
 | `seasonedTimberworks` | RR-ORIGINAL | sparks | {"beam":60,"gear":30} | **UNVERIFIED** | no citation on file — this row is parity debt, not a claim |
 | `hexresonance` | RR-ORIGINAL | hexcore | {"crystals":80,"hexgear":30} | **UNVERIFIED** | no citation on file — this row is parity debt, not a claim |
+| `pressureRegulators` | RR-ORIGINAL | hexdraulics | {"crystals":120,"gear":60} | **EASIER** | v0.58.1 note 48.2A. Halves the Manufactory's crystal draw. EASIER because it makes an existing building cheaper to run and Kittens has no counterpart discovery |
+| `rollingPress` | RR-ORIGINAL | hexdraulics | {"crystals":90,"plating":40} | **EASIER** | v0.58.1 note 48.2B. 0.005 parchment/s per Manufactory — Jerry's figure verbatim. EASIER: it is the first continuous producer of a `made` good in the game, and hand-crafting was previously the only route |
+| `automatedWorkshop` | RR-ORIGINAL | hexdraulics | {"crystals":200,"scaffold":120,"beam":200} | **EASIER** | v0.58.1 note 48.2C. One beam, slab, gear and iron plating per Manufactory per game-year, output only — the building is already paying continuously in crystals. EASIER for the same reason as the Rolling Press. NOTE: first priced in hexgear, which auditCostGraph() rejected because hexgear is gated 25,000 knowledge LATER than this discovery; scaffold replaces it |
 | `piltovanCranes` | RR-ORIGINAL | hexdraulics | {"beam":120,"gear":40} | **UNVERIFIED** | no citation on file — this row is parity debt, not a claim |
 | `progressDayParade` | RR-ORIGINAL | progressDay | {"culture":2500,"gold":3000} | **UNVERIFIED** | no citation on file — this row is parity debt, not a claim |
 | `chemBaronTithe` | RR-ORIGINAL | chemBaronAccords | {"alloy":80,"shimmer":60} | **UNVERIFIED** | no citation on file — this row is parity debt, not a claim |
@@ -243,7 +250,7 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | RR id | Kittens counterpart | rung | scale | verdict | note |
 |---|---|---|---|---|---|
 | `parchment` | js/workshop.js parchment (furs 175) | parchment | {"furs":175} | **PARITY** | v0.41 §2.4: exact |
-| `tome` | js/workshop.js manuscript | tome | {"parchment":50,"mana":250,"knowledge":1500} | **UNVERIFIED** | RR's tome costs 50 parchment against the manuscript's 25; deliberately rescaled |
+| `tome` | js/workshop.js manuscript | tome | {"parchment":50,"mana":250,"knowledge":1500,"culture":40} | **UNVERIFIED** | RR's tome costs 50 parchment against the manuscript's 25; deliberately rescaled |
 | `morellonomicon` | js/workshop.js compedium (science 9000 + manuscript 55) | morellonomicon | {"tome":30,"knowledge":9000} | **PARITY** | 9000 knowledge verbatim; 30 tomes rather than 55 manuscripts because an RR tome is 2x a manuscript |
 | `gear` | js/workshop.js gear (steel 15, tier 3, handicap 5) | gear | {"steel":25} | **UNVERIFIED** | RR charges steel 25 against the source's 15 |
 | `stoneSlab` | js/workshop.js slab (minerals 250) | stoneSlab | {"ore":200} | **UNVERIFIED** | RR charges ore 200 against the source's 250 |
@@ -276,10 +283,10 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | `blueSentinel` | none | wilds · logistics | {"vigor":175} | **EASIER** | RR-original. Mana, repeatable, vigor-only |
 | `redBrambleback` | none | wilds · smelting | {"vigor":175} | **EASIER** | RR-original. The twin of blueSentinel |
 | `abyssJourney` | none | wilds · abyss | {"vigor":120,"provisions":500} | **EASIER** | RR-original, and the FIRST expedition that costs a stored resource (provisions 500) rather than pure vigor — which is what keeps it bounded |
-| `scouting` | none — Kittens has no trade discovery | trade · trade | {"vigor":500} | **EASIER** | RR-original. Flat 500 vigor since v0.54 directive 3; the escalator was deleted because it walled off content the Trade tab had already advertised |
-| `drakeHunt` | none | wilds · drakeLore | {"vigor":350,"steel":25,"provisions":4000} | **EASIER** | RR-original, and the entrance to the drakes — themselves EASIER and re-curved in v0.55 Part 6. Costs steel and 4,000 provisions, so the food economy gates it |
+| `scouting` | none — Kittens has no trade discovery | trade · trade | {"vigor":1750} | **EASIER** | RR-original. Flat 500 vigor since v0.54 directive 3; the escalator was deleted because it walled off content the Trade tab had already advertised |
+| `drakeHunt` | none | wilds · drakeLore | {"vigor":900,"steel":80,"provisions":9000} | **EASIER** | RR-original, and the entrance to the drakes — themselves EASIER and re-curved in v0.55 Part 6. Costs steel and 4,000 provisions, so the food economy gates it |
 | `voidExpedition` | none | wilds · icathia | {"vigor":500,"focusedHex":2,"provisions":2000} | **EASIER** | RR-original. focusedHex 2 + provisions 2,000 makes it the most crafted-input-gated expedition in the game |
-| `baron` | none | wilds · voidStudies | {"vigor":1200,"steel":100,"provisions":20000,"knowledge":200} | **EASIER** | RR-original. The largest single sink in the Wilds — 1,200 vigor, 100 steel, 20,000 provisions, 200 knowledge — and the only one priced in four resources at once |
+| `baron` | none | wilds · voidStudies | {"vigor":2600,"steel":260,"provisions":20000,"knowledge":200} | **EASIER** | RR-original. The largest single sink in the Wilds — 1,200 vigor, 100 steel, 20,000 provisions, 200 knowledge — and the only one priced in four resources at once |
 
 ## CHAMPIONS (10)
 
@@ -288,10 +295,10 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 | `shaco` | none | {"plumes":60} | Ambush: camp yields +15% | **EASIER** | 30% of expeditions refund their vigor while leading; a probabilistic discount on the game's main sink |
 | `leona` | none | {"devotion":900} | Solari Radiance: devotion production +20% | **EASIER** | harvest passive; the LEAD is the round's Part 3 and is now bounded rather than nullifying (see the -lead row) |
 | `twitch` | none | {"mushrooms":90} | Contraband: caravan yields +12% | **EASIER** | reworked v0.54 directive 11 after the lead was found to do nothing; a leader slot that does nothing is its own defect |
-| `jarvan` | none | {"steel":300} | Demacian Command: village production +8% | **EASIER** | arrival timer 20 s -> 12 s while leading — a 40% cut to the settlement's growth clock |
+| `jarvan` | none | {"steel":300} | Demacian Command: wanderers earn experience 25% faster | **EASIER** | arrival timer 20 s -> 12 s while leading — a 40% cut to the settlement's growth clock |
 | `caitlyn` | none | {"gold":500} | Sheriff's Eye: gold production +15% | **EASIER** | reworked v0.54 directive 11; the two lead clauses COMPOUND — the tier discount raises the `over` term the slot ladder is computed from, so +10 points of slot chance reads as +25 at five caravans. Largest untested number v0.54 shipped and still untested |
 | `swain` | none | {"culture":700} | Administrative Vision: knowledge production +12% | **EASIER** | knowledge +12% permanently, and a lead cutting Research and Discovery cost 20% — a compounding discount on the ladder the whole game is paced by |
-| `bard` | none | {"culture":550} | Traveler's Song: culture production +20% | **EASIER** | culture +20% permanently |
+| `bard` | none | {"culture":550} | Traveler's Song: culture production +10% | **EASIER** | culture +20% permanently |
 | `poppy` | none — Kittens has no champions | {"timber":1800} | Steadfast Presence: vigor production +15% | **EASIER** | permanent passive plus a leader clause; the lead was rescoped to material caps only in v0.45 Part 8.1, which is the only thing keeping it bounded |
 | `heimerdinger` | RR-ORIGINAL | {"tome":10} | Inventor's Ingenuity: craft yields +12% | **UNVERIFIED** | no citation on file — this row is parity debt, not a claim |
 | `zilean` | none | {"devotion":800} | Chronoshift: camp respawns 15% faster | **EASIER** | camp respawn; interacts with CHARGE_REGEN_S, which is itself RR-original |
@@ -300,13 +307,13 @@ They are recorded here and they carry labels under §16 exactly as the rows do.
 
 | RR id | Kittens counterpart | rung | scale | verdict | note |
 |---|---|---|---|---|---|
-| `shaco-lead` | none | leader slot | Deceive — expeditions have a 30% chance to cost no Vigor | **EASIER** | 30% vigor refund on expeditions |
+| `shaco-lead` | none | leader slot | Deceive — expeditions have a 20% chance to cost no Vigor | **EASIER** | 30% vigor refund on expeditions |
 | `leona-lead` | none — no source counterpart of any kind | leader slot | Zenith Blade — Deepwinter and cold snaps lose half their bite: Deepwinter ×0.25 → ×0.625. The harvest is shielded, not exempted. | **EASIER** | **BOUNDED IN v0.56 PART 3.** It previously FLOORED farmMult at 1 and therefore deleted seasonality outright, and v0.55 silently widened it from buildings to buildings + jobs. It now halves the shortfall below 1.0 (Deepwinter x0.25 -> x0.625) and never lifts a season above 1 |
-| `twitch-lead` | none | leader slot | Spray and Pray — every cargo slot on every route is +15% likelier to land | **EASIER** | cargo slots |
-| `jarvan-lead` | none | leader slot | Demacian Standard — wanderers arrive nearly twice as fast | **EASIER** | arrival interval 20 s -> 12 s |
-| `caitlyn-lead` | none | leader slot | Ace in the Hole — every caravan earns +5 Renown, every cargo slot opens five caravans early, and every slot is +10% likelier to land | **EASIER** | two clauses that compound; see the champion row |
-| `swain-lead` | none | leader slot | Raven Ledger — Research and Discoveries cost 20% less | **EASIER** | -20% on Research and Discoveries |
+| `twitch-lead` | none | leader slot | Spray and Pray — cargo slots are likelier to land: +15% at 5 caravans, +10% at 10, +5% at 15 | **EASIER** | cargo slots |
+| `jarvan-lead` | none | leader slot | Demacian Standard — every worker in the village produces 12% more | **EASIER** | arrival interval 20 s -> 12 s |
+| `caitlyn-lead` | none | leader slot | Ace in the Hole — every completed trade earns +5 Renown | **EASIER** | two clauses that compound; see the champion row |
+| `swain-lead` | none | leader slot | Raven Ledger — the ravens file everything: knowledge production +25% | **EASIER** | -20% on Research and Discoveries |
 | `bard-lead` | none | leader slot | Tempered Fate — a chime rings now and then, granting a burst of a random stocked resource | **UNVERIFIED** | not measured this round |
-| `poppy-lead` | none | leader slot | Iron Ambassador — material storage caps +8% (12 material lines; Knowledge, Culture & Devotion & Renown, Renown and Vigor are untouched) | **EASIER** | material storage caps +8%; rescoped v0.45 Part 8.1 so Knowledge, the Scholarship lines, Renown and Vigor are excluded |
-| `heimerdinger-lead` | RR-ORIGINAL | leader slot | UPGRADE!!! — crafts consume 20% fewer materials | **UNVERIFIED** | no citation on file — this row is parity debt, not a claim |
-| `zilean-lead` | none | leader slot | Time Warp — every cooldown in the wilds and on the roads runs 25% faster | **EASIER** | camp regeneration -25% |
+| `poppy-lead` | none | leader slot | Iron Ambassador — material storage caps +8% across 12 material lines | **EASIER** | material storage caps +8%; rescoped v0.45 Part 8.1 so Knowledge, the Scholarship lines, Renown and Vigor are excluded |
+| `heimerdinger-lead` | RR-ORIGINAL | leader slot | UPGRADE!!! — crafts consume 15% fewer materials | **UNVERIFIED** | no citation on file — this row is parity debt, not a claim |
+| `zilean-lead` | none | leader slot | Time Warp — banks up to 5 minutes of stored time, then spends it at +50% speed | **EASIER** | camp regeneration -25% |

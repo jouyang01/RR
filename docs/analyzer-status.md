@@ -21,12 +21,27 @@ table wins.
 
 | | |
 |---|---|
-| Last shipped build | **v0.58**, tagged `v0.58` — the Convergence round |
-| Last consumed spec | `docs/specs/rr-analyzer-v058-spec.md` |
-| Current spec, awaiting a builder | **none — no spec is pending.** The next Analyzer cycle verifies `v0.58` and writes `current-build-spec.md` for v0.59. The copy of the v0.58 spec still sitting at the repo root is **consumed**; delete it. |
-| Live suites | **26 suites, 1,273 assertions, 0 failures** — re-run and confirmed 2026-08-06 |
-| Parity ledger | **220 rows — PARITY 54, EASIER 38, HARDER 1, UNVERIFIED 127** |
-| Era 3 | **1,734.6 median of three seeds, spread 1,672.1–1,784.1 (×1.07). ALL THREE SEEDS INSIDE the 1,400–2,300 target.** |
+| Last shipped build | **v0.58.1**, tagged `v0.58.1` — **an OFF-CYCLE round**, built from Jerry's gameplay notes with no analyzer spec (`OFF-CYCLE-PROTOCOL.md`) |
+| Previous spec-produced build | **v0.58**, tagged `v0.58` — the Convergence round |
+| Last consumed spec | `docs/specs/rr-analyzer-v058-spec.md` (consumed by v0.58) |
+| Last consumed dev notes | `docs/specs/rr-devnotes-v0.58.1.md` (consumed by v0.58.1) |
+| Current spec, awaiting a builder | **none — no spec is pending.** The next Analyzer cycle verifies `v0.58.1` and writes `current-build-spec.md` for **v0.59**. Integers remain reserved 1:1 for spec rounds; off-cycle work took the point release. |
+| Live suites | **28 suites, 1,436 assertions, 0 failures** — re-run and confirmed at v0.58.1 |
+| Parity ledger | **226 rows — PARITY 57, EASIER 41, HARDER 2, UNVERIFIED 126** |
+| Era 3 | **v0.58 measured 1,403.9 median of three seeds, spread 1,310.2–1,497.6 (×1.14), inside the 1,400–2,300 target but on its LOWER edge; Icathia reached on 2 of 3 seeds.** v0.58.1's own three-seed figure is in `docs/BUILD-REPORT-v0.58.1.md` §8 — **re-measure, do not trust a pre-run baseline.** |
+
+**The cycle table was six rounds stale before v0.58.1 and is corrected here.** It had been
+carrying v0.58's suite and ledger counts from v0.57 (26/1,273 and 220 rows) and an Era 3 figure
+from v0.57 (1,734.6, ×1.07) as though they were current. Both were superseded at v0.58 and again
+at v0.58.1. **The rule that keeps this honest: this table is updated by the round that ships,
+in the same commit, and its numbers are the ones that round measured — never inherited.**
+
+**Off-cycle rounds and what to ask of them (`OFF-CYCLE-PROTOCOL.md` §5).** v0.58.1 was justified
+by how the game *felt* to Jerry, not by a Kittens rung, which is legitimate — he is the designer.
+It means the next analyzer pass should explicitly re-check every number this round moved against
+its Kittens counterpart and record the verdict. **Two of the notes were themselves parity fixes
+and are the place to start: notes 15 and 16 cut the culture and devotion ceiling multipliers to
+the source's magnitudes.**
 
 ## THE CHARTER — read this before any balance argument (STANDING-RULINGS §16, ruled by Jerry v0.55)
 

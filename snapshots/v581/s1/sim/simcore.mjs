@@ -191,10 +191,6 @@ export async function runSim(page, years, seed = 1) {
         hextechFoundry: count("hextechFoundry"), shimmerRefinery: count("shimmerRefinery"),
         // v0.58 Part 7.2 / Part 8.1 — the shipped sink and the craft it exists to reach.
         chemForgeworks: count("chemForgeworks"), riftAnchor: count("riftAnchor"),
-        // v0.58.1 NOTE 48 — the Manufactory and its three discoveries, counted, so an inert
-        // building cannot be mistaken for an unbuilt one.
-        manufactory: count("manufactory"),
-        manufactoryUpgrades: ["pressureRegulators", "rollingPress", "automatedWorkshop"].filter(u => S.upgrades[u]),
         riftsteelHeld: Math.round(S.res.riftsteel || 0), hexgearHeld: Math.round(S.res.hexgear || 0),
         voidessenceHeld: Math.round(S.res.voidessence || 0),
         // ---- v0.52, instrumented BEFORE the first run this time ----

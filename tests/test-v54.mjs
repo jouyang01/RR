@@ -77,8 +77,10 @@ const d3 = await page.evaluate(() => {
            wildsSkips: /if \(e\.tab && e\.tab !== "wilds"\) return;/.test(renderWilds.toString()),
            tradeRenders: /data-exp=/.test(renderTrade.toString()) && /runExpedition/.test(renderTrade.toString()) };
 });
-check("3 — the Scouting Party costs a flat 500 Vigor and nothing else",
-  d3.cost.vigor === 500 && Object.keys(d3.cost).length === 1 && !d3.hasCostFn, JSON.stringify(d3.cost));
+// RE-POINTED v0.58.1 — note 35 takes it to 1,750 and makes the exemption a property of the
+// expedition. FLAT, and nothing else, is the property; the figure is Jerry's.
+check("3 — the Scouting Party costs a flat 1,750 Vigor and nothing else",
+  d3.cost.vigor === 1750 && Object.keys(d3.cost).length === 1 && !d3.hasCostFn, JSON.stringify(d3.cost));
 check("3 — ...and it does NOT escalate with the number of civilisations already found",
   d3.c1.vigor === d3.c4.vigor && !d3.c1.provisions, JSON.stringify([d3.c1, d3.c4]));
 check("3 — it is tagged for the Trade tab, THE WILDS skips it, and Trade renders and wires it",
@@ -159,7 +161,7 @@ check("7 — its own cost is unchanged; only the gate moved", d7.cost.tome === 8
 // 8 — rank is PER JOB
 // ============================================================================
 const d8 = await page.evaluate(() => {
-  const w = { nm: "X", j: "miner", jx: { miner: 11500, jungler: 50 }, xp: 11550, t: "none" };
+  const w = { nm: "X", j: "miner", jx: { miner: 18200, jungler: 50 }, xp: 11550, t: "none" };
   const fresh = { nm: "Y", j: "farmer", jx: {}, xp: 0, t: "none" };
   // accrual banks against the trade being worked
   loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
@@ -173,13 +175,13 @@ const d8 = await page.evaluate(() => {
   const idle = S.wanderers.find(x => !x.j);
   // production reads the rank in the trade being worked, not a global one
   S.pop = 1; S.jobs = { farmer: 1 };
-  S.wanderers = [{ nm: "A", j: "farmer", jx: { miner: 11500 }, xp: 11500, t: "none" }];
+  S.wanderers = [{ nm: "A", j: "farmer", jx: { miner: 18200 }, xp: 18200, t: "none" }];
   if (typeof invalidateCensus === "function") invalidateCensus();
   S.buildings = {}; S.upgrades = {}; S.policies = {}; S.champs = {}; S.drakes = {}; S.wtechs = {};
   const farmerProd = () => { const bd = computeRates("provisions"); let f = 0;
     (bd._bd || []).forEach(e => { if (/Farmer/.test(e.label)) f += e.amt; }); return f; };
   const asBronzeFarmer = farmerProd();
-  S.wanderers[0].jx.farmer = 11500;
+  S.wanderers[0].jx.farmer = 18200;
   const asChallengerFarmer = farmerProd();
   loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
   return {
@@ -192,6 +194,11 @@ const d8 = await page.evaluate(() => {
     xpRate: typeof XP_PER_SECOND !== "undefined" ? XP_PER_SECOND : 1
   };
 });
+// RE-POINTED v0.58.1, superseded by NOTE 11 (the top two rungs of the ladder double:
+// Grandmaster 7,500 -> 10,200, Challenger 11,500 -> 18,200). Every fixture in this block that
+// pinned an XP figure at or above Grandmaster now resolves one rank lower, which is the change
+// working. The RESOLUTION LOGIC these assertions guard — per-trade banks, only the worked trade
+// counting, ranks averaging rather than stacking — is untouched, so only the fixtures move.
 check("8 — one wanderer is Challenger in one trade and Bronze in another at the same time",
   d8.minerRank === "challenger" && d8.junglerRank === "bronze",
   `miner ${d8.minerRank}, jungler ${d8.junglerRank}`);
@@ -260,16 +267,22 @@ check("10 — the bot no longer waits out weariness either",
 check("11 — neither Caitlyn's nor Twitch's lead still promises something about fatigue",
   !/fatigue/i.test(d10.caitLead) && !/fatigue/i.test(d10.twitchLead),
   `${d10.caitLead} || ${d10.twitchLead}`);
-check("11 — Caitlyn's lead opens EVERY cargo tier five caravans early",
-  d10.base.thresh === 5 && d10.withCait.thresh === 0 &&
-  d10.base.thresh1 === 10 && d10.withCait.thresh1 === 5,
+// RE-POINTED v0.58.1 (three assertions), superseded by NOTES 21 and 22. "Caitlyn's leader bonus
+// is too similar to Twitch. Change Caitlyn's leader bonus to 'every trade gives 5 renown'." Her
+// two cargo clauses — five caravans early, +10% slot chance — are DELETED, which is what "too
+// similar to Twitch" means in code: Twitch owns cargo slots outright now, and his own clause is
+// tiered 15/10/5 by slot rather than flat. The renown clause is her whole lead.
+check("11 — Caitlyn's cargo clauses are GONE; Twitch owns cargo slots (v0.58.1 notes 21+22)",
+  d10.base.thresh === 5 && d10.withCait.thresh === 5 &&
+  d10.base.thresh1 === 10 && d10.withCait.thresh1 === 10,
   `tier 1: ${d10.base.thresh} → ${d10.withCait.thresh}, tier 2: ${d10.base.thresh1} → ${d10.withCait.thresh1}`);
-check("11 — ...and adds +10 points of slot chance, where Twitch adds +15",
-  Math.abs(d10.withCait.chance - d10.base.chance - 0.10) < 1e-9 &&
+check("11 — ...and Twitch's slot chance is TIERED 15/10/5 by slot (v0.58.1 note 22)",
+  Math.abs(d10.withCait.chance - d10.base.chance) < 1e-9 &&
   Math.abs(d10.withTwitch.chance - d10.base.chance - 0.15) < 1e-9,
   `base ${d10.base.chance.toFixed(3)}, caitlyn ${d10.withCait.chance.toFixed(3)}, twitch ${d10.withTwitch.chance.toFixed(3)}`);
-check("11 — Caitlyn's renown-per-caravan clause survives, raised 3 → 5",
-  /gainRenown\(5\); \/\/ Ace in the Hole/.test(SRC) && /\+5 Renown/.test(d10.caitLead));
+check("11 — Caitlyn's renown-per-trade clause is now her WHOLE lead, at 5",
+  /gainRenown\(CAITLYN_TRADE_RENOWN\)/.test(SRC) && /CAITLYN_TRADE_RENOWN  = 5;/.test(SRC) &&
+  /\+5 Renown/.test(d10.caitLead));
 
 // ============================================================================
 // 12 — the poro chronicle line no longer promises morale
@@ -429,7 +442,7 @@ check("offline — both catch-up routes share ONE chronicle line",
 // the shape plus the wiring, which is the property the check was for. This is the same
 // re-point v0.54 applied to test-v53's copy of it. Superseded by: v0.55 ship discipline.
 check("ship — VERSION is well-formed and the footer is rendered from it",
-  await page.evaluate(() => /^v\d+\.\d+$/.test(VERSION)),
+  await page.evaluate(() => /^v\d+\.\d+(\.\d+)?$/.test(VERSION)),
   await page.evaluate(() => VERSION));
 check("regression — BOOST_LIMIT still has seven keys and `knowledge` is still absent",
   await page.evaluate(() => Object.keys(BOOST_LIMIT).length === 7 && BOOST_LIMIT.knowledge === undefined));

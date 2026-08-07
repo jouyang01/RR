@@ -40,8 +40,14 @@ check("Baron Hunt widens the Renown ceiling", s2.voidAdds === 80, `+${s2.voidAdd
 check("the three stack additively, not multiplicatively", s2.allAdds === 180, `+${s2.allAdds}`);
 // v0.44 Part 2.2: 120 → 250. Renown's ceiling now takes only √Masonry, so the
 // building-side term has to carry more of the total for the ladder to stay reachable.
-check("Hall of Heroes carries the building-side Renown cap", s2.hallRenown === 250, String(s2.hallRenown));
-check("Training Ground adds a second Renown cap source", s2.tgRenown === 60, String(s2.tgRenown));
+// RE-POINTED v0.58.1, superseded by NOTES 30 and 31.1. The Training Ground's renown ceiling is
+// DELETED ("Training ground should not increase renown cap") and the Hall of Heroes is the only
+// renown store left, its flat grant raised 250 -> 900 so note 31.2's constraint still holds
+// against the new 15,377 tenth champion. Two buildings quietly sharing a ceiling is how a
+// ceiling stops being legible, which is what note 30 is about.
+check("Hall of Heroes carries the building-side Renown cap, and after v0.58.1 note 30 it is the ONLY one",
+  s2.hallRenown === 900, String(s2.hallRenown));
+check("Training Ground no longer holds Renown (v0.58.1 note 30)", s2.tgRenown === undefined, String(s2.tgRenown));
 check("Expedition Logistics gives Renown a passive trickle", s2.logisticsTrickle);
 
 // ===================== §3 — the housing wall =====================
@@ -131,8 +137,12 @@ check("the Observatory is buildable from Rites of Targon, no Sparks gate", s6.lo
 // SUPERSEDED v0.46 Part 1. Kittens' observatory asks for fifty SCAFFOLD (16.7 beams
 // each, 972 wood each), not fifty beams. One word, a factor of 19 in effective raw cost,
 // and it is most of why 45 Observatories were built against a target of 25.
-check("Observatory keeps Kittens' quantities, now with Scaffold where Kittens has Scaffold",
-  s6.cost.ore === 750 && s6.cost.knowledge === 1000 && s6.cost.stoneSlab === 35 && s6.cost.scaffold === 50, JSON.stringify(s6.cost));
+// RE-POINTED v0.58.1, superseded by NOTES 39 and 46: "Celestial Observatory should cost Steel
+// instead of Ore" and "let's have the first one cost 35 scaffolds". The SCAFFOLD half — the
+// v0.46 fix this assertion exists to protect, a factor of 19 — is intact; the quantity moved.
+check("Observatory still pays SCAFFOLD (v0.46's fix), at v0.58.1's 35, and STEEL not ore",
+  s6.cost.steel === 150 && s6.cost.ore === undefined && s6.cost.knowledge === 1000 &&
+  s6.cost.stoneSlab === 35 && s6.cost.scaffold === 35, JSON.stringify(s6.cost));
 // Deliberate deviation from spec §6's parenthetical, which said hexSlab. Kittens'
 // Observatory slab is the Era-1 MINERAL slab (250 minerals) — the spec's own §7 table
 // maps that to RR's stoneSlab. Reading it as hexSlab makes the Observatory

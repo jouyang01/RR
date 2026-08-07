@@ -89,7 +89,13 @@ const fx = await page.evaluate(() => {
   const v0 = computeRates().vigor / (morale() / 100);
   S.policies.solariDiscipline = true;
   o.vigor = (computeRates().vigor / (morale() / 100)) / v0 / pg(); o.moraleDelta = morale() - m0;
-  reset(); const dc0 = computeCaps().devotion; S.policies.lunariVigil = true;
+  // v0.58.1 §29: the Vigil is a SLICE multiplier on the Shrine's own contribution, so the
+  // fixture has to build Shrines for it to have anything to lift — and a settlement with NO
+  // shrines correctly sees no change at all, which is the property, so both are measured.
+  reset(); const dcNone = computeCaps().devotion;
+  S.policies.lunariVigil = true; o.lunariNoShrines = computeCaps().devotion / dcNone;
+  reset(); S.buildings = { shrine: 20 };
+  const dc0 = computeCaps().devotion; S.policies.lunariVigil = true;
   o.lunariCap = computeCaps().devotion / dc0;
   // Government trio
   reset(); S.buildings = { farmstead: 6 }; S.jobs = {}; S.pop = 0;
@@ -109,11 +115,25 @@ check("Open Range: camp yields +10% (v0.55 Part 4: rank-matched to Kittens' rati
 check("Vigilant Watch: expeditions cost 15% less vigor; Open Range costs 10% more", fx.vigorBase === 1 && Math.abs(fx.vigorWatch - 0.85) < 1e-9 && Math.abs(fx.vigorRange - 1.10) < 1e-9, `${fx.vigorWatch}/${fx.vigorRange}`);
 check("Frontier Charter: caravans +10%", Math.abs(fx.trade - 1.10) < 0.005, fx.trade.toFixed(3));
 check("Isolationist Ledger +15% / Oral Tradition +6% culture", Math.abs(fx.cultureIso - 1.15) < 0.01 && Math.abs(fx.cultureOral - 1.06) < 0.01, `${fx.cultureIso.toFixed(3)}/${fx.cultureOral.toFixed(3)}`);
-check("Oral Tradition: culture cap +15%", Math.abs(fx.cultureCap - 1.15) < 0.005, fx.cultureCap.toFixed(3));
+// RE-POINTED v0.58.1, superseded by NOTE 15 / STANDING-RULINGS §29: Oral Tradition is a
+// PER-COPY ADDITIVE on the Bard's Hearth now (+20 culture each), not a whole-cap ×1.15.
+// The policy still widens the culture ceiling, which is the property; the shape changed.
+// v0.58.1 §29: the policy adds +20 culture PER BARD'S HEARTH rather than multiplying the
+// finished ceiling by 1.15, so the delivered ratio depends on the fixture's building mix — which
+// is exactly the point of the change and is why a pinned ratio is the wrong assertion now.
+check("Oral Tradition widens the culture ceiling ADDITIVELY, per Bard's Hearth (v0.58.1 §29)",
+  fx.cultureCap > 1 && /caps\.culture \+= 20 \* n \* mult/.test(await page.evaluate(() => document.documentElement.innerHTML)),
+  fx.cultureCap.toFixed(3));
 check("Academy Charter: knowledge +8%", Math.abs(fx.knowledge - 1.08) < 0.01, fx.knowledge.toFixed(3));
 check("Lunari Vigil: devotion +12%", Math.abs(fx.devotion - 1.12) < 0.01, fx.devotion.toFixed(3));
 check("Solari Discipline: vigor +12% and nothing else (morale clause removed)", Math.abs(fx.vigor - 1.12) < 0.01 && fx.moraleDelta === 0, `${fx.vigor.toFixed(3)}/${fx.moraleDelta}`);
-check("Lunari Vigil: devotion +12% and devotion cap +25%", Math.abs(fx.devotion - 1.12) < 0.01 && Math.abs(fx.lunariCap - 1.25) < 0.005, fx.lunariCap.toFixed(3));
+// RE-POINTED v0.58.1, superseded by NOTE 16 / §29: the Vigil's devotion-cap clause is a SLICE
+// multiplier on the Shrine's contribution now, not a whole-cap ×1.25. Nothing in Kittens
+// multiplies the entire Faith cap; that is the note, verbatim.
+check("Lunari Vigil: devotion +12%, and its cap clause is scoped to the Shrine's SLICE (v0.58.1 §29)",
+  Math.abs(fx.devotion - 1.12) < 0.01 && fx.lunariCap > 1 && fx.lunariCap <= 1.25 &&
+  Math.abs(fx.lunariNoShrines - 1) < 1e-9,
+  `×${fx.lunariCap.toFixed(3)} with 20 shrines, ×${fx.lunariNoShrines.toFixed(3)} with none`);
 check("Demacian Accord: village +6%", Math.abs(fx.village - 1.06) < 0.005, fx.village.toFixed(3));
 check("Piltover Concord: craft +8%", Math.abs(fx.craft - 1.08) < 0.005, fx.craft.toFixed(3));
 check("Noxian Doctrine: expedition renown ×1.5", fx.renownBase === 1 && fx.renown === 1.5);
@@ -337,14 +357,18 @@ const fac = await page.evaluate(() => {
 check("only the starter route is known at the start (v0.41: Demacia, not Piltover)", fac.startKnown.length === 1 && fac.startKnown[0] === "demacia", fac.startKnown.join(","));
 check("trading with an undiscovered faction is refused", fac.tradeBlocked);
 check("scouting parties eventually find everyone", fac.allFound, `${fac.rounds} attempts`);
-check("v0.54 directive 3 — scouting is a FLAT 500 vigor, no escalator, no provisions, and it lives in the Trade tab",
-  fac.flat && fac.c1.vigor === 500 && fac.tab === "trade", JSON.stringify([fac.c1, fac.c4, fac.tab]));
+// RE-POINTED v0.58.1, superseded by NOTE 35: "Scouting Party should take 1750 Vigor and not
+// have this cost be reduced by anything." v0.54's property — FLAT, no escalator, no provisions,
+// in the Trade tab — is fully intact; only the figure moved, and it moved because v0.58 proved
+// faction discovery is the most load-bearing thing vigor buys.
+check("v0.58.1 note 35 — scouting is a FLAT 1,750 vigor, no escalator, no provisions, Trade tab",
+  fac.flat && fac.c1.vigor === 1750 && fac.tab === "trade", JSON.stringify([fac.c1, fac.c4, fac.tab]));
 // RE-POINTED v0.58, superseded by JERRY'S DEV NOTE 14 ("specify that these are WILD expeditions
 // that cost less"). The vigor discounts are now scoped to Wilds expeditions, and `scouting`
 // carries `tab: "trade"` — so it is deliberately NOT discounted. The assertion now checks the
 // property the round actually shipped: scouting is a flat 500 that no Discovery moves.
-check("...and NOTHING moves it: v0.58 note 14 scopes the Discovery discounts to Wilds expeditions",
-  fac.discounted === 500, `${fac.c1.vigor} -> ${fac.discounted} with Surveyed Approaches`);
+check("...and NOTHING moves it — v0.58 note 14 scoped the discounts, v0.58.1 note 35 made it explicit",
+  fac.discounted === 1750, `${fac.c1.vigor} -> ${fac.discounted} with Surveyed Approaches`);
 
 // ============ TRADE PAYOUTS ============
 const pay = await page.evaluate(() => {

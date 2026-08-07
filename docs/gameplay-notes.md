@@ -14,6 +14,76 @@ This is not a bug tracker and not a spec. It is the input to one.
 ---
 ## Actioned
 
+### v0.58.1 — the off-cycle round (48 notes, `docs/specs/rr-devnotes-v0.58.1.md`)
+
+**Every one of Jerry's forty-eight v0.58.1 notes was actioned and is closed here.** Struck
+through and cited by the round that closed them, per `OFF-CYCLE-PROTOCOL.md` §4, so none is
+re-filed later. Grouped rather than listed one per bullet only because they arrived as one
+numbered artefact and that artefact is archived intact.
+
+- ~~**1 — the Festival.** No culture reward, one full game year (400 days), gives gold, cannot
+  be layered, costs Vigor, larger culture cost as a repetitive sink, flat +20% morale.~~ —
+  **v0.58.1 note 1.** Culture and vigor are PER-HEAD, which is what makes the culture draw
+  repetitive rather than a one-off toll. **The +30% → +20% cut also fixed v0.58's one failing
+  pass condition:** the morale 90–140 band was reading 76/72/98% against ≥80% and is back to
+  98–100%.
+- ~~**2 — Warehouses should not store hextech crystals.**~~ — **v0.58.1 note 2**, reverting
+  v0.58's own note 13. The system working: Jerry shipped it, played it, and withdrew it.
+- ~~**3 — Noxus' failure line cites "standing", which does not exist.**~~ — **note 3.** It
+  never did. The line names `failChance`, which falls 3 points per caravan, instead.
+- ~~**4, 5 — the +caravan button; the caravan tooltip spoiling locked cargo.**~~ — **notes 4
+  and 5.** The last place in the file still leaking un-unlocked content into a tooltip.
+- ~~**6 — the Revelations arrive all at once and cost too little devotion.**~~ — **note 6.**
+  They reveal at half their worship threshold and the devotion ladder is 250 / 600 / 1,200 /
+  1,800 / 3,000 — monotone for the first time, and unreachable without a real Targon quarter.
+- ~~**7, 8, 9 — the cooldown camps are cheap and pay no gold.**~~ — **notes 7–9.** All three
+  tiers now sit on one gold-per-cooldown-minute line: ~16 at 10 min, ~17 at 15, ~22 at 20.
+- ~~**10, 12, 14 — no bulk actions for jobs, hunts or trades.**~~ — **notes 10, 12, 14.**
+  Bulk hunting is restricted to camps with no cooldown and no charge timer, and both bulk
+  runners LOOP the real single-action function rather than reimplementing it.
+- ~~**11 — the top of the wanderer ladder is too shallow.**~~ — **note 11.** The two top GAPS
+  double; nothing below Master moves. Re-rated **HARDER** in the ledger — the parity debt on
+  Challenger goes from 27.8% to 102%.
+- ~~**13, 18 — the Marus needs a worship gate; the Ascent destroys fractional devotion.**~~ —
+  **notes 13 and 18.** The Ascent banked `Math.floor(devotion)` and then zeroed the stock, so
+  every fractional point was silently destroyed on every one of 47–178 ascents in a run.
+- ~~**15, 16 — culture and devotion cap multipliers are 6–7× the source's.**~~ — **notes 15
+  and 16, shipped as STANDING-RULINGS §29**, a new explicit ruling from Jerry that amends §22
+  and §23a by name. Culture ×6.43 → ×1.05 fixed-multiplier; devotion ×10.36 → ×1.00 whole-cap
+  with a ×1.5 slice on one building.
+- ~~**17 — the transmute button ignores craft effectiveness.**~~ — **note 17**, bounded at a
+  quarter weight because this term sits inside the trade circuit's loop guard. See BUILD
+  REPORT §1.
+- ~~**19–25, 27, 45 — seven leader bonuses and two passives.**~~ — **notes 19–25, 27, 45.**
+  Swain's was abusable by construction (a discount on a one-time purchase can be toggled on
+  for the instant of the purchase); Caitlyn's duplicated Twitch's; Jarvan's was a nonfactor.
+- ~~**26 — champion experience is unlabelled.**~~ — **note 26.**
+- ~~**28, 29 — the Dragon Soul arrives one drake early; the Infernal Drake is a weaker copy
+  of it.**~~ — **notes 28 and 29.** The Soul's gate is `DRAKE_TYPES.length`, not a literal 4.
+- ~~**30, 31 — champions are too cheap early and the Hall of Heroes has two ceilings.**~~ —
+  **notes 30, 31, 31.1, 31.3.** **Note 31.2 is a hard constraint and it is asserted, not
+  hoped:** 20 Halls clear the 15,377 tenth champion flat, and the cumulative ladder with the
+  Scholarship line.
+- ~~**32 — Jack in the Box morale runs away.**~~ — **note 32.** `limitedDR` was the wrong
+  primitive — it is LINEAR below 75% of its limit, so seven boxes paid full freight. The first
+  five stay linear as the note asks and everything past five goes through `strictDR`, which
+  has a true asymptote.
+- ~~**33, 34, 39, 41, 44, 46 — six costs and yields.**~~ — **notes 33, 34, 39, 41, 44, 46.**
+  Freljord's Deepwinter clause was a CONVERSION, so "winter always provides" made the route
+  worse in winter; it is a bonus now.
+- ~~**35, 36, 40 — scouting is too cheap; the Rift Scuttler is a rounding error by Era 3;
+  there is no star-shard event.**~~ — **notes 35, 36, 40.** The Scuttler pays a share of the
+  CEILING now, and Celestial Observatories raise the star shard's chance through `strictDR`.
+- ~~**37, 38 — the Targon banner has no moon; a festival is invisible.**~~ — **notes 37, 38.**
+- ~~**42, 43 — a grammar error and undifferentiated trade lines in the chronicle.**~~ —
+  **notes 42 and 43.**
+- ~~**47 — policies stop being a culture sink after the second group.**~~ — **note 47.** The
+  spread goes 12× → 35×, the first two groups untouched. It only works BECAUSE of note 15:
+  this scaling against v0.58's ×6.43 multiplier stack would have been a speed bump.
+- ~~**48 — no Factory-shaped building.**~~ — **note 48.** The Hexdraulic Manufactory is inert
+  on purchase and becomes what its three discoveries make it. RR has never had one.
+
+
 - ~~**Loose rule: each Knowledge research should reveal only 1–3 others.** Almanac unlocked
   five at once; it should unlock Cultivation, Woodcraft and Expedition Logistics only, and any
   other research breaking the rule should be brought into line.~~ — **v0.53, directive 1.**

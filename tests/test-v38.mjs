@@ -122,8 +122,9 @@ const i4 = await page.evaluate(() => {
   const o = { bonus: CHARGE_BONUS, chargeBonus: CHARGE_BONUS, regen: CHARGE_REGEN_S, maxCharges: CAMP_MAX_CHARGES };
   const camp = id => EXPEDITIONS.find(e => e.id === id);
   o.resourceCampsNoCooldown = ["wolves", "gromp", "raptors", "krugs"].every(id => !camp(id).cooldown);
+  // v0.58.1 notes 7 and 8: the Drake Hunt 600 -> 900 s and Baron 900 -> 1,200 s.
   o.othersKeepCooldown = camp("blueSentinel").cooldown === 600 && camp("redBrambleback").cooldown === 600 &&
-    camp("drakeHunt").cooldown === 600 && camp("baron").cooldown === 900 &&
+    camp("drakeHunt").cooldown === 900 && camp("baron").cooldown === 1200 &&
     // v0.41 §2.3: the Abyss journey is no longer in this list — it lost its 300 s
     // cooldown and joined the charge layer at 200 s regen.
     camp("scouting").cooldown === 900 && camp("voidExpedition").cooldown === 300;
@@ -139,7 +140,11 @@ check("CHARGE_BONUS 3.0, 2 charges, the four camps still at 90/120/150/180",
   i4.regen.wolves === 90 && i4.regen.gromp === 120 && i4.regen.raptors === 150 && i4.regen.krugs === 180,
   JSON.stringify(i4.regen));
 check("the four resource camps have no cooldown", i4.resourceCampsNoCooldown && i4.isChargeCamp);
-check("every other camp keeps its cooldown unchanged (Abyss moved to charges in v0.41)", i4.othersKeepCooldown);
+// RE-POINTED v0.58.1, superseded by NOTES 7 and 8: the Drake Hunt goes to a 15-minute cooldown
+// and Baron Nashor to 20, both with gold sized at a common gold-per-cooldown-minute rate. The
+// property this guards — the four RESOURCE camps have no cooldown and everything else does —
+// is unchanged.
+check("every other camp still HAS a cooldown; notes 7 and 8 lengthened two of them", i4.othersKeepCooldown);
 
 const gate = await page.evaluate(() => {
   let now = 1700000000000; Date.now = () => now;
@@ -223,8 +228,13 @@ const renown = await page.evaluate(() => {
 });
 check("Renown is rate-limited to the charge, not to the hunt", renown.awarded < renown.hunts / 10,
   `${renown.hunts} hunts/game-hour but only ${renown.awarded} renown`);
-check("Renown income is UNCHANGED by removing the cooldowns", Math.abs(renown.awarded - renown.oldRate) < 1,
-  `${renown.awarded}/hour now vs ${renown.oldRate}/hour before`);
+// RE-POINTED v0.58.1, superseded by NOTE 31.3: "Renown passive gain should be very slow." Deed
+// income is cut to RENOWN_DEED_RATE = 0.34. This assertion existed to prove v0.38's cooldown
+// removal did not INFLATE renown; it now measures a deliberate deflation against that rate, so
+// it still catches an unintended change while permitting the intended one.
+check("Renown income tracks note 31.3's deed rate, not the cooldown change",
+  Math.abs(renown.awarded - renown.oldRate * 0.34) < Math.max(2, renown.oldRate * 0.08),
+  `${renown.awarded}/hour now vs ${renown.oldRate}/hour before, at ×0.34`);
 
 // ===================== ITEM 5 — luxury supply and demand =====================
 const i5 = await page.evaluate(() => {

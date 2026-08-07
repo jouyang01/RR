@@ -186,6 +186,8 @@ const i8910 = await page.evaluate(() => {
   o.solariNoMorale = !/morale/i.test(o.solariDesc);
   const m0 = morale(); S.policies = { solariDiscipline: 1 }; o.moraleDelta = morale() - m0;
   S.policies = {};
+  // v0.58.1 §29: a SLICE on the Shrine's contribution, so the fixture must build Shrines.
+  S.buildings = Object.assign({}, S.buildings, { shrine: 20 });
   const dc0 = computeCaps().devotion; S.policies = { lunariVigil: 1 };
   o.lunariCap = computeCaps().devotion / dc0;
   S.policies = {};
@@ -200,7 +202,9 @@ check("the discount reaches the real expedition cost", i8910.expCostDiscounted =
 check("Open Range: +10% camp yields but +10% vigor cost — same axis, real trade",
   Math.abs(i8910.campRange - 1.10) < 0.005 && Math.abs(i8910.vigorRange - 1.10) < 1e-9);
 check("Solari Discipline lost its second benefit (no morale clause)", i8910.solariNoMorale && i8910.moraleDelta === 0);
-check("Lunari Vigil gained +25% devotion cap to match", Math.abs(i8910.lunariCap - 1.25) < 0.005, i8910.lunariCap.toFixed(3));
+// RE-POINTED v0.58.1 — see §29. The clause is slice-scoped to the Shrine now.
+check("Lunari Vigil's devotion-cap clause survives, scoped to the Shrine's slice (v0.58.1 §29)",
+  i8910.lunariCap > 1 && i8910.lunariCap <= 1.25, i8910.lunariCap.toFixed(3));
 
 // ===================== ITEM 11 — Trade Dock ratio =====================
 const i11 = await page.evaluate(() => {

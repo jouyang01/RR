@@ -782,6 +782,68 @@ again.
 meaning every time a storage round lands.** Express bot policies in the units of the thing being
 bought.
 
+## 29. Culture and Devotion take NO whole-cap multiplier — ruled by Jerry, v0.58.1
+
+> Jerry, v0.58.1 note 15: *"Culture max cap multipliers: Kittens ×1.05 vs. RR ×6.19 — RR's
+> fixed-multiplier ceiling is roughly 6x larger. This needs to be fixed and have parity."*
+>
+> Jerry, v0.58.1 note 16: *"Faith/Devotion max cap multipliers: Kittens ×1.5 (and scoped to one
+> building's slice only) vs. RR ×9.98 (applied to the whole cap) … **nothing in Kittens ever
+> multiplies the entire Faith cap the way Solari Altar and Scholarship both do to Devotion.**"*
+
+**This section exists because these two notes touch §22 and §23a by name, and
+`OFF-CYCLE-PROTOCOL.md` §3 forbids a silent contradiction.** It is a new explicit ruling from
+Jerry, recorded with the round that closed it, and it **amends** the two sections below rather
+than replacing them.
+
+**Measured before anything moved,** on a fully-stacked state — this confirms Jerry's figures
+and it names every contributor, which the original complaint could not:
+
+| | delivered | built from |
+|---|---|---|
+| culture | **×6.4344** | Scholarship ×2.60 · Progress Day Parade ×1.35 · Oral Tradition ×1.15 · Mountain Drakes ×1.594 |
+| devotion | **×10.3613** | Scholarship ×2.60 · Lunari Vigil ×1.25 · Solari Altar ×2.00 · Mountain Drakes ×1.594 |
+
+**The fix is structural, not a constant cut, because note 16's objection is about SCOPE and no
+choice of constants answers a scope objection.** Both resources move into `CAP_MULT_EXEMPT`,
+which removes them from the Scholarship line, from `mountainMult` and from Poppy's lead in one
+move.
+
+- **Culture keeps exactly one fixed multiplier** — the Progress Day Parade, cut **×1.35 → ×1.05**,
+  which is Jerry's figure. Everything else in its ceiling is now BUILDINGS: flat `caps` plus
+  additive `cultureCapPct` per copy. That is Kittens' Ziggurat shape, and it is what §23a's own
+  comment already said it should be: *"the upgrade line was never supposed to be the whole
+  culture ceiling; the buildings are."*
+- **Oral Tradition stops multiplying** and becomes **+20 culture per Bard's Hearth**, sized
+  against the measurement (the retired ×1.15 was worth +686 on the 20-Hearth fixture; 20/copy
+  pays ~+640, a deliberate shade under break-even).
+- **Devotion keeps NO whole-cap multiplier at all.** The Solari Altar and the Lunari Vigil become
+  **slice multipliers** — `capsSliceMult(building, resource)` — applying to ONE building's
+  contribution each: the Altar ×1.5 on the Marus Omegnum (Kittens' own figure, and the Marus is
+  the building the Altar is a vessel *for*), the Vigil ×1.25 on the Shrine. **Measured: an
+  all-Marus settlement sees ×1.495 and a mixed one ×1.357 — the slice cannot lift what it does
+  not touch, which is precisely the property note 16 asks for.**
+
+**WHAT THIS AMENDS, stated so no future session finds a contradiction and has to guess:**
+
+- **§22** reads *"Renown moves … into `SCHOLAR_CAPS`, **beside culture and devotion**."* The
+  membership sentence is superseded: `SCHOLAR_CAPS` is `{ renown }` alone. **§22's INVARIANT is
+  untouched and still holds** — every capped resource is in exactly one of `CAP_MULT_EXEMPT` /
+  `SCHOLAR_CAPS` / `CAP_SCOPE`, `capFamilyOf()` decides it in one place, and `test-v58` still
+  asserts totality and single-valuedness by enumeration. `CAP_MULT_EXEMPT` is a family.
+- **§23a** reads *"The multiplication that REMAINS — this line against `cultureCapPct`, against
+  `mountainMult` — is what the law permits and all it permits."* That sentence is superseded for
+  culture and devotion: **Jerry's ruling is that the source permits neither.** §23a's ACTUAL
+  ruling — that `SCHOLAR_LINE` is additive — is untouched, still shipped, still asserted.
+  The line simply reaches **renown alone** now, which is the one member with no Kittens
+  counterpart and therefore the one no source-magnitude argument can be made against.
+
+**The prediction, stated as a testable claim.** §24 classified culture as **lumpy-sink-only**
+and v0.58 measured a 12.4% ceiling cut moving its time-at-cap by 0.1 points. This is a far
+larger cut — ×6.43 → ×1.20 — **so if §24's classification is right, culture's cap-out should
+still barely move.** If it falls materially, culture was stock-bound after all and §24 is wrong
+about it. Either result is worth having; the measurement is in BUILD REPORT v0.58.1 §8.
+
 ## Appendix — settled items an analyzer session should not re-open
 
 These are not separate rulings; they are the code-verified state as of v0.52, recorded so a

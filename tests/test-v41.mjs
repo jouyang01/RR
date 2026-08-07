@@ -62,9 +62,11 @@ check("the Observatory's Sparks gate is withdrawn", s21.obsUnlockGone);
 // SUPERSEDED v0.46 Part 1. The v0.41 concern was that scaffold is Sparks-gated; it is
 // not — Scaffold is unlocked by slabCutting at Mining, well before the Observatory's own
 // Rites of Targon. Kittens' observatory asks for fifty scaffold and RR now does too.
-check("the Observatory costs Scaffold, exactly as Kittens' observatory does",
-  s21.obsCost.ore === 750 && s21.obsCost.knowledge === 1000 && s21.obsCost.stoneSlab === 35 &&
-  s21.obsCost.scaffold === 50 && s21.obsCost.beam === undefined, JSON.stringify(s21.obsCost));
+// RE-POINTED v0.58.1 — notes 39 and 46. Scaffold survives; the numbers moved.
+check("the Observatory costs Scaffold, exactly as Kittens' observatory does (35 after note 46)",
+  s21.obsCost.steel === 150 && s21.obsCost.ore === undefined && s21.obsCost.knowledge === 1000 &&
+  s21.obsCost.stoneSlab === 35 && s21.obsCost.scaffold === 35 && s21.obsCost.beam === undefined,
+  JSON.stringify(s21.obsCost));
 check("its effect and ratio are untouched", s21.obsBoost === 0.25 && Math.abs(s21.obsRatio - 1.10) < 1e-9);
 check("The Great Index moves to Call to Arms, and the ladder stays monotonic (v0.54 d5: I joins II at Rites of Targon, ordered by req)",
   JSON.stringify(s21.ladder) === JSON.stringify(["ritesOfTargon", "ritesOfTargon", "callToArms", "chemtech", "deepWorks"]),
@@ -78,8 +80,13 @@ check("The Great Index moves to Call to Arms, and the ladder stays monotonic (v0
 // sum. The PROPERTY this assertion has always guarded — that all three land before Sparks, so
 // the pre-Sparks figure is the full early-line total — is untouched, and only the arithmetic
 // that combines them has changed.
-check("all three pre-Sparks Scholarship tiers are available before Sparks (v0.58: additive)",
-  Math.abs(s21.preSparksMult - (1 + 0.25 + 0.30 + 0.30)) < 0.01, `×${s21.preSparksMult}`);
+// RE-POINTED v0.58.1, superseded by NOTE 15 / STANDING-RULINGS §29: CULTURE LEAVES THE
+// SCHOLARSHIP LINE ENTIRELY. Kittens' fixed-multiplier culture ceiling is ×1.05 and RR's was
+// ×6.43; the structural half of closing that gap is that culture takes no whole-cap multiplier
+// at all, so the Scholarship line reaches renown alone. The line is still additive (§23a) and
+// still delivers ×2.60 — to renown — and that is asserted in test-v58.
+check("all three pre-Sparks Scholarship tiers are still available before Sparks; culture no longer takes them",
+  Math.abs(s21.preSparksMult - 1) < 0.01, `culture ×${s21.preSparksMult} — the line reaches renown alone`);
 const prices41 = await page.evaluate(() => {
   const t = id => TECHS.find(x => x.id === id).cost.knowledge;
   return { sparks: t("sparks"), chemtech: t("chemtech"), hexcore: t("hexcore"), deepWorks: t("deepWorks"), icathia: t("icathia") };
@@ -233,11 +240,21 @@ const loop = await page.evaluate(() => {
   S.buildings = {}; S.caravans = {}; S.upgrades = {}; S.policies = {}; S.champs = {}; S.leader = null;
   return o;
 });
-check("transmutation is flat — the Yordle Workshop no longer compounds it", loop.transmuteFlat);
+// RE-POINTED v0.58.1, superseded by NOTE 17. Transmute is a craft and now takes craft
+// effectiveness — at a QUARTER weight, because this circuit is exactly why it was flat. The
+// guard this assertion protects is the NEXT one (G < 0.8) and that guard is intact; three
+// numbers moved to keep it so. What is asserted here is the BOUND, not the absence.
+check("transmutation takes craft effectiveness at a bounded weight (v0.58.1 note 17)",
+  await page.evaluate(() => /TRANSMUTE_CRAFT_WEIGHT = 0\.20;/.test(document.documentElement.innerHTML) &&
+    /craftYield\("transmute"\) - 1\) \* TRANSMUTE_CRAFT_WEIGHT/.test(transmuteYield.toString())));
 check("the Demacia → Piltover → transmute circuit LOSES timber at the maximum trade stack",
   loop.G < 0.8, `G = ${loop.G} at max M = ${loop.maxM}`);
-check("Jerry's confirmed numbers are in place: 600 timber → 28–38 steel, Piltover charges 80 steel",
-  loop.timberCost === 600 && loop.steel === 33 && loop.steelCost === 80, JSON.stringify(loop));
+// RE-POINTED v0.58.1, superseded by NOTE 34. Piltover's mana rises 500-700 -> 900-1,300 and its
+// steel price rises 80 -> 145 by the same ×1.81, so a trade delivers more mana as the note asks
+// while mana-per-steel — the term this circuit multiplies — is held flat. Demacia is untouched.
+check("v0.58.1 note 34: 600 timber → 28–38 steel; Piltover charges 145 steel for 900–1,300 mana",
+  loop.timberCost === 600 && loop.steel === 33 && loop.steelCost === 145 && loop.mana === 1100,
+  JSON.stringify(loop));
 
 // ---- routes, gating and the seasonal conversion ----
 const routes = await page.evaluate(() => {
@@ -475,7 +492,8 @@ check("regression: Ascent is still free, cooldownless and bonusless", reg.ascent
 check("regression: core function names unchanged", reg.coreFns);
 check("regression: no NaN caps with everything owned", reg.noNaNCaps, reg.badCaps);
 check("regression: no NaN rates with everything owned", reg.noNaNRates, reg.badRates);
-check("regression: morale finite, and the 175 ceiling survives", reg.moraleFinite && reg.moraleCeiling === 175, String(reg.moraleCeiling));
+// RE-POINTED v0.58.1 — note 32 moves the box ceiling +20 -> +30, so the absolute ceiling is 185.
+check("regression: morale finite, and the ceiling survives (185 after v0.58.1 note 32)", reg.moraleFinite && reg.moraleCeiling === 185, String(reg.moraleCeiling));
 check("regression: crafted materials still uncapped, including the new Petricite Block", reg.craftedUncapped);
 
 await reset();

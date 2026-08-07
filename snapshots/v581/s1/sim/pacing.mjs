@@ -293,7 +293,6 @@ else console.log("ERA 3 LENGTH: n/a (Sparks or Icathia not reached)");
     `   Arcane Reactors: ${s.arcaneReactor ?? "?"}   Foundries: ${s.hextechFoundry ?? "?"}` +
     `   Augment Chambers: ${s.augmentChamber ?? "?"}   Shimmer Refineries: ${s.shimmerRefinery ?? "?"}` +
     `   Chem-Forgeworks: ${s.chemForgeworks ?? "?"}   Rift Anchors: ${s.riftAnchor ?? "?"}` +
-    `   Manufactories: ${s.manufactory ?? "?"} [${(s.manufactoryUpgrades || []).join(",") || "inert"}]` +
     `   [hexgear ${s.hexgearHeld ?? "?"} · riftsteel ${s.riftsteelHeld ?? "?"} · voidessence ${s.voidessenceHeld ?? "?"}]` +
     `   shimmer ${s.shimmerPerSec ?? "?"}/s`);
 });

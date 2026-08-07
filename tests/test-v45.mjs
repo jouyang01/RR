@@ -138,7 +138,7 @@ const caps = await page.evaluate(() => {
     noChampStore: !/champStore/.test(src),
     noStoragePassive: !/champPassive\("storage"\)/.test(src),
     noStorageKeyAnywhere: !CHAMPS.some(c => c.passive.key === "storage"),
-    exemptSet: /var CAP_MULT_EXEMPT = \{ vigor: 1, knowledge: 1 \};/.test(document.documentElement.innerHTML)
+    exemptSet: /var CAP_MULT_EXEMPT = \{ vigor: 1, knowledge: 1, culture: 1, devotion: 1 \};/.test(document.documentElement.innerHTML)
   };
 });
 check("caps.knowledge == base + Σ(building caps.knowledge), exactly, with nothing owned",
@@ -148,7 +148,9 @@ check("...and STILL exactly that with every storage multiplier in the game switc
 check("champStore no longer appears in computeCaps()", caps.noChampStore);
 check('champPassive("storage") has no call sites', caps.noStoragePassive);
 check("no champion carries a storage passive at all", caps.noStorageKeyAnywhere);
-check("CAP_MULT_EXEMPT is { vigor, knowledge }", caps.exemptSet);
+// RE-POINTED v0.58.1 — §29 adds culture and devotion. The INVARIANT this guards (a member takes
+// NO whole-cap multiplier, and every capped resource is in exactly one family) is unchanged.
+check("CAP_MULT_EXEMPT is { vigor, knowledge, culture, devotion } after v0.58.1 §29", caps.exemptSet);
 check("a Poppy-led save shows a knowledge ceiling IDENTICAL to another leader",
   caps.loadedK === caps.otherK, `${caps.loadedK} vs ${caps.otherK}`);
 check("...and material ceilings exactly 8% higher",

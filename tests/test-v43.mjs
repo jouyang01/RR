@@ -142,12 +142,17 @@ const recruit = await page.evaluate(() => {
 // v0.44 Part 2.1 supersedes 1.6: the ladder is gentler at 1.5 BECAUSE the rungs no
 // longer do the gating alone — rungs 8-10 also demand Hexgear, Hextech Cores and
 // Hexcrete, which cannot exist before Era 3. See test-v44 for the gate itself.
-check("recruitment is a geometric ladder at 1.5, with the top gated on content",
-  recruit.base === 250 && recruit.ratio === 1.5, `${recruit.base} × ${recruit.ratio}^n`);
+// RE-POINTED v0.58.1, superseded by NOTE 31: "Let's increase how much renown each champion
+// takes to make it a little harder to get champions at the start." RECRUIT_BASE 250 -> 400;
+// the RATIO is untouched at 1.5, deliberately, because the note is about the START and the base
+// is the term that governs it. Note 31.2's constraint — the ladder must stay finishable — is a
+// measured pass in BUILD REPORT §8, not an assumption.
+check("recruitment is a geometric ladder at 1.5 off a 400 base, top gated on content",
+  recruit.base === 400 && recruit.ratio === 1.5, `${recruit.base} × ${recruit.ratio}^n`);
 check("the ten rungs match the spec's table exactly",
-  JSON.stringify(recruit.ladder) === JSON.stringify([250, 375, 563, 844, 1266, 1898, 2848, 4271, 6407, 9611]),
+  JSON.stringify(recruit.ladder) === JSON.stringify([400, 600, 900, 1350, 2025, 3038, 4556, 6834, 10252, 15377]),
   JSON.stringify(recruit.ladder));
-check("cumulative Renown to ten champions is 28,333", recruit.cumulative === 28333, String(recruit.cumulative));
+check("cumulative Renown to ten champions is 45,332 (v0.58.1 note 31)", recruit.cumulative === 45332, String(recruit.cumulative));
 check("the signature material does NOT scale — only Renown carries the ladder",
   recruit.sigStable, `${JSON.stringify(recruit.firstSig)} → ${JSON.stringify(recruit.tenthSig)}`);
 
@@ -209,7 +214,9 @@ const ui = await page.evaluate(() => {
     // v0.49 (Jerry, champion edit 2): the label lost its "XP " prefix — the card is
     // ~125px wide once the TRAIN and star chips take their float, and the prefix pushed
     // the name onto a second line. Same property: progress against the next threshold.
-    showsXp: /data-champxp="\w+">[\d.KM]+\/[\d.KM]+</.test(h),
+    // RE-POINTED v0.58.1 — note 26 ("Champions exp should be labeled (XP)"): the label now
+    // carries the unit, so the pattern asserts it rather than stopping at the numbers.
+    showsXp: /data-champxp="\w+">[\d.KM]+\/[\d.KM]+ XP</.test(h),
     // v0.49 (Jerry, champion edit 2): the per-second rate and the leading/benched text
     // are deliberately gone from the card — the card was three lines deep. XP now rides
     // beside the name and ticks live, which is what this assertion checks instead.
@@ -221,7 +228,8 @@ const ui = await page.evaluate(() => {
     showsRecruitIndex: !/champion #/.test(h) && !/\bAssassin\b|\bSupport\b/.test(h)
   };
 });
-check("the card shows XP against the next threshold", ui.showsXp);
+// RE-POINTED v0.58.1 — note 26 appends " XP" to the label ("Champions exp should be labeled (XP)").
+check("the card shows XP against the next threshold, and says so (v0.58.1 note 26)", ui.showsXp);
 check("...beside the name, on a node the live layer updates every tick", ui.showsRate);
 check("...and an explicit ready-to-train line naming what is still missing",
   ui.showsReadyLine && ui.namesWhatIsMissing);
@@ -234,16 +242,20 @@ const drift = await page.evaluate(() => {
   // prose states "+25%" where it used to state "×1.25". The invariant is unchanged and is the
   // whole point of this block: the description must state the number the code applies.
   const mismatched = descs.filter(d => d.desc.indexOf("+" + Math.round(d.mult * 100) + "%") === -1).map(d => d.id);
+  // RE-POINTED v0.58.1 — §29 moves CULTURE out of SCHOLAR_CAPS, so the "applied" half of this
+  // drift check must measure the line where it still lands: RENOWN. The invariant is unchanged
+  // and is the whole point of the block — a rung's description states the number the code
+  // applies — only the resource it is measured on moved.
   // and the multipliers computeCaps actually applies
   // v0.44 Part 2.5.2: knowledge left the line, so "the multiplier the code actually
   // applies" is measured on culture — SCHOLAR_CAPS is the single source for both the
   // prose and the maths, which is what makes this invariant hold through the move.
-  S.buildings = { archive: 40, bardsHearth: 5 }; S.techs = {}; S.upgrades = {}; S.res.tome = 0;
+  S.buildings = { hallOfHeroes: 20, trainingGround: 10 }; S.techs = { trade: 1, drakeLore: 1, voidStudies: 1 }; S.upgrades = {}; S.res.tome = 0;
   S.jobs = {}; S.pop = 0; S.wanderers = []; S.policies = {}; S.champs = {}; S.wtechs = {}; S.drakes = {}; S.leader = null;
-  const base = computeCaps().culture;
+  const base = computeCaps().renown;
   const applied = SCHOLAR_LINE.map(([id, mult]) => {
     S.upgrades = {}; S.upgrades[id] = true;
-    return { id, mult, actual: +(computeCaps().culture / base).toFixed(4) };
+    return { id, mult, actual: +(computeCaps().renown / base).toFixed(4) };
   });
   S.upgrades = {}; S.buildings = {};
   // v0.58 Part 3: one rung held delivers 1 + its increment, not the increment itself.
@@ -262,8 +274,11 @@ check("every Scholarship description states the multiplier the code actually app
 check("...because the descriptions are GENERATED from the constants, not restated", drift.generated);
 check("no two champions share a passive any more (Jarvan and Swain both ran village +8%)",
   drift.dupes.length === 0, drift.dupes.join(", "));
-check("Swain's passive now matches his Raven Ledger identity",
-  drift.swain.key === "knowledge" && drift.jarvan.key === "village",
+// RE-POINTED v0.58.1 — note 19 gives Jarvan the `xp` passive (his village passive became his
+// LEAD) and note 20 moves Swain's lead from a toggleable discount to knowledge production.
+// Swain's PASSIVE is untouched at knowledge +12%, which is what this assertion is about.
+check("Swain's passive still matches his Raven Ledger identity (v0.58.1 notes 19 + 20)",
+  drift.swain.key === "knowledge" && drift.jarvan.key === "xp",
   `Swain ${drift.swain.key} +${drift.swain.base}%, Jarvan ${drift.jarvan.key} +${drift.jarvan.base}%`);
 
 // and Swain's new passive must actually reach production

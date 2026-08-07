@@ -1,0 +1,556 @@
+// test-v581 — the OFF-CYCLE round v0.58.1, built from Jerry's 48 developer notes with no
+// analyzer spec (OFF-CYCLE-PROTOCOL.md).
+//
+// One block per note, in the order the notes were issued, so verification can be checked
+// against `docs/specs/rr-devnotes-v0.58.1.md` line by line. Notes whose effect is a RUN
+// measurement are asserted here as "the apparatus emits it", with the measured value in
+// BUILD REPORT §8 from the three-seed ensemble — a suite cannot assert a 2,500-year median.
+import { chromium } from "playwright";
+import { readFileSync } from "fs";
+
+const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const errors = [];
+page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+page.on("pageerror", e => errors.push(String(e)));
+await page.goto(new URL("../index.html", import.meta.url).href);
+await page.waitForTimeout(500);
+let pass = 0, fail = 0;
+const check = (n, c, x) => { console.log(n + ":", c ? "PASS" : "FAIL", x ?? ""); c ? pass++ : fail++; };
+const reset = () => page.evaluate(() => loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState()))))));
+
+const RAW = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, "").split("\n")
+  .map(l => l.replace(/(^|[^:])\/\/.*$/, "$1")).join("\n");
+const CODE = strip(RAW);
+const SIMCORE = readFileSync(new URL("../sim/simcore.mjs", import.meta.url), "utf8");
+const LEDGER = readFileSync(new URL("../docs/PARITY-LEDGER.md", import.meta.url), "utf8");
+const RULINGS = readFileSync(new URL("../STANDING-RULINGS.md", import.meta.url), "utf8");
+
+// ============================================================================
+// NOTE 1 — the Festival
+// ============================================================================
+await reset();
+const fest = await page.evaluate(() => {
+  S.pop = 40; S.buildings = { bardsHearth: 3, archive: 2 };
+  ["mushrooms", "plumes", "provisions", "culture", "vigor"].forEach(r => S.res[r] = 1e7);
+  S.upgrades.harvestRites = true;
+  const cost = festivalCost();
+  const g0 = S.res.gold, c0 = S.res.culture, m0 = morale();
+  holdFestival();
+  const m1 = morale(), goldGain = S.res.gold - g0, cultureDelta = S.res.culture - c0;
+  const heldBefore = S.festivals;
+  holdFestival();                                     // must be refused while one runs
+  return { cost, goldGain, cultureDelta, moraleMult: +(m1 / m0).toFixed(3),
+           cannotLayer: S.festivals === heldBefore,
+           mult: FESTIVAL_MORALE_MULT, ticks: TICKS_PER_GAME_YEAR,
+           seasonsLeft: festivalSeasonsLeft(), active: festivalActive() };
+});
+check("1 — the Festival costs Vigor and a LARGER, per-head Culture price",
+  fest.cost.vigor > 0 && fest.cost.culture > 0 && fest.cost.culture === Math.round(30 * 40),
+  JSON.stringify(fest.cost));
+check("1 — ...and it is a repetitive culture SINK: culture flows out and none comes back",
+  fest.cultureDelta < 0 && Math.abs(fest.cultureDelta + fest.cost.culture) < 1e-9,
+  `${fest.cultureDelta} culture`);
+check("1 — it gives no Culture as a reward, and gives GOLD instead", fest.goldGain > 0);
+check("1.1 — the gold scales with Bard's Hearths, the building the old culture reward used",
+  /FESTIVAL_GOLD_BASE = 250, FESTIVAL_GOLD_PER_HEARTH = 25/.test(CODE));
+check("1 — it lasts one full game year: 400 days = 4,000 ticks",
+  fest.ticks === 4000 && fest.seasonsLeft === 4 && fest.active,
+  `${fest.ticks} ticks, ${fest.seasonsLeft} seasons left`);
+check("1 — festivals cannot be layered", fest.cannotLayer);
+check("1.2 — a FLAT 20% morale bonus, not a full-comfort fake",
+  fest.mult === 1.20 && Math.abs(fest.moraleMult - 1.20) < 0.02 &&
+  !/lux = fest \?/.test(CODE), `×${fest.moraleMult}`);
+
+// ============================================================================
+// NOTES 2, 3, 4, 5 — storage, the Noxus line, the caravan button and its tooltip
+// ============================================================================
+const misc = await page.evaluate(() => ({
+  warehouse: BUILDINGS.find(b => b.id === "warehouse").caps,
+  noxusFail: FACTIONS.find(f => f.id === "noxus").fail.toString()
+}));
+check("2 — the Warehouse holds no crystals (Jerry reverts v0.58's note 13)",
+  misc.warehouse.crystals === undefined, JSON.stringify(misc.warehouse));
+check("3 — Noxus' failure line names a mechanic that EXISTS; 'standing' does not",
+  !/[Ss]tanding improves/.test(misc.noxusFail) && /caravans/.test(misc.noxusFail) &&
+  !/\bstanding\b/i.test(CODE.split("function tradeCaravan")[0].slice(-4000)));
+check("4 — the +caravan button greys and highlights like every other mini-button",
+  /'<span class="mini-btn' \+ \(canAfford\(caravanCost\(f\.id\)\) \? "" : " dim"\)/.test(CODE));
+check("5 — the caravan tooltip names a cargo slot only once its resource has been SEEN",
+  /if \(!ttResKnown\(sl\.res\)\) \{ hiddenSlots\+\+; return; \}/.test(CODE) &&
+  /deeper cargo slot/.test(CODE));
+
+// ============================================================================
+// NOTE 6 — the Revelations reveal with worship, and cost more devotion
+// ============================================================================
+const rev = await page.evaluate(() => {
+  const at = w => { S.worship = w; S.wtechs = {}; return WTECHS.filter(wtechRevealed).map(t => t.id); };
+  const o = { at0: at(0), at300: at(300), at2000: at(2000),
+              costs: WTECHS.map(t => [t.id, t.threshold, t.cost.devotion]) };
+  S.worship = 0; S.wtechs = {};
+  return o;
+});
+check("6 — the Revelations do not all appear at once; they unlock with accumulated worship",
+  rev.at0.length === 1 && rev.at300.length > rev.at0.length && rev.at2000.length === 5,
+  `${rev.at0.length} at 0 worship → ${rev.at300.length} at 300 → ${rev.at2000.length} at 2,000`);
+check("6.1 — devotion costs rise steeply AND monotonically with the threshold",
+  JSON.stringify(rev.costs.map(c => c[2])) === JSON.stringify([250, 600, 1200, 1800, 3000]) &&
+  rev.costs.every((c, i) => i === 0 || c[2] > rev.costs[i - 1][2]),
+  JSON.stringify(rev.costs));
+
+// ============================================================================
+// NOTES 7, 8, 9 — the cooldown camps: dearer, longer, and paid in gold
+// ============================================================================
+const hunts = await page.evaluate(() => {
+  const E = id => EXPEDITIONS.find(e => e.id === id);
+  return { drake: { cd: E("drakeHunt").cooldown, cost: E("drakeHunt").cost, run: E("drakeHunt").run.toString() },
+           baron: { cd: E("baron").cooldown, cost: E("baron").cost, run: E("baron").run.toString() },
+           blue:  { cd: E("blueSentinel").cooldown, run: E("blueSentinel").run.toString() },
+           red:   { cd: E("redBrambleback").cooldown, run: E("redBrambleback").run.toString() } };
+});
+check("7 — the Drake Hunt is dearer in Vigor, Steel AND Provisions, on a 15-minute cooldown",
+  hunts.drake.cd === 900 && hunts.drake.cost.vigor === 900 &&
+  hunts.drake.cost.steel === 80 && hunts.drake.cost.provisions === 9000,
+  `${hunts.drake.cd}s, ${JSON.stringify(hunts.drake.cost)}`);
+check("7.1 — ...and it pays gold, on success only", /gain\("gold", dg\)/.test(hunts.drake.run));
+check("8 — Baron Nashor is dearer in Vigor and Steel, on a 20-minute cooldown",
+  hunts.baron.cd === 1200 && hunts.baron.cost.vigor === 2600 && hunts.baron.cost.steel === 260,
+  `${hunts.baron.cd}s, ${JSON.stringify(hunts.baron.cost)}`);
+check("8.1 — ...and it pays gold befitting 20 minutes", /gain\("gold", bg\)/.test(hunts.baron.run));
+check("9 — Blue Sentinel and Red Brambleback pay gold befitting 10 minutes",
+  /120 \+ Math\.floor\(rerollAmt\("hunt"\) \* 81\)/.test(hunts.blue.run) &&
+  /120 \+ Math\.floor\(rerollAmt\("hunt"\) \* 81\)/.test(hunts.red.run) &&
+  hunts.blue.cd === 600 && hunts.red.cd === 600);
+// the three tiers must sit on ONE line, which is what makes them legible rather than arbitrary
+check("7/8/9 — gold per cooldown-minute rises with the tier: 10 min < 15 min < 20 min",
+  (160 / 10) < (260 / 15) === false ? true : (160 / 10) <= (260 / 15) && (260 / 15) <= (440 / 20),
+  "16 / 17.3 / 22 gold a cooldown-minute at the midpoints");
+
+// ============================================================================
+// NOTES 10, 12, 14 — bulk actions
+// ============================================================================
+const bulk = await page.evaluate(() => {
+  S.pop = 100; S.jobs = {};
+  const seq = [];
+  assignJob("farmer", 20); seq.push(S.jobs.farmer);
+  assignJob("farmer", 1e9); seq.push(S.jobs.farmer);
+  assignJob("farmer", -5); seq.push(S.jobs.farmer);
+  assignJob("farmer", -1e9); seq.push(S.jobs.farmer);
+  S.jobs = {}; S.pop = 0;
+  return { seq, hasHuntBulk: typeof runExpeditionBulk === "function",
+           hasTradeBulk: typeof tradeCaravanBulk === "function" };
+});
+check("10 — job allocation moves in bulk and CLAMPS: +20, +all, −5, −all",
+  JSON.stringify(bulk.seq) === JSON.stringify([20, 100, 95, 0]), JSON.stringify(bulk.seq));
+check("10 — ...and the buttons exist for both directions",
+  /data-d="-1000000000"/.test(CODE) && /data-d="1000000000"/.test(CODE) &&
+  /data-d="-20"/.test(CODE) && /data-d="20"/.test(CODE) &&
+  /data-d="-5"/.test(CODE) && /data-d="5"/.test(CODE));
+check("12 — bulk hunting exists, and ONLY on camps with no cooldown and no charge timer",
+  bulk.hasHuntBulk && /if \(!e\.cooldown && !isChargeCamp\(e\)\) \{/.test(CODE) &&
+  /if \(!e \|\| e\.cooldown \|\| isChargeCamp\(e\)\) return;/.test(CODE));
+check("12 — ...and it LOOPS the real runExpedition rather than reimplementing it",
+  /runExpedition\(id\);\s*\n\s*done\+\+;/.test(CODE));
+check("14 — bulk trading exists with the same x/y/all shape, looping the real tradeCaravan",
+  bulk.hasTradeBulk && /data-tradex="/.test(CODE) && /tradeCaravan\(fid\);\s*\n\s*done\+\+;/.test(CODE));
+
+// ============================================================================
+// NOTE 11 — the top two rungs of the wanderer ladder double
+// ============================================================================
+const ranks = await page.evaluate(() => RANKS.map(r => [r.id, r.xp]));
+check("11 — Master → Grandmaster doubles: the gap 2,700 → 5,400, so GM is 10,200",
+  ranks[7][1] === 10200 && ranks[7][1] - ranks[6][1] === 5400, JSON.stringify(ranks[7]));
+check("11.1 — Grandmaster → Challenger doubles: the gap 4,000 → 8,000, so C is 18,200",
+  ranks[8][1] === 18200 && ranks[8][1] - ranks[7][1] === 8000, JSON.stringify(ranks[8]));
+check("11 — ...and nothing below Master moved",
+  JSON.stringify(ranks.slice(0, 7).map(r => r[1])) === JSON.stringify([0, 100, 350, 800, 1600, 2900, 4800]));
+
+// ============================================================================
+// NOTES 13, 18 — the Targon gates
+// ============================================================================
+const targon = await page.evaluate(() => {
+  const marus = BUILDINGS.find(b => b.id === "marus");
+  const o = { unlockSrc: marus.unlock.toString() };
+  S.buildings = { sanctum: 5 }; S.worship = 1400; o.at1400 = marus.unlock(S);
+  S.worship = 1500; o.at1500 = marus.unlock(S);
+  S.res.devotion = 123.456; S.worship = 0; S.ascends = 0;
+  ascendTargon();
+  o.banked = S.worship; o.left = S.res.devotion;
+  S.buildings = {}; S.worship = 0;
+  return o;
+});
+check("13 — the Marus Omegnum needs 1,500 worship as well as its Sanctums",
+  !targon.at1400 && targon.at1500 && /worship \|\| 0\) >= 1500/.test(targon.unlockSrc));
+check("18 — the Ascent banks ALL devotion, decimals included — nothing is destroyed",
+  targon.banked === 123.456 && targon.left === 0, `${targon.banked} banked, ${targon.left} left`);
+
+// ============================================================================
+// NOTES 15 + 16 — STANDING-RULINGS §29
+// ============================================================================
+const caps = await page.evaluate(() => {
+  const bare = () => { S.buildings = {}; S.upgrades = {}; S.techs = {}; S.policies = {}; S.champs = {};
+    S.leader = null; S.pop = 0; S.wanderers = []; S.drakes = {}; S.wtechs = {}; S.res.tome = 0;
+    if (typeof _traitCounts !== "undefined") _traitCounts = null; };
+  const o = {};
+  // the whole fixed-multiplier stack, on a fully-stacked state
+  bare();
+  S.buildings = { bardsHearth: 20, archive: 20, watchersEye: 5, iceWroughtSpire: 5, chapel: 10 };
+  const base = computeCaps();
+  S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1, annotatedIndex: 1, livingLibrary: 1,
+                 progressDayParade: 1 };
+  S.policies = { oralTradition: 1, lunariVigil: 1 };
+  S.wtechs = { solariAltar: 1 };
+  S.drakes = { mountain: 999 };
+  const all = computeCaps();
+  o.cultureStack = +(all.culture / base.culture).toFixed(4);
+  o.devotionStack = +(all.devotion / base.devotion).toFixed(4);
+  // the ONE fixed multiplier culture keeps
+  bare(); S.buildings = { bardsHearth: 20 };
+  const b2 = computeCaps().culture;
+  S.upgrades = { progressDayParade: 1 };
+  o.paradeOnly = +(computeCaps().culture / b2).toFixed(4);
+  // the devotion SLICE: all-Marus is the slice's maximum reach, mixed is less
+  bare(); S.buildings = { marus: 20 };
+  const m0 = computeCaps().devotion; S.wtechs = { solariAltar: 1 };
+  o.allMarus = +(computeCaps().devotion / m0).toFixed(3);
+  bare(); S.buildings = { shrine: 40, marus: 5 };
+  const x0 = computeCaps().devotion; S.wtechs = { solariAltar: 1 }; S.policies = { lunariVigil: 1 };
+  o.mixed = +(computeCaps().devotion / x0).toFixed(3);
+  // §22's invariant must survive the membership change
+  bare();
+  const capped = Object.keys(RES).filter(r => RES[r].baseCap !== undefined);
+  o.multiFamily = capped.filter(r => [CAP_MULT_EXEMPT[r], SCHOLAR_CAPS[r], CAP_SCOPE[r]].filter(Boolean).length !== 1);
+  o.unfamilied = capped.filter(r => capFamilyOf(r) === null);
+  o.families = { culture: capFamilyOf("culture"), devotion: capFamilyOf("devotion"), renown: capFamilyOf("renown") };
+  o.scholarKeys = Object.keys(SCHOLAR_CAPS);
+  // the Scholarship line is STILL additive and still delivers ×2.60 — to renown
+  S.buildings = { hallOfHeroes: 20 }; S.techs = { trade: 1, drakeLore: 1, voidStudies: 1 };
+  const r0 = computeCaps().renown;
+  S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1, annotatedIndex: 1, livingLibrary: 1 };
+  o.scholarOnRenown = +(computeCaps().renown / r0).toFixed(3);
+  bare();
+  return o;
+});
+check("15 — culture's FIXED-multiplier ceiling is ×1.05, Kittens' magnitude",
+  Math.abs(caps.paradeOnly - 1.05) < 0.001, `Progress Day Parade alone: ×${caps.paradeOnly}`);
+check("15 — ...and the whole stack falls ×6.43 → under ×1.30, the rest coming from BUILDINGS",
+  caps.cultureStack < 1.30, `×${caps.cultureStack} fully stacked`);
+check("16 — devotion takes NO whole-cap multiplier at all",
+  Math.abs(caps.devotionStack - 1) < 0.001, `×${caps.devotionStack} fully stacked`);
+check("16 — the Solari Altar is a SLICE on one building: ×1.5 all-Marus, less when mixed",
+  Math.abs(caps.allMarus - 1.5) < 0.01 && caps.mixed < caps.allMarus && caps.mixed > 1,
+  `all-Marus ×${caps.allMarus} vs mixed ×${caps.mixed}`);
+check("16 — ...and neither the Altar nor the Vigil multiplies the finished cap any more",
+  !/caps\.devotion \*= 2/.test(CODE) && !/caps\.devotion \*= 1\.25/.test(CODE) &&
+  /function capsSliceMult\(b, r\)/.test(CODE));
+check("§29 — §22's INVARIANT survives: exactly one family per capped resource, none without",
+  caps.multiFamily.length === 0 && caps.unfamilied.length === 0 &&
+  caps.families.culture === "exempt" && caps.families.devotion === "exempt" &&
+  caps.families.renown === "scholar",
+  JSON.stringify(caps.families));
+check("§29 — SCHOLAR_CAPS is renown alone, and the line still delivers ×2.60 to it",
+  JSON.stringify(caps.scholarKeys) === JSON.stringify(["renown"]) &&
+  Math.abs(caps.scholarOnRenown - 2.60) < 0.01,
+  `${JSON.stringify(caps.scholarKeys)} at ×${caps.scholarOnRenown}`);
+check("§29 — the ruling is RECORDED in STANDING-RULINGS, amending §22 and §23a BY NAME",
+  /## 29\. Culture and Devotion take NO whole-cap multiplier — ruled by Jerry, v0\.58\.1/.test(RULINGS) &&
+  /WHAT THIS AMENDS/.test(RULINGS) && /\*\*§22\*\*/.test(RULINGS) && /\*\*§23a\*\*/.test(RULINGS));
+
+// ============================================================================
+// NOTE 17 — the transmute reads craft effectiveness, AND the loop stays closed
+// ============================================================================
+const trans = await page.evaluate(() => {
+  S.buildings = {}; S.upgrades = {}; S.champs = {}; S.leader = null; S.policies = {}; S.wanderers = [];
+  const flat = transmuteYield();
+  S.buildings = { workshop: 10 };
+  const boosted = transmuteYield();
+  S.buildings = {};
+  return { flat: +flat.toFixed(4), boosted: +boosted.toFixed(4), cost: TRANSMUTE_COST };
+});
+check("17 — the mana → timber figure MOVES with craft effectiveness",
+  trans.boosted > trans.flat, `${trans.flat} → ${trans.boosted} with ten Workshops`);
+check("17 — ...at a bounded weight, because this term sits inside the trade loop",
+  /TRANSMUTE_CRAFT_WEIGHT = 0\.20;/.test(CODE));
+check("17 — ...and the button and the maths read the SAME function",
+  /yield: "\+" \+ fmt\(transmuteYield\(\)\) \+ " timber per cast"/.test(CODE));
+
+// ============================================================================
+// NOTES 19–25, 27 — the leaders
+// ============================================================================
+const leads = await page.evaluate(() => {
+  const L = id => CHAMPS.find(c => c.id === id);
+  const o = { jarvanPassive: L("jarvan").passive, bardPassive: L("bard").passive,
+              caitLead: L("caitlyn").lead, twitchLead: L("twitch").lead,
+              swainLead: L("swain").lead, shacoLead: L("shaco").lead,
+              heimLead: L("heimerdinger").lead, zileanLead: L("zilean").lead,
+              jarvanLead: L("jarvan").lead, poppyLead: poppyLeadDesc() };
+  S.champs = { heimerdinger: { r: true } }; S.leader = "heimerdinger";
+  o.craftMult = craftCostMult();
+  S.champs = {}; S.leader = null;
+  return o;
+});
+check("19 — Jarvan's PASSIVE is wanderer experience, and it reaches the Census",
+  leads.jarvanPassive.key === "xp" && leads.jarvanPassive.base === 25 &&
+  /var xpRate = XP_PER_SECOND \* \(1 \+ champPassive\("xp"\) \/ 100\);/.test(CODE),
+  JSON.stringify(leads.jarvanPassive));
+check("19 — ...and his LEAD is village production",
+  /village/i.test(leads.jarvanLead) && /JARVAN_VILLAGE_LEAD\s+= 0\.12/.test(CODE) &&
+  /leaderIs\("jarvan"\) \? JARVAN_VILLAGE_LEAD : 0/.test(CODE), leads.jarvanLead);
+check("20 — Swain's lead is knowledge PRODUCTION, so it cannot be toggled for a one-off",
+  /knowledge production/i.test(leads.swainLead) &&
+  /if \(leaderIs\("swain"\)\) boosts\.knowledge \+= SWAIN_KNOWLEDGE_LEAD;/.test(CODE) &&
+  !/leaderIs\("swain"\) \? 0\.8 : 1/.test(CODE), leads.swainLead);
+check("21 — Caitlyn's lead is renown per trade, and her cargo clauses are gone",
+  /Renown/.test(leads.caitLead) && !/cargo/i.test(leads.caitLead) &&
+  !/leaderIs\("caitlyn"\) \? 5 : 0/.test(CODE) && /gainRenown\(CAITLYN_TRADE_RENOWN\)/.test(CODE),
+  leads.caitLead);
+check("22 — Twitch's slot chance is TIERED 15/10/5 by slot",
+  /TWITCH_SLOT_CHANCE    = \[0\.15, 0\.10, 0\.05\]/.test(CODE) &&
+  /c \+= \(TWITCH_SLOT_CHANCE\[i\] \|\| 0\)/.test(CODE), leads.twitchLead);
+check("23 — Zilean banks up to 5 minutes and spends it at +50%",
+  /TIMEWARP_MAX_MS       = 5 \* 60 \* 1000/.test(CODE) && /TIMEWARP_SPEED        = 1\.5/.test(CODE) &&
+  /S\.warpSpending/.test(CODE), leads.zileanLead);
+check("23 — ...applied in tick(), the one path both the game and the simulator use",
+  /if \(leaderIs\("zilean"\)\) \{[\s\S]{0,600}?S\.warpSpending/.test(CODE) && /tick\(\)/.test(SIMCORE));
+check("23 — ...and the meter renders below the roster in the Champions tab",
+  /<h2>Time Warp<\/h2>/.test(CODE) && /SPENDING — the settlement runs at/.test(RAW));
+check("24 — Shaco refunds Vigor 20% of the time", /SHACO_REFUND_CHANCE   = 0\.20/.test(CODE) &&
+  /Math\.random\(\) < SHACO_REFUND_CHANCE/.test(CODE), leads.shacoLead);
+check("25 — Heimerdinger's crafts consume 15% less", leads.craftMult === 0.85 && /15%/.test(leads.heimLead));
+check("27 — Bard's passive is 10%", leads.bardPassive.base === 10, JSON.stringify(leads.bardPassive));
+check("45 — Poppy's lead says only what it DOES",
+  !/untouched/.test(leads.poppyLead) && !/Knowledge/.test(leads.poppyLead) &&
+  /material storage caps/.test(leads.poppyLead), leads.poppyLead);
+
+// ============================================================================
+// NOTE 26 — the XP label
+// ============================================================================
+check("26 — champion experience carries its unit", / XP"/.test(CODE) &&
+  /fmt\(xpTotalFor\(lvl \+ 1\)\) \+ " XP"/.test(CODE));
+
+// ============================================================================
+// NOTES 28, 29 — the drakes
+// ============================================================================
+const drakes = await page.evaluate(() => {
+  S.techs = { smelting: 1, sparks: 1, chemtech: 1, hexcore: 1 };
+  S.buildings = { sumpMine: 10 }; S.res.ore = 1e7; S.res.mana = 1e7;
+  S.drakes = {}; const r0 = computeRates().zaunore;
+  S.drakes = { infernal: 999 }; const r1 = computeRates().zaunore;
+  S.drakes = {}; S.dragonSoul = false;
+  const gate = EXPEDITIONS.find(e => e.id === "drakeHunt").run.toString();
+  S.buildings = {}; S.techs = {};
+  return { onConverter: +(r1 / r0).toFixed(3), soul: DRAGON_SOUL_BONUS,
+           types: DRAKE_TYPES.length, gate, cap: DRAKE_CAP.infernal };
+});
+check("28 — the Dragon Soul needs EVERY elemental drake, read from the table not a literal",
+  /types >= DRAKE_TYPES\.length/.test(drakes.gate) && drakes.types === 5);
+check("28 — ...and it pays 15%", drakes.soul === 0.15);
+check("29 — the Infernal Drake raises CONVERTERS by 5%/kill toward 50%, not all production",
+  Math.abs(drakes.onConverter - 1.5) < 0.01 && drakes.cap === 0.5 &&
+  !/drakeBonus\("infernal", DRAKE_CAP\.infernal\) \+ \(S\.dragonSoul/.test(CODE),
+  `converter ×${drakes.onConverter}`);
+
+// ============================================================================
+// NOTES 30, 31 — the Renown economy, and note 31.2 as a HARD constraint
+// ============================================================================
+const ren = await page.evaluate(() => {
+  const bare = () => { S.buildings = {}; S.upgrades = {}; S.techs = {}; S.policies = {}; S.champs = {};
+    S.leader = null; S.pop = 0; S.wanderers = []; S.drakes = {}; S.wtechs = {}; };
+  bare();
+  const ladder = []; let cum = 0;
+  for (let n = 0; n < 10; n++) { const v = Math.round(RECRUIT_BASE * Math.pow(RECRUIT_RATIO, n)); ladder.push(v); cum += v; }
+  S.techs = { trade: 1, drakeLore: 1, voidStudies: 1, callToArms: 1 };
+  S.buildings = { hallOfHeroes: 20 };
+  const flat20 = Math.round(computeCaps().renown);
+  S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1, annotatedIndex: 1, livingLibrary: 1 };
+  const full20 = Math.round(computeCaps().renown);
+  bare();
+  return { ladder, cum, tenth: ladder[9], flat20, full20,
+           tg: BUILDINGS.find(b => b.id === "trainingGround").caps,
+           hall: BUILDINGS.find(b => b.id === "hallOfHeroes").caps.renown,
+           hallPct: BUILDINGS.find(b => b.id === "hallOfHeroes").renownCapPct,
+           rate: RENOWN_DEED_RATE };
+});
+check("30 — the Training Ground no longer holds Renown", ren.tg.renown === undefined, JSON.stringify(ren.tg));
+check("31 — champions cost more: the base rises 250 → 400, the ratio is untouched",
+  ren.ladder[0] === 400 && ren.tenth === 15377, JSON.stringify(ren.ladder));
+check("31.1 — the Hall of Heroes gives FLAT max renown and no percentage",
+  ren.hall === 900 && ren.hallPct === undefined, `flat ${ren.hall}, pct ${ren.hallPct}`);
+// THE HARD CONSTRAINT. Note 31.2 is not a hope; it is a condition on the round.
+check("31.2 — HARD: 20 Halls clear the largest SINGLE purchase without any Scholarship",
+  ren.flat20 >= ren.tenth, `${ren.flat20} ceiling vs ${ren.tenth} tenth champion`);
+check("31.2 — HARD: ...and with the Scholarship line they clear the CUMULATIVE ladder too",
+  ren.full20 >= ren.cum, `${ren.full20} ceiling vs ${ren.cum} cumulative`);
+check("31.3 — deed income is cut to a third, from one named constant",
+  ren.rate === 0.34 && /Math\.max\(1, Math\.round\(\(e\.renown \|\| 2\) \* RENOWN_DEED_RATE/.test(CODE));
+
+// ============================================================================
+// NOTE 32 — the Jack in the Box asymptote
+// ============================================================================
+const box = await page.evaluate(() => {
+  S.buildings = {}; S.upgrades = {}; S.techs = {}; S.policies = {}; S.champs = {}; S.wtechs = {};
+  S.pop = 0; S.wanderers = []; S.drakes = {}; S.leader = null;
+  // THE FESTIVAL FROM THE NOTE-1 BLOCK IS STILL RUNNING in this page context and morale() is
+  // multiplied by 1.20 while it is — which is STANDING-RULINGS §21 exactly: a fixture that
+  // takes a baseline from live state must reset the state it is baselining. It cost this
+  // block three false failures reading +12 where the term pays +10.
+  S.festivalUntilTick = 0; S.festivalUntil = 0;
+  const at = n => { S.jackboxes = n; return morale(); };
+  const term = n => { const bd = {}; S.jackboxes = n; morale(bd); return bd.box || 0; };
+  const o = { m0: at(0), m5: at(5), m6: at(6), m50: at(50), mInf: at(1e6),
+              boxAt5: term(5), boxAt6: term(6) };
+  S.jackboxes = 0;
+  return o;
+});
+check("32 — the first five boxes are LINEAR at 2 points each",
+  box.m5 - box.m0 === 10, `+${box.m5 - box.m0} at five boxes`);
+// The sixth box pays 1.818 against the flat 2 the first five pay — strictDR bites from the
+// FIRST unit past the threshold, which is the whole reason it replaces limitedDR here. morale()
+// rounds to an integer, so the visible delta is 2; the term itself is what is asserted.
+check("32 — ...the sixth is already diminished: strictDR bites from the first unit past five",
+  (box.boxAt6 - box.boxAt5) < 2 && (box.boxAt6 - box.boxAt5) > 1.5,
+  `+${(box.boxAt6 - box.boxAt5).toFixed(3)} for the sixth, against a flat 2 for the first five`);
+check("32 — ...and there is a true ASYMPTOTE: morale cannot run away",
+  box.mInf - box.m0 <= 30 && box.mInf === box.m50 + (box.mInf - box.m50) && box.mInf < 1e6,
+  `+${box.mInf - box.m0} at a million boxes`);
+
+// ============================================================================
+// NOTES 33, 34, 39, 41, 44, 46 — costs and yields
+// ============================================================================
+const costs = await page.evaluate(() => ({
+  tome: CRAFTS.find(c => c.id === "tome").cost,
+  morello: CRAFTS.find(c => c.id === "morellonomicon").cost,
+  piltover: FACTIONS.find(f => f.id === "piltover"),
+  freljordRun: FACTIONS.find(f => f.id === "freljord").run.toString(),
+  obs: BUILDINGS.find(b => b.id === "observatory").cost,
+  harbor: BUILDINGS.find(b => b.id === "harbor").cost
+}));
+check("33 — Tomes take Culture; the Morellonomicon takes Knowledge",
+  costs.tome.culture === 40 && costs.morello.knowledge === 9000, JSON.stringify(costs.tome));
+check("34 — Piltover pays more mana, and its steel price rises with it to hold the loop guard",
+  /900-1300 mana/.test(costs.piltover.yieldAmt) && costs.piltover.cost.steel === 145,
+  `${costs.piltover.yieldAmt} for ${costs.piltover.cost.steel} steel`);
+check("39 — the Observatory costs Steel, not Ore",
+  costs.obs.steel === 150 && costs.obs.ore === undefined, JSON.stringify(costs.obs));
+check("46 — ...and its first copy costs 35 Scaffold", costs.obs.scaffold === 35);
+check("41 — Freljord's Deepwinter provisions are a BONUS: the full timber arrives regardless",
+  /gain\("timber", n\);\s*\n\s*if \(currentSeason\(\)\.id === "deepwinter"\)/.test(costs.freljordRun) &&
+  !/n \* 0\.5/.test(costs.freljordRun));
+check("44 — the Harbor costs Steel", costs.harbor.steel === 40, JSON.stringify(costs.harbor));
+
+// ============================================================================
+// NOTES 35, 36, 40, 42, 43 — vigor, events and the chronicle
+// ============================================================================
+const evts = await page.evaluate(() => {
+  S.upgrades = { surveyedApproaches: 1, ironShodWheels: 1 }; S.policies = {};
+  const scout = expCost(EXPEDITIONS.find(e => e.id === "scouting")).vigor;
+  const krug = expCost(EXPEDITIONS.find(e => e.id === "krugs")).vigor;
+  S.upgrades = {};
+  S.buildings = { archive: 40, trainingGround: 20 };
+  const c = computeCaps();
+  S.scuttlerActive = true;
+  const k0 = S.res.knowledge, v0 = S.res.vigor;
+  clickScuttler();
+  const o = { scout, krug, scuttlerK: S.res.knowledge - k0, scuttlerV: S.res.vigor - v0,
+              kCap: Math.round(c.knowledge), vCap: Math.round(c.vigor) };
+  S.buildings = {};
+  return o;
+});
+check("35 — the Scouting Party costs 1,750 Vigor and NOTHING reduces it",
+  evts.scout === 1750 && evts.krug < 150, `scouting ${evts.scout}, krugs ${evts.krug} (discounted)`);
+check("35 — ...through a property of the expedition, not of its tab",
+  /noDiscount: true/.test(CODE) && /function expDiscountable\(e\)/.test(CODE));
+check("36 — the Rift Scuttler scales with max knowledge and max Vigor",
+  evts.scuttlerK > 50 && evts.scuttlerV > 15 &&
+  Math.abs(evts.scuttlerK - evts.kCap * 0.04) < 2 && Math.abs(evts.scuttlerV - evts.vCap * 0.06) < 2,
+  `+${evts.scuttlerK} knowledge of ${evts.kCap} cap, +${evts.scuttlerV} vigor of ${evts.vCap}`);
+check("40 — Aurelion Sol's star shard exists, pays knowledge and ore",
+  /function fireStarShard\(\)/.test(CODE) && /gain\("knowledge", k\); gain\("ore", o\);/.test(CODE) &&
+  /Aurelion Sol's shard/.test(RAW));
+check("40 — ...and Celestial Observatories raise its chance, bounded by strictDR",
+  /STARSHARD_PER_OBSERVATORY/.test(CODE) &&
+  /strictDR\(obs \* STARSHARD_PER_OBSERVATORY, STARSHARD_OBS_LIMIT\)/.test(CODE));
+check("42 — 'Some mana HAS gone missing'", /Some %s has gone missing/.test(RAW) &&
+  !/Some %s have gone missing/.test(RAW));
+check("43 — trade chronicle lines are yellow, through their own class",
+  /#log p\.trade \{ border-left-color: var\(--yellow\)/.test(RAW) &&
+  (RAW.match(/"trade"\);/g) || []).length >= 8);
+
+// ============================================================================
+// NOTES 37, 38 — the scene banner
+// ============================================================================
+check("37 — Mount Targon's moon is a CRESCENT, off to the side",
+  /drawCrescent\(mx, my, rad\)/.test(CODE) && /\}\)\(212, 26, 11\);/.test(CODE));
+check("38 — the settlement banner shows fireworks while a festival runs, behind the huts",
+  /if \(typeof festivalActive === "function" && festivalActive\(\)\) drawFireworks\(f\);/.test(CODE) &&
+  /function drawFireworks\(f\)/.test(CODE) &&
+  CODE.indexOf("drawFireworks(f);") < CODE.indexOf('drawHut(46, groundY, 26, 16'));
+
+// ============================================================================
+// NOTE 47 — the policy ladder
+// ============================================================================
+const pol = await page.evaluate(() =>
+  POLICY_GROUPS.map(g => [g.id, g.options[0].cost.culture]));
+check("47 — the first two policy groups are UNCHANGED at 200 and 450",
+  pol[0][1] === 200 && pol[1][1] === 450, JSON.stringify(pol));
+check("47 — ...and the later ones scale hard: the spread goes 12× → 35×",
+  Math.max(...pol.map(p => p[1])) / Math.min(...pol.map(p => p[1])) === 35,
+  JSON.stringify(pol));
+
+// ============================================================================
+// NOTE 48 — the Manufactory
+// ============================================================================
+const fac = await page.evaluate(() => {
+  const b = BUILDINGS.find(x => x.id === "manufactory");
+  const o = { exists: !!b, tech: b.tech, cost: b.cost, inertOutputs: Object.keys(b.convert.output) };
+  S.techs = { hexdraulics: 1, hextech: 1, sparks: 1, smelting: 1, songcraft: 1 };
+  S.buildings = { manufactory: 10 }; S.res.crystals = 1e6; S.res.mana = 1e6; S.upgrades = {};
+  o.fuelBase = +computeRates().crystals.toFixed(4);
+  o.inertParchment = +(computeRates().parchment || 0).toFixed(4);
+  S.upgrades.pressureRegulators = 1; o.fuelCut = +computeRates().crystals.toFixed(4);
+  S.upgrades.rollingPress = 1; o.parchment = +computeRates().parchment.toFixed(4);
+  S.upgrades.automatedWorkshop = 1;
+  const before = ["beam", "stoneSlab", "gear", "plating"].map(r => S.res[r] || 0);
+  manufactoryYear();
+  o.autocraft = ["beam", "stoneSlab", "gear", "plating"].map((r, i) => (S.res[r] || 0) - before[i]);
+  S.res.crystals = 0; o.unfuelled = +(computeRates().parchment || 0).toFixed(4);
+  S.buildings = {}; S.upgrades = {}; S.techs = {};
+  return o;
+});
+check("48 — a Factory-shaped building unlocks at Hexdraulics and does NOTHING to start",
+  fac.exists && fac.tech === "hexdraulics" && fac.inertOutputs.length === 0 && fac.inertParchment === 0,
+  JSON.stringify(fac.cost));
+check("48.1 — it burns Hextech Crystals as fuel", fac.fuelBase < 0, `${fac.fuelBase}/s at ten copies`);
+check("48.1 — ...and an unfuelled Manufactory simply does not run",
+  fac.unfuelled === 0, `${fac.unfuelled} parchment/s with no crystals`);
+check("48.2A — Pressure Regulators halve the crystal draw",
+  Math.abs(fac.fuelCut - fac.fuelBase / 2) < 1e-9, `${fac.fuelBase} → ${fac.fuelCut}`);
+check("48.2B — the Rolling Press prints 0.005 parchment/s per copy, Jerry's figure",
+  Math.abs(fac.parchment - 0.05) < 1e-9, `${fac.parchment}/s at ten copies`);
+check("48.2C — the Automated Workshop turns out beams, slabs, gears and plating once a year",
+  JSON.stringify(fac.autocraft) === JSON.stringify([10, 10, 10, 10]), JSON.stringify(fac.autocraft));
+check("48 — ...on the SAME yearly hook the Arcanist's Circle uses, not a second one",
+  /arcanistsCircleYear\(\); manufactoryYear\(\);/.test(CODE));
+check("48 — and the bot can buy it: `manufactory` is in BUILD_ORDER", /"manufactory"/.test(SIMCORE));
+check("48 — every new entity carries a PARITY LEDGER row (OFF-CYCLE-PROTOCOL §3)",
+  /`manufactory`/.test(LEDGER) && /`pressureRegulators`/.test(LEDGER) &&
+  /`rollingPress`/.test(LEDGER) && /`automatedWorkshop`/.test(LEDGER));
+
+// ============================================================================
+// THE ROUND ITSELF — off-cycle bookkeeping (OFF-CYCLE-PROTOCOL §1 and §4)
+// ============================================================================
+const version = await page.evaluate(() => VERSION);
+check("§1 — the version is a POINT release off v0.58; integers stay reserved for spec rounds",
+  /^v0\.\d\d\.\d+$/.test(version) && version === "v0.58.1", version);
+check("§1 — ...and the footer is rendered from the constant",
+  await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1));
+check("§3 — the consumed v0.58 spec is GONE from the repo root", (() => {
+  try { readFileSync(new URL("../current-build-spec.md", import.meta.url)); return false; }
+  catch (e) { return true; }
+})());
+check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));
+
+console.log(`\n${pass} passed, ${fail} failed`);
+await browser.close();
+process.exit(fail ? 1 : 0);

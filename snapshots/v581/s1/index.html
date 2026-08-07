@@ -235,7 +235,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.58.1";
+var VERSION = "v0.58";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -954,9 +954,6 @@ var BUILDINGS = [
     effect: "Idle until you teach it a trade. Burns Hextech Crystals to keep the pressure up.",
     cost: { beam: 60, gear: 40, plating: 25, crystals: 60 }, ratio: 1.15,
     convert: { input: { crystals: MANUFACTORY_FUEL }, output: {} } },
-  // NOTE the shape above: `output` is an EMPTY OBJECT, not absent. The converter loop iterates
-  // outputs, so an empty object is a converter that consumes and produces nothing — inert, by
-  // construction, exactly as note 48 specifies — while an absent key would have been a bug.
   { id: "hexcreteBastion", name: "Hexcrete Bastion", group: "Storage", tech: "deepWorks",
     lore: "Storage that will outlast the argument about whether it was necessary.",
     effect: "Deep storage for everything the Sump and the refineries produce.",
@@ -2446,12 +2443,7 @@ var UPGRADES = [
   { id: "rollingPress", name: "The Rolling Press", cost: { crystals: 90, plating: 40 }, tech: "hexdraulics",
     lore: "It prints faster than anyone can read, which the scribes find insulting.",
     effect: "Each Manufactory prints " + MANUFACTORY_PARCHMENT + " parchment/second."},
-  // CAUGHT BY auditCostGraph(): the first draft priced this in HEXGEAR, which is gated on
-  // hexcore (75,000 knowledge) while the discovery itself unlocks at hexdraulics (50,000) — so
-  // it would have sat visible and unbuyable for an entire tech tier. Scaffold replaces it: same
-  // Piltovan-construction flavour, available at the gate. The audit is why this is a comment
-  // and not a bug report from Jerry.
-  { id: "automatedWorkshop", name: "The Automated Workshop", cost: { crystals: 200, scaffold: 120, beam: 200 }, tech: "hexdraulics",
+  { id: "automatedWorkshop", name: "The Automated Workshop", cost: { crystals: 200, hexgear: 20, beam: 200 }, tech: "hexdraulics",
     lore: "Nobody is quite sure who is operating it. Everyone has decided not to ask.",
     effect: "Once a year, each Manufactory turns out a Support Beam, a Stone Slab, a Gear and a sheet of Iron Plating."},
   { id: "piltovanCranes", name: "Piltovan Cranes", cost: { beam: 120, gear: 40 }, tech: "hexdraulics",
@@ -3663,12 +3655,7 @@ var FACTIONS = [
     } },
   { id: "piltover", name: "Piltover", motto: "The City of Progress",
     family: "Structure",
-    // LOOP GUARD, third of three. Piltover's steel price rises 80 -> 145, the same x1.81 as
-    // note 34's mana increase, so a Piltover trade delivers MORE MANA PER TRADE exactly as the
-    // note asks while mana-per-steel — the term the circuit actually multiplies — is held flat.
-    // Raising the yield and the price together is what makes note 34 a route improvement rather
-    // than an exchange-rate change, which is the honest reading of "should result in more mana".
-    cost: { steel: 145, vigor: 175, gold: 45 },
+    cost: { steel: 80, vigor: 175, gold: 45 },
     // v0.58.1 NOTE 34 (Jerry): "Trading with Piltover should result in more mana." 500-700 ->
     // 900-1,300, a x1.83 lift at the midpoint. Piltover charges STEEL, the scarcest Era-1
     // material a player holds, and mana is the one resource the transmute loop turns straight
@@ -4226,28 +4213,6 @@ function auditCostGraph(includeRaw) {
     }
     if (best) rawGate[rk] = best;
   }
-  // v0.58.1 — THE AUDIT'S THIRD GATE SHAPE, and it was a real blind spot. A craft may be gated
-  // on a TECH, on a DISCOVERY, or on HAVING SEEN A RESOURCE (`s.seenMax.<res> >= 1`) — the third
-  // is how Parchment and the Tome are revealed, and the audit could not read it at all, so any
-  // such craft was scored as "unlocks at start (0)" and every cost it carried looked like a
-  // violation. Note 33 surfaced it by giving the Tome a culture cost.
-  // A seenMax gate resolves to whatever gates THAT resource, and where several are named the
-  // gate is the DEEPEST of them — the craft is not revealed until the last of them is seen,
-  // which is the opposite of the OR used for `hidden` predicates above and is correct for the
-  // same reason: `hidden` names alternatives, a `show` conjunction names requirements.
-  CRAFTS.forEach(function (c) {
-    if (craftGate[c.out]) return;
-    var seen = String(c.show).match(/seenMax\.(\w+)/g);
-    if (!seen) return;
-    var deepest = null;
-    for (var si = 0; si < seen.length; si++) {
-      var res = seen[si].slice(8);
-      var g2 = craftGate[res] || rawGate[res];
-      if (!g2) continue;
-      if (deepest === null || (priceOf[g2] || 0) > (priceOf[deepest] || 0)) deepest = g2;
-    }
-    if (deepest) craftGate[c.out] = deepest;
-  });
   var out = [];
   function walk(kind, id, gateTech, cost) {
     var gp = gateTech ? (priceOf[gateTech] || 0) : 0;
@@ -5752,12 +5717,7 @@ function channelMana() {
 // Piltover charging 80 steel, and the 500-700 mana yield is what gives mana its Era-3
 // identity. TRANSMUTE_COST is the one term nobody pinned, and it is the loop's return
 // edge, so it is where the correction belongs: 14 gives G = 0.744 at M = 4.687.
-// LOOP GUARD, second of three (see transmuteYield above). 14 -> 20. This is the ONE number in
-// this round that Jerry did not ask me to move and that I moved anyway, so it is flagged as
-// such in BUILD REPORT §1: notes 17 and 34 together cannot both ship at the old price without
-// putting the trade circuit into net gain, and the circuit's timber leg is priced here.
-// It is a real 43% nerf to the earliest loop in the game and it is reported, not buried.
-var TRANSMUTE_COST = 20;
+var TRANSMUTE_COST = 14;
 // v0.42 Part 4. Kittens' getCraftRatio is a PLAIN ADDITIVE SUM with no cap —
 // workshop 0.06/copy, factory 0.05/copy — and a developed settlement runs about x3.2.
 // RR ran x5 and then multiplied the scriptorium upgrades on top for x9.375, roughly
@@ -5809,27 +5769,7 @@ function craftCostMult() { return leaderIs("heimerdinger") ? 0.85 : 1; }
 // which fixes the display and the production in the same line, because they are now the same
 // line. `craftYield("transmute")` returns the general multiplier: `transmute` is in neither
 // CHEM_CRAFTS nor METAL_CRAFTS, so no specialist trait double-dips.
-// ==========================================================================================
-// THE LOOP GUARD, and why note 17 ships BOUNDED. `test-v41` computes the gain of the
-// timber -> Demacia -> steel -> Piltover -> mana -> transmute -> timber circuit at every
-// multiplier's ceiling and requires G < 0.8, because a circuit that returns more timber than it
-// consumes is infinite resources. It was at 0.744 before this round — 93% of the way to the
-// limit — and TWO of Jerry's notes push on it at once:
-//
-//   note 34 raises Piltover's mana 500-700 -> 900-1,300 (x1.83), which is x1.83 on the circuit.
-//   note 17 puts craft effectiveness on the transmute, which is a further x3.2 at the ceiling.
-//
-// Measured: G would have been 4.366. Both notes ship, and three numbers move to hold the guard.
-// This one is the first: transmute takes craft effectiveness at a QUARTER weight rather than in
-// full. The note is satisfied — the mana->timber figure now moves with craft effectiveness, on
-// the button and in the maths, which is what it did not do before — and transmute does not
-// become the one unbounded multiplier in a file where every other stack is bounded by a DR
-// primitive. See TRANSMUTE_COST and Piltover's steel price for the other two.
-var TRANSMUTE_CRAFT_WEIGHT = 0.20;
-function transmuteYield() {
-  return (S.upgrades.riverstoneTools ? 1.15 : 1) *
-         (1 + (craftYield("transmute") - 1) * TRANSMUTE_CRAFT_WEIGHT);
-}
+function transmuteYield() { return (S.upgrades.riverstoneTools ? 1.15 : 1) * craftYield("transmute"); }
 // v0.53, Jerry directive 5 — the Arcanist's Circle. Called once per game-year boundary
 // from step(); see the UPGRADES entry for why it is yearly and why it fires only at the
 // ceiling. It runs the ORDINARY transmute — same cost, same yield, same upgrades — so it
@@ -5911,11 +5851,6 @@ var CRAFTS = [
   // resource note 47 is also making scarce, so this is a second draw on the same pool rather
   // than a wall. The Morellonomicon already charged knowledge 9,000 (Kittens' compendium figure,
   // exact) — that half of the note was already true and is left at parity rather than inflated.
-  // CAUGHT BY auditCostGraph(): note 33's culture term made the Tome cost a resource the
-  // player cannot yet hold — the recipe is visible from the first fur, while culture arrives
-  // with Songcraft. The COST stays (it is the note); the REVEAL moves to require that culture
-  // has been seen, which is coherent on its own terms: the Tome exists to buy the Scholarship
-  // line, and every Scholarship rung is priced in culture too.
   { id: "tome", name: "Bind Tome", cost: { parchment: 50, mana: 250, knowledge: 1500, culture: 40 }, out: "tome",
     // v0.58 DEV NOTE 8 (Jerry): "The descriptions for the buttons should not include the
     // changes we've made. For example, Tomes says 'Tomes no longer widen the archives by
@@ -5924,7 +5859,7 @@ var CRAFTS = [
     // this for the first time knows what Tomes USED to do. Flavour only; what a Tome is FOR
     // is stated by the things that ask for one.
     desc: "Bound in wolf-hide and stitched by hands that will not see it read. Somebody, later, will want to know all of this.",
-    show: function (s) { return s.seenMax.parchment >= 1 && (s.seenMax.culture || 0) >= 1; } },
+    show: function (s) { return s.seenMax.parchment >= 1; } },
   // Kittens' third scribal tier: compedium <- science 9000 + manuscript 55. 30 Tomes
   // rather than 55 because an RR Tome costs 50 parchment where a manuscript costs 25;
   // the 9,000 Knowledge is verbatim, and it is self-referential in the way Kittens
@@ -6970,18 +6905,8 @@ function jobBoostTotal(job) {
 }
 function convertLine(b) {
   var ins = [], outs = [], i;
-  // v0.58.1 NOTE 48: the Manufactory is the first converter in this game with NO OUTPUT until
-  // its discoveries are bought — that is the whole point of it — and this function assumed
-  // every converter had at least one of each, so an inert building crashed the tooltip layer.
-  // It also read `b.convert.*` for the DECLARED rate rather than the live one, which the
-  // Manufactory rewrites from state; `manufactoryRates()` gives the tooltip the same numbers
-  // computeRates() uses.
-  var inp = b.convert.input || {}, outp = b.convert.output || {};
-  for (i in inp) if (RES[i] && inp[i] !== undefined) ins.push(fmtRate(inp[i]) + " " + RES[i].name.toLowerCase());
-  for (i in outp) if (RES[i] && outp[i] !== undefined) outs.push("+" + fmtRate(outp[i]) + " " + RES[i].name.toLowerCase());
-  if (!ins.length && !outs.length) return "";
-  if (!outs.length) return "Consumes " + ins.join(", ") + "/s each — and produces nothing yet. Teach it a trade with a Discovery.";
-  if (!ins.length) return "Produces " + outs.join(", ") + "/s each";
+  for (i in b.convert.input) ins.push(fmtRate(b.convert.input[i]) + " " + RES[i].name.toLowerCase());
+  for (i in b.convert.output) outs.push("+" + fmtRate(b.convert.output[i]) + " " + RES[i].name.toLowerCase());
   return "Consumes " + ins.join(", ") + "/s → " + outs.join(", ") + "/s each";
 }
 // ============================================================================

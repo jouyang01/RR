@@ -76,8 +76,13 @@ check("Scholarship V lands at Deep Works, before the Icathia it has to fund",
 // multiplied to ×1.89 (1.35 × 1.40); they now ADD to ×1.75 (1 + 0.35 + 0.40). The isolation
 // half of this assertion — nothing on knowledge, nothing on materials — is UNCHANGED and is
 // the half that was ever load-bearing.
-check("Scholarship IV+V are ×1.75 on culture (v0.58: additive), and nothing on knowledge or materials",
-  Math.abs(p1a.knowledgeX - 1) < 1e-6 && Math.abs(p1a.cultureX - 1.75) < 0.01 && Math.abs(p1a.timberX - 1) < 1e-6,
+// RE-POINTED v0.58.1, superseded by NOTE 15 / STANDING-RULINGS §29: CULTURE LEAVES THE
+// SCHOLARSHIP LINE ENTIRELY. Kittens' fixed-multiplier culture ceiling is ×1.05 and RR's was
+// ×6.43; the structural half of closing that gap is that culture takes no whole-cap multiplier
+// at all, so the Scholarship line reaches renown alone. The line is still additive (§23a) and
+// still delivers ×2.60 — to renown — and that is asserted in test-v58.
+check("Scholarship IV+V touch NOTHING on knowledge, culture or materials after §29",
+  Math.abs(p1a.knowledgeX - 1) < 1e-6 && Math.abs(p1a.cultureX - 1) < 0.01 && Math.abs(p1a.timberX - 1) < 1e-6,
   `k×${p1a.knowledgeX} c×${p1a.cultureX} timber×${p1a.timberX}`);
 // deliberate deviation, flagged to the analyzer
 const LADDER_IDS = ["cataloguing", "crossReferencing", "greatIndex", "annotatedIndex", "livingLibrary"];
@@ -240,8 +245,17 @@ check("Hearth relief asymptotes at 0.88, never 1.0 — crowding can't be cancell
   p22.reliefAsymptote <= 0.88 && p22.reliefAsymptote > 0.8799, String(p22.reliefAsymptote));
 check("even 261 Hearths (60 Taverns' worth) leaves a real crowding residue", p22.reliefAt60 < 0.87, String(p22.reliefAt60));
 check("Shrine morale is LDR-bounded at +25", p22.shrineCeiling <= 25 && p22.shrineCeiling > 24.9, `+${p22.shrineCeiling}`);
-check("Jack-in-the-Box is bounded at +20", p22.boxCeiling <= 20 && p22.boxCeiling > 19.9, `+${p22.boxCeiling}`);
-check("the positive ceiling is 175 as specified", p22.absoluteCeiling === 175, String(p22.absoluteCeiling));
+// RE-POINTED v0.58.1 (both), superseded by NOTE 32: "Jack in the Box should have diminishing
+// morale returns once it reaches 5 or more and should have a asymptode to prevent it from
+// raising morale out of control." The first five boxes are LINEAR at 2 points each, as the note
+// specifies, and everything past five goes through strictDR — so the ceiling is 10 + the old
+// MORALE_BOX_LIMIT = 30, and the settlement's absolute morale ceiling rises 175 -> 185 with it.
+// The PROPERTY both assertions exist to guard — the boxes are BOUNDED and morale cannot run
+// away — is stronger than it was, because strictDR has a true asymptote where limitedDR has a
+// linear band.
+check("Jack-in-the-Box is bounded at +30: 5 linear, the rest asymptotic (v0.58.1 note 32)",
+  p22.boxCeiling <= 30 && p22.boxCeiling > 29.9, `+${p22.boxCeiling}`);
+check("the positive ceiling is 185, and it is a ceiling", p22.absoluteCeiling === 185, String(p22.absoluteCeiling));
 
 // the analyzer's own Part 2.2 curve, term for term
 const curve = await page.evaluate(() => {
@@ -407,8 +421,12 @@ check("its Mushroom cost scales with the settlement, like comfort does",
 // "empty larder" and "175 ceiling" assertions were both statements ABOUT the retired mechanic
 // and there is nothing left for them to check; the cost assertion survives, re-pointed to the
 // cost the note specifies.
-check("v0.58 note 12 — the Festival costs Plumes, Mushrooms and Provisions",
-  JSON.stringify(Object.keys(sinks.cost).sort()) === JSON.stringify(["mushrooms", "plumes", "provisions"]),
+// RE-POINTED v0.58.1, superseded by NOTE 1: "It should also cost Vigor. IT should have a larger
+// culture cost and be a repetitive culture sink." Culture and vigor JOIN the three v0.58's note
+// 12 established — this note adds, it does not replace — and both are per-head, which is what
+// makes the culture draw repetitive rather than a one-off toll.
+check("v0.58.1 note 1 — the Festival costs Culture, Vigor, Plumes, Mushrooms and Provisions",
+  JSON.stringify(Object.keys(sinks.cost).sort()) === JSON.stringify(["culture", "mushrooms", "plumes", "provisions", "vigor"]),
   JSON.stringify(sinks.cost));
 check("festivals cannot be stacked while one is running", sinks.noStacking);
 

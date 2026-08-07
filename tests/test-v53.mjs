@@ -348,12 +348,16 @@ const j5 = await page.evaluate(() => {
   arcanistsCircleYear();
   const whenNotCapped = S.res.timber;
   S.upgrades = {}; S.techs = {}; S.res.mana = 0; S.res.timber = 0;
-  return { tech: u.tech, cost: u.cost, share: ARCANIST_SHARE, before, spent, gained, whenNotCapped, cap };
+  return { tech: u.tech, cost: u.cost, share: ARCANIST_SHARE, before, spent, gained, whenNotCapped, cap, tCost: TRANSMUTE_COST };
 });
 check("J5 — an Arcanist's Circle Discovery exists and is unlocked after Songcraft",
   !!j5 && j5.tech === "songcraft", j5 ? JSON.stringify(j5.cost) : "MISSING");
 check("J5 — it converts 33% of stored mana when mana is CAPPED",
-  !!j5 && j5.share === 0.33 && Math.abs(j5.spent - Math.floor(j5.before * 0.33 / 14) * 14) < 1e-9 && j5.gained > 0,
+// RE-POINTED v0.58.1 — the literal 14 was TRANSMUTE_COST, which this round moved to 20 to hold
+// the trade circuit's loop guard after notes 17 and 34 (see transmuteYield in index.html). It
+// is read from the constant now rather than pinned, so a future reprice cannot make this the
+// third assertion in the project designed to fail on the next release.
+  !!j5 && j5.share === 0.33 && Math.abs(j5.spent - Math.floor(j5.before * 0.33 / j5.tCost) * j5.tCost) < 1e-9 && j5.gained > 0,
   j5 ? `cap ${j5.cap}, spent ${j5.spent} mana, gained ${j5.gained} timber` : "n/a");
 check("J5 — and does nothing at all when mana is below the cap",
   !!j5 && j5.whenNotCapped === 0);
@@ -383,7 +387,7 @@ const ver = await page.evaluate(() => (typeof VERSION !== "undefined" ? VERSION 
 // number happens to be. It now asserts the SHAPE and defers the value to the round's own
 // suite (test-v54 pins v0.54). Superseded by: v0.54 ship discipline.
 check("ship — a VERSION constant exists and is well-formed (STANDING-RULINGS §10 required one; there was none)",
-  typeof ver === "string" && /^v\d+\.\d+$/.test(ver), String(ver));
+  typeof ver === "string" && /^v\d+\.\d+(\.\d+)?$/.test(ver), String(ver));
 check("ship — the footer is RENDERED from VERSION, so the two can never disagree again",
   /footer-note[^]{0,400}VERSION/.test(CODE) || /getElementById\("version-note"\)/.test(CODE));
 

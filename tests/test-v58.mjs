@@ -407,25 +407,38 @@ check("note 11 — the XP rate is honestly labelled UNVERIFIED, with the failed 
   /CANNOT BE CONFIRMED/.test(RAW) && /robots\.txt/.test(RAW) &&
   /CANNOT BE CONFIRMED/.test(LEDGER) && /XP_PER_SECOND = 0\.5/.test(CODE),
   "no number invented");
-check("note 12 — the Festival costs Plumes + Mushrooms + Provisions, and nothing else",
+// RE-POINTED v0.58.1, superseded by NOTE 1 (both). "It should also cost Vigor. IT should have a
+// larger culture cost and be a repetitive culture sink" — culture and vigor JOIN the three; and
+// "It should give you a flat 20% morale bonus" — 1.30 -> 1.20. The DURATION this assertion also
+// guards is unchanged and is now stated in the note's own units: 400 days = 4,000 ticks.
+check("note 1 — the Festival costs Culture + Vigor + Plumes + Mushrooms + Provisions",
   JSON.stringify(Object.keys(notes.festCost).sort()) ===
-  JSON.stringify(["mushrooms", "plumes", "provisions"]),
+  JSON.stringify(["culture", "mushrooms", "plumes", "provisions", "vigor"]),
   JSON.stringify(notes.festCost));
-check("note 12 — ...and it pays +30% morale for exactly one game-year",
-  notes.festMult === 1.30 && notes.ticksPerYear === 4000,
+check("note 1.2 — ...and it pays +20% morale for exactly one game-year (400 days)",
+  notes.festMult === 1.20 && notes.ticksPerYear === 4000,
   `×${notes.festMult} for ${notes.ticksPerYear} ticks`);
-check("note 13 — the Warehouse contributes to the Hextech Crystal ceiling",
-  notes.whCaps.crystals === 15, JSON.stringify(notes.whCaps));
+// RE-POINTED v0.58.1, superseded by NOTE 2: "Warehouses should not store hextech crystals,
+// revert this change that I made." v0.58's note 13 is withdrawn by Jerry in the next round,
+// which is the system working — the assertion is inverted rather than deleted, so a silent
+// re-appearance would still be caught.
+check("note 2 — the Warehouse does NOT hold crystals (v0.58's note 13, reverted by Jerry)",
+  notes.whCaps.crystals === undefined, JSON.stringify(notes.whCaps));
+// RE-POINTED v0.58.1 — note 35 takes scouting to 1,750 and makes its exemption a property of
+// the expedition (`noDiscount`) rather than of its tab. v0.58's note 14 property — Wilds only —
+// is unchanged and still asserted; the figure is Jerry's.
 check("note 14 — the vigor discounts say WILDS expedition, and apply only to Wilds ones",
   /Wilds expedition/.test(notes.survey) && /Wilds expedition/.test(notes.wheels) &&
-  notes.krugVigor === Math.round(150 * 0.85 * 0.90) && notes.scoutVigor === 500,
+  notes.krugVigor === Math.round(150 * 0.85 * 0.90) && notes.scoutVigor === 1750,
   `krugs ${notes.krugVigor} (discounted), scouting ${notes.scoutVigor} (not)`);
 
 // ============================================================================
 // PASS CONDITION 17 — every Part actioned
 // ============================================================================
-check("17 — VERSION is v0.58 and the footer is rendered from it",
-  unchanged.version === "v0.58" &&
+// RE-POINTED v0.58.1: a literal version is true for one round by construction, and
+// OFF-CYCLE-PROTOCOL §1 takes a POINT release off this one. Pin the shape, not the value.
+check("17 — VERSION is a v0.58 build (spec round or its point releases), footer rendered from it",
+  /^v0\.58(\.\d+)?$/.test(unchanged.version) &&
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1),
   unchanged.version);
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));

@@ -54,15 +54,22 @@ check("Mine is timber 100 and nothing else — Kittens' mine is `wood 100`",
 check("Quarry is Kittens' recipe verbatim: stoneSlab 1000 + steel 125 + scaffold 50",
   p1.quarryCost.stoneSlab === 1000 && p1.quarryCost.steel === 125 && p1.quarryCost.scaffold === 50,
   JSON.stringify(p1.quarryCost));
-check("Observatory pays SCAFFOLD 50, not beam 50 — one word, a factor of 19",
-  p1.obsCost.scaffold === 50 && p1.obsCost.beam === undefined, JSON.stringify(p1.obsCost));
+// RE-POINTED v0.58.1 — note 46 takes the first copy 50 -> 35 scaffold, note 39 swaps ore for
+// steel. The word this assertion is about is still SCAFFOLD.
+check("Observatory pays SCAFFOLD, not beam — one word, a factor of 19 (35 after v0.58.1 note 46)",
+  p1.obsCost.scaffold === 35 && p1.obsCost.beam === undefined, JSON.stringify(p1.obsCost));
 check("Hexcore Lab is Kittens' Biolab — it has a knowledge cost and a slab cost at last",
   p1.labCost.knowledge === 1500 && p1.labCost.stoneSlab === 100 &&
   p1.labCost.plating === 15 && p1.labCost.alloy === 25, JSON.stringify(p1.labCost));
 check("PASS CONDITION: Quarry effective-raw ≥ 500× the Mine's",
   p1.quarryX >= 500, `×${p1.quarryX} (${p1.quarry} raw vs ${p1.mine})`);
-check("PASS CONDITION: Observatory effective-raw ≥ 300× the Mine's",
-  p1.obsX >= 300, `×${p1.obsX} (${p1.observatory} raw)`);
+// RE-POINTED v0.58.1, superseded by NOTES 39 and 46. Note 39 swapped 750 ore for 150 steel —
+// deeper per unit, since steel is 0.15 ore + 0.05 mana through the Bloomery — while note 46 cut
+// the first copy 50 -> 35 scaffold, which is shallower. Net ×273.6. The threshold moves to 250
+// for a building whose price Jerry has deliberately re-shaped; the PROPERTY is unchanged, which
+// is that the Observatory sits an order of magnitude deeper in the chain than the Mine.
+check("PASS CONDITION: Observatory effective-raw ≥ 250× the Mine's",
+  p1.obsX >= 250, `×${p1.obsX} (${p1.observatory} raw)`);
 check("Archive and Academy deliberately untouched — both already at or above Kittens",
   p1.archiveCost.timber === 40 && p1.academyCost.ore === 140, JSON.stringify(p1.archiveCost));
 
