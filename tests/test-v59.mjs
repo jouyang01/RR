@@ -624,8 +624,19 @@ check("16 — the cost-graph audit is clean after a new Discovery was added",
 // THE ROUND ITSELF
 // ============================================================================
 const version = await page.evaluate(() => VERSION);
-check("the version is v0.59 — an INTEGER round, because this one had an analyzer spec",
-  /^v0\.\d\d$/.test(version) && version === "v0.59", version);
+// RE-POINTED v0.59.1 — and this is the FIFTH version-pinned assertion this project has had to
+// unpick, so the rule is worth restating: **a suite cannot assert which round the build is in.**
+// It can only assert facts about ITS OWN round, which do not change, and properties of the
+// numbering scheme, which also do not change.
+//
+// What v0.59 established is that an ANALYZER-SPEC round takes an INTEGER tag — and the durable
+// evidence for that is the archived spec, not the `VERSION` constant, which the very next
+// off-cycle round moved to v0.59.1 exactly as OFF-CYCLE-PROTOCOL §1 requires.
+check("v0.59 was an INTEGER round because it had an analyzer spec, and the scheme still holds",
+  /^v0\.\d\d(\.\d+)?$/.test(version) && (() => {
+    try { readFileSync(new URL("../docs/specs/rr-analyzer-v059-spec.md", import.meta.url)); return true; }
+    catch (e) { return false; }
+  })(), version);
 check("...and the footer renders from the constant",
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1));
 check("the consumed v0.59 spec is archived under docs/specs/ and gone from the repo root", (() => {

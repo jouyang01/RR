@@ -340,3 +340,48 @@ numbered artefact and that artefact is archived intact.
   second Arcanist rung completes Kittens' two-rung job line at ×1.80 exactly; the Festival was
   already on the buff banner; and its mushroom cost halves with plumes **derived** at half of
   that, so the ratio cannot drift.
+
+---
+
+## v0.59.1 — Jerry's eight dev notes, all actioned (OFF-CYCLE round)
+
+- ~~**"The mana discovery should affect all mana production, not just arcanists."**~~ — **note 1.**
+  `leylineCalibration` leaves the Arcanist job line and becomes a global +30%, additive with
+  Hexresonance and (now) True Ice Cellars: all three held is **+80%, never ×1.95**. **Its ledger
+  row is RE-RATED PARITY → EASIER in the same round**, because the Kittens `catnipJobRatio`
+  citation it shipped with six hours earlier no longer describes what the game does.
+- ~~**"The new buttons on the wanderer page are terrible."**~~ — **note 2, and it reverses v0.59
+  Part 8 note 1.** That round fixed clipped chips by letting the row WRAP, which turned eight
+  rows into sixteen. Kittens' answer is structural: two controls per row and the 5/25/all steps
+  in an **absolutely positioned** flyout, which cannot push the rows below it down. Measured at
+  430px: six rows at 28px, zero overflow, and **the list bottom is identical with a flyout open.**
+- ~~**"Get rid of Kindling Theory Research."**~~ — **note 3.** A 50,000-knowledge leaf whose
+  entire content was opening one discovery. Banked Coals moves to Sump Ecology. **First
+  application of STANDING-RULINGS §30:** `kindling` is a reserved id, the migration keeps the
+  discovery the player paid for, and it names v1.0 as its retirement.
+- ~~**"Sump Ecology unlocks the Sump Crawl... this is not shown in the materials section."**~~ —
+  **note 4.1, and it was a REAL LOSS OF YIELD.** Coalgas and shimmer were revealed by `chemtech`
+  alone, and `withYieldFilter()` DROPS a gain whose resource is hidden — so a player who took
+  Sump Ecology first ran the crawl and **received nothing for two of its three rewards,
+  silently.** Both now reveal on either tech.
+- ~~**"Switch the costs of Sump Ecology and The Chemtech Whisper."**~~ — **note 4.2.** 55,000 ↔
+  60,000. No rung added or removed, no other price moved.
+- ~~**"The Sump Crawl should go after the Baron Nashor hunt in the UI."**~~ — **note 4.3.** It sat
+  among the four Era-1 camps; it is the last expedition unlocked.
+- ~~**"Bulk hunts should show the total yield, not an entry for each hunt."**~~ — **note 5.** One
+  line carrying the summed yield and price. **A bulk of ONE is left alone** and keeps the camp's
+  flavour line.
+- ~~**"True Ice Cellars should not affect anything provisions related."**~~ — **note 6, and it has
+  an argument beyond feel:** the −20% was a Discovery quietly rescaling `CONSUMPTION`, the one
+  parity constant in the food economy. It is +20% mana now.
+- ~~**"Hextech Manufactory should cost more crystals... a primary hextech crystal sink."**~~ —
+  **note 7, backed by the v0.59 ensemble:** crystals sat at their ceiling **95.5% of all ticks**,
+  finished 90,279/90,279, and the bot assigned **zero tinkerers** in 2,500 years. Cost 60 → 400,
+  fuel 0.02 → 0.12/s, the three discoveries ×4.5–5. `ratio` untouched at 1.15.
+- ~~**"Automated Workshop should work just like Kitten's Workshop Automation."**~~ — **note 7.2.**
+  A yearly flat grant out of nothing becomes a **spill-guard**: at 95% of a raw ceiling the
+  overflow converts to the crafted tier **at the ordinary price**. The 5% share is RR-ORIGINAL
+  and ledgered UNVERIFIED rather than dressed up as parity.
+- ~~**"Masquerade should unlock Harvest Rites, songcraft should not."**~~ — **note 8.** Songcraft
+  is the tech that makes culture a resource; gating the festival on it put the first culture SINK
+  on the rung that opens the faucet. Cost untouched, gate moved.
