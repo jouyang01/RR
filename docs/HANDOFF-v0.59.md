@@ -67,9 +67,31 @@ seed, with no spread, is far more likely to be measuring a gate than a curve.**
 
 ## 4. The state of the build
 
-**Shipped v0.59.** 29 suites. Parity ledger: **227 rows — PARITY 64, EASIER 40, HARDER 2,
-UNVERIFIED 121.** Parity debt fell 126 → 121, the largest single-round repayment since the ledger
-was built, because Part 5.4 found real citations for six upgrade rows at once.
+**Shipped v0.59. 29 suites, 1,482 assertions, 0 failures.** Parity ledger: **227 rows — PARITY
+64, EASIER 40, HARDER 2, UNVERIFIED 121.** Parity debt fell 126 → 121, the largest single-round
+repayment since the ledger was built, because Part 5.4 found real citations for six upgrade rows
+at once.
+
+**THE CHAMPION LADDER COMPLETES FOR THE FIRST TIME.** v0.58.1's tenth champion was never
+affordable inside 2,500 years; v0.59 recruits all ten by **y994.5 median, on all three seeds**.
+The two changes that did it pull in opposite directions on paper — Part 5.3 *removed* renown's
+×2.60 ceiling multiplier and Part 2.2 cut the passive trickle by up to 100× — and Part 2.1's deed
+rate paid for both. **A settlement that hunts finishes the ladder; one that idles does not.**
+
+**Era 3 is 797.5 (624.1–824.0), and the SPREAD is the thing to look at, not the median.**
+v0.58.1 measured ×1.02 — the tightest this project has recorded. v0.59 measures **×1.32**, and
+nothing this round touched Era 3 content. What it touched is the champion ladder, and champion
+passives are production multipliers: seed 2 gets its first champion at y142 against seed 1's
+y101 and finishes Era 3 two hundred years later. **The renown economy is now the largest source
+of run-to-run variance in the game.** That is a real property of making renown a deed currency,
+not a defect — but it deserves a ruling rather than an inheritance, and it is why the one failing
+pass condition fails.
+
+**Nine of ten pacing conditions pass. The failure is `First champion before year 120` at its
+`[max]` shape** — seed 2 reads 142 against 101 and 102.1. The median, 102.1, is 38.8 years better
+than v0.58.1's 140.9. It is a **ceiling** condition by construction (v0.58 Part 1: the first
+champion must arrive for every player, not the median player), so one seed at 142 fails it and
+should. **Reported, not re-based** — it is the variance finding above, measured a second way.
 
 **The round's structural headline is a deletion.** `SCHOLAR_CAPS` was a whole cap family with one
 member; deleting it rather than emptying it took RR from three cap families to two and removed
@@ -149,9 +171,17 @@ actually is). Both retirements are recorded in `pacing.mjs` with their reasoning
    calibrated on an instrument with a 2.6× error bar — but it means nothing is watching the
    number. If a target should come back, `era3_regional_crafting_spec_2.md`'s 7-day arc is the
    design intent to derive it from, and prior measurements are not.
-5. **`archiveRatio`'s Σ 0.06 is Kittens' figure at Kittens' Observatory counts.** RR's Observatory
-   is cheaper and arrives earlier than the source's. Worth censusing how many a real run holds
-   before assuming the ×1.30 the spec's fixture predicts is what players actually see.
+5. **`archiveRatio`'s Σ 0.06 is Kittens' figure at RR's building economy, and those are not the
+   same thing — now measured.** The spec's fixture assumed 10 Observatories and predicted ×1.30.
+   **A real 2,500-year run holds 60**, so the Archive's own slice runs **×4.6** and the delivered
+   multiplier on the whole knowledge ceiling is **×1.5199**. The mechanism is exact (the
+   `delivered` vs `1 + Σ` gap is 0.000% at all four milestones); the magnitude a player sees is
+   larger than the source's, because RR builds more Observatories than Kittens does. **Porting a
+   source ratio does not port the source's outcome when the building it scales on is priced
+   differently.** Worth a census of RR's four knowledge buildings against Kittens' four.
+6. **Era 3's spread went ×1.02 → ×1.32 with no Era-3 content changed.** See §4. The mechanism is
+   identified (champion passives, gated on a now-variable renown economy) but not quantified, and
+   quantifying it is a better use of a round than moving any single number.
 
 ---
 

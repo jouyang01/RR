@@ -370,7 +370,82 @@ spec item at the site.
 
 ## 9. Pacing — the full-rigour gate
 
-*(three seeds, 2,500 game-years, launched concurrently — see §11)*
+**Three seeds, 2,500 game-years, launched concurrently. 4,067.8 s wall (67.8 min), inside the
+spec's 75–90 minute budget.** Every figure below is an ensemble figure quoted with its spread,
+per §25.
+
+| figure | v0.58.1 | **v0.59** | spread | per-seed |
+|---|---|---|---|---|
+| Era 3 length | 907.1 (×1.02) | **797.5** | **×1.32** | 624.1 / 824.0 / 797.5 |
+| Icathia | — | **997.9** | ×1.29 | 808.3 / 1039.2 / 997.9 — **3 of 3 seeds** |
+| Sparks | — | 200.4 | ×1.17 | 184.2 / 215.2 / 200.4 |
+| First champion | 140.9 | **102.1** | ×1.41 | 101.0 / **142.0** / 102.1 |
+| **Tenth champion** | **NEVER inside 2,500** | **recruited y994.5** | ×1.28 | 808.2 / 1037.6 / 994.5 |
+| Peak population | 205–214 | 204 | — | 206 / 200 / 204 |
+| Morale in the 90–140 band | 98–100% | **100%** | — | 100 / 100 / 100 |
+| Renown time-at-cap | 83.1% | **84.8%** | — | 85.4 / 85.1 / 84.8 |
+| Convergence at its unlock | n/a | **8.834%** | — | 8.834 / 9.246 / 8.448 |
+| Trades | — | 244,150 | — | 267,930 / 239,416 / 244,150 |
+
+### The headline: the champion ladder completes, on every seed, for the first time
+
+**v0.58.1's tenth champion was NEVER affordable inside 2,500 years. v0.59 recruits all ten by
+y994.5 median, on all three seeds** — and the two changes that did it pull in opposite
+directions on paper. Part 5.3 *removed* renown's ×2.60 ceiling multiplier and Part 2.2 cut the
+passive trickle by up to 100×; Part 2.1's deed rate and the deleted charge guard more than paid
+for both. **That is the design working as stated: renown stopped being idle income and became a
+deed currency, and a settlement that hunts finishes the ladder while one that idles does not.**
+
+Renown's final ceiling reads **68,443** against a largest single purchase of **23,066** — both
+substantive conditions from §26 pass.
+
+### The spec's renown predictions vs measurement
+
+| prediction | measured | verdict |
+|---|---|---|
+| first champion y140.9 → **y150–260** | **101 / 142 / 102.1** | **wrong direction and by a lot.** The spec expected the trickle cut to delay the first champion; instead the deed rate reaching 1.00 and the charge guard's deletion made an *early* settlement's hunts pay 2–6× what they used to, and the first champion arrives ~40 years EARLIER. |
+| tenth champion still never inside 2,500 | **recruited y994.5, all three seeds** | **wrong, and this is the round's best result** |
+| renown time-at-cap 83.1% → **under 40%** | **84.8%** | **wrong, and §26 says the target was the wrong shape.** `resourceBalance` classifies renown `lumpy-only` with **0 continuous consumers and 10 lumpy sinks** — the player is full and waiting to spend, which reads ~85% whether the ceiling is X or 3X. The instrument retires this target at the site rather than chasing it. |
+| Era 3 shipped **800–1,150, spread under ×1.15** | **797.5, spread ×1.32** | **the median lands 3 years under the band's floor and the SPREAD MISSES BADLY** — see below. |
+
+### The spread is the surprise, and it is the one thing I would look at next
+
+**v0.58.1 measured Era 3 at ×1.02 across three seeds — the tightest this project has recorded.
+v0.59 measures ×1.32.** Nothing in this round touched Era 3 content. What it touched is the
+**champion ladder**, and champion passives are production multipliers: seed 2 gets its first
+champion at y142 against seed 1's y101, and finishes Era 3 200 years later (824.0 vs 624.1).
+**The renown economy is now the largest source of run-to-run variance in the game**, because a
+seed that rolls badly on early camps compounds the delay through every champion passive it then
+does not have. That is a real design property of making renown a deed currency, not a defect —
+but it is worth a ruling rather than an inheritance.
+
+### The one failing condition
+
+**`First champion before year 120` FAILS at its declared `[max]` shape: seed 2 reads 142.**
+Seeds 1 and 3 read 101 and 102.1. The median is 102.1 — **comfortably inside**, and 38.8 years
+better than v0.58.1's 140.9 — but the condition is a **ceiling** condition by construction
+(v0.58 Part 1: *"the first champion must arrive for every player, not for the median player"*),
+so one seed at 142 fails it and should. **Reported, not re-based.** This is the direct
+consequence of the variance finding above and it is the same phenomenon measured twice.
+
+### Convergence — Part 4's diagnosis confirmed numerically
+
+**Worship at Sparks on the median seed is 17,459 — more than seventeen times Kittens'
+1,000-worship gate.** The old condition read **0%** at Sparks on every seed not because the
+curve had collapsed but because `S.wtechs.convergence` was unset, exactly as Part 4 argued.
+Measured at its own unlock, Convergence delivers **8.4–9.2%** against a 1% floor. `pacing.mjs`
+still prints the Sparks figure as a single-run number so the trend stays visible.
+
+### Part 5.4 measured on a real run, and it beats the fixture
+
+The spec's fixture predicted **×1.30** at 10 Observatories. A real 2,500-year run holds **60**,
+so the Archive's own knowledge slice runs **×4.6**, and the **delivered multiplier on the whole
+knowledge ceiling — Morellonomicon compounding included — is ×1.5199.** The mechanism is
+confirmed exactly (`delivered ×N` vs `1 + Σ` shows a **0.000% gap** at all four milestones); the
+magnitude a player actually sees is larger than the spec's fixture, because Kittens' Σ 0.06 is
+scaled by a building count and RR builds more Observatories than the fixture assumed. **Flagged
+for the analyzer — this is Kittens' figure at RR's building economy, which is not the same thing
+as Kittens' outcome.**
 
 ---
 
@@ -390,7 +465,32 @@ source unless the verdict is recorded in the same round.
 
 ## 11. Pass conditions
 
-*(filled from the final ensemble — see the table at the end of this file)*
+| # | condition | target | result |
+|---|---|---|---|
+| 1 | Granary survives save → load | 7 in, 7 out | **PASS** — asserted, plus `granary` confirmed live and `runestone` confirmed dead |
+| 2 | Every migration id has a round-trip assertion | all | **PASS** — six sources extracted from `delete fresh.buildings.X` in the source, not restated |
+| 3 | Reused-id guard | `test-v59` fails if a live id is a migration source | **PASS** — mechanical, and it is the only assertion here that could fail a future round through no fault of its author |
+| 4 | Charge guard deleted | 0 charges pays; ×3 empowered | **PASS** — 2 unempowered, 6 empowered, ×3 exactly, after the floor |
+| 5 | First / tenth champion, renown at cap, on three seeds | reported with Halls | **PASS (reported)** — 102.1 / **994.5** / 84.8%; ceiling 68,443 vs largest single purchase 23,066 |
+| 6 | Era 3 vs the band | ruled in `pacing.mjs` with a reason | **PASS** — retired on Jerry's ruling, three reasons at the site, not re-based |
+| 7 | Convergence restated against the unlock | source anchor cited | **PASS** — arithmetic and the 1,000-worship anchor at the site; measured 8.834% median |
+| 8 | Golden Spire citation | in the ledger for §29's ×1.5 slice | **PASS** — `js/buildings.js:1964–1966` |
+| 9 | Culture's ×1.05 VERIFIED | UNVERIFIED → PARITY, totals recomputed | **PASS on the citation, DIFFERENT on the totals** — `cityOnAHill` found; totals moved 57→**64** PARITY / 126→**121** UNVERIFIED, not the predicted 58/125. See §2.3. |
+| 10 | Renown's ×2.60 deleted with the whole family | `capFamilyOf()` down to two | **PASS** — `exempt` / `masonry` / null, invariant total and single-valued across 17 resources |
+| 10a | Trickle flat 0.007/s, gated on `callToArms` | no-backfill assertion | **PASS** — identical at pop 40 and pop 140; one hour on `logistics` alone yields 0 |
+| 10b | Trade +1/caravan all leaders; bulk ×10 grants 10; failures 0 | | **PASS, with a disagreement** — 1 / 6 under Caitlyn / 10 bulk / **60 bulk under Caitlyn** (spec said 16, see §2.2) / 0 on failure |
+| 10c | `RENOWN_DEED_RATE` ruled by name; ladder no longer flat | | **PASS** — 0.34 → 1.00; every camp pays its authored field exactly |
+| 10d | Ascent, first-time research unchanged | measured 0, two ledger rows | **PASS** — 0 / 0 / 0, no code shipped |
+| 10e | `voidglassLenses` untouched | ledgered PARITY vs `js/buildings.js:672` | **PASS** — ×1.5 per copy, unchanged |
+| 10f | `archiveRatio` Σ 0.06, scaled by Observatory count; knowledge still exempt | | **PASS** — Σ 0.06 exactly, ×1.00 at 0 observatories, ×1.30 at 10, ×4.6 on the Archive's slice at the run's 60 |
+| 11 | Rank ladder in the ledger rung by rung | debt at each | **PASS** — 0% at five rungs, 102% at the top, with the `XP_PER_SECOND` caveat in its own line |
+| 12 | `test-v581` ten consecutive sweeps, three under load; `fixture-sweep` reported | | **PASS, exceeded** — ten consecutive, **all ten under the ensemble's load**, 95/95 with zero run-to-run variation. The sweep found **one real §21 defect** (test-v58's note-14 block never reset `S.policies`, and Open Range costs Wilds expeditions +10% vigor); fixed, and the re-run reports **zero exposed**. |
+| 13 | Swain's lead and passive distinct | | **PASS** — passive `mana`, lead `knowledge`, and the passive measured actually reaching mana production |
+| 14 | The mana Discovery rung-matched via the ladder lookup | ledger row | **PASS** — Kittens' `catnipJobRatio` second rung at +30%, line lands ×1.80 exactly; `auditCostGraph()` clean |
+| 15 | All eight feel notes have a ledger row | | **PASS** — eight rows plus two for Jerry's dev notes |
+| 16 | Unchanged set | | **PASS** — `TICK_MS` 200, `CAMP_YIELD_LIMIT` 6, Σbarn 4.35 / Σware 1.80, `TRANSMUTE_COST` 20, weight 0.20, `CHARGE_BONUS` 3.0, festival ×1.20, audits 0/0 |
+| 17 | Every Part actioned or its non-action justified | | **PASS** — all nine; the per-slice Era-3 attribution table is the one deliverable not produced, with its reason in §2.5 |
+| — | **Pacing gate: 10 pass conditions** | | **9 of 10 PASS.** The failure is `First champion before year 120` at its `[max]` shape — seed 2 reads 142 against seeds 1 and 3 at 101 and 102.1. Reported, not re-based. |
 
 ---
 
