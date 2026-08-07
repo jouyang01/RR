@@ -2049,29 +2049,9 @@ function scholarAddOf(id) {
 // Renown has no Kittens counterpart at all, so its TIER is still an RR-original decision. What
 // the source settles is which FAMILY it cannot be in.
 // v0.58.1 §29: culture and devotion leave. See CAP_MULT_EXEMPT above for the full reasoning.
-//
-// v0.59 PART 5.3 (Jerry's directive 7) — `SCHOLAR_CAPS` IS DELETED, NOT EMPTIED.
-//
-// §29 left this family with exactly ONE member, renown, and directive 7 removes that one. An
-// empty family object is worse than no family: `capFamilyOf()` would still branch on it,
-// `capMultNames()` and Poppy's loop would still guard against it, and every future reader would
-// have to prove the emptiness rather than read it. So the whole mechanism goes — the object, the
-// `scholar` branch of `capFamilyOf()`, `scholarMult` and its arm of the ternary in
-// `computeCaps()`, both `!SCHOLAR_CAPS[...]` guards, and `scholarCapNames()`.
-//
-// RR NOW HAS TWO CAP FAMILIES INSTEAD OF THREE, and `capFamilyOf()` returns `exempt`,
-// `masonry`, or null. That is the single largest structural simplification this round.
-//
-// WHERE RENOWN LANDS, and why it is NOT `CAP_MULT_EXEMPT`. Exempt means "takes no cap
-// multiplier of any kind" — it skips the storage lines AND the mountain-drake loop AND Poppy.
-// Renown is only excluded from the MATERIAL STORAGE line (v0.57 Part 1's reasoning still holds:
-// `addBarnWarehouseRatio` touches seven material effect names and renown is not a material). It
-// has no argument against the drakes or against a leader. So it takes the `masonry` family at
-// the `"none"` tier, which `storageMultFor()` already resolves to ×1 — the same construction
-// `voidessence` has used since v0.56 Part 5 — and the drake and Poppy loops now reach it.
-//
-// RENOWN'S CEILING IS THEREFORE `210 + 900 × Halls`, flat and additive, times drakes, times
-// Poppy's 1.08 when she leads. Measured against v0.58.1 that is a ×2.60 fall.
+// Renown remains — it is RR-ORIGINAL with no source counterpart, so it is the one member of
+// this family that no Kittens magnitude argument can be made against.
+var SCHOLAR_CAPS = { renown: 1 };
 // v0.45 Part 5 (= the re-issued Amendment A1). Kittens' science ceiling inside RR's
 // era window is Σ(building scienceMax) plus the clamped compendium term and NOTHING
 // else (js/workshop.js:2769-2786). Knowledge therefore takes no storage multiplier at
@@ -2235,21 +2215,16 @@ var CAP_SCOPE = {
   gold: "broad", zaunore: "broad", coalgas: "broad", hexore: "broad", shimmer: "broad",
   crystals: "broad",
   provisions: "quarter",
-  // v0.59 Part 5.3: renown arrives here from the deleted Scholarship family, at the tier that
-  // resolves to ×1. It is IN a family (so `capFamilyOf()` does not report it as the defect an
-  // unfamilied capped resource is) and it takes no material storage multiplier.
-  renown: "none",
   voidessence: "none"
 };
-// The one place a capped resource's cap family is decided. v0.59 Part 5.3: TWO families now,
-// still mutually exclusive:
-//   exempt     -- takes NO cap multiplier at all (knowledge, vigor, culture, devotion; see
-//                 CAP_MULT_EXEMPT for the four separately sourced reasons)
-//   masonry    -- takes the barn/warehouse accumulators at its CAP_SCOPE tier, where the tier
-//                 may be "none" (×1) for a resource that belongs to no material line
-// The `scholar` branch is gone with the family. See the SCHOLAR_CAPS note above.
+// The one place a capped resource's cap family is decided. Three families, mutually exclusive:
+//   exempt     -- takes NO storage multiplier at all (knowledge, vigor; two separately sourced
+//                 reasons, see CAP_MULT_EXEMPT)
+//   scholar    -- takes the Scholarship product (culture, devotion, and from v0.57 renown)
+//   masonry    -- takes the barn/warehouse accumulators at its CAP_SCOPE tier
 function capFamilyOf(r) {
   if (CAP_MULT_EXEMPT[r]) return "exempt";
+  if (SCHOLAR_CAPS[r]) return "scholar";
   if (CAP_SCOPE[r]) return "masonry";
   return null;                       // a capped resource with no family is a defect, not a default
 }
@@ -2273,12 +2248,10 @@ function storageMultFor(r, ratios) {
 var POPPY_CAP_MULT = 1.08;
 function capMultNames() {
   return Object.keys(RES).filter(function (r) {
-    // v0.57 Part 1: the `r !== "renown"` special case is GONE. v0.59 Part 5.3: so is the
-    // `!SCHOLAR_CAPS[r]` guard, with the family. ONE guard decides this now, and because renown
-    // no longer sits behind a second guard it is COUNTED here and REACHED by Poppy's loop below
-    // — the count in her generated description changes by exactly one as a result, which is the
-    // observable this round asserts rather than the sentence around it.
-    return RES[r].baseCap !== undefined && !CAP_MULT_EXEMPT[r];
+    // v0.57 Part 1: the `r !== "renown"` special case is GONE. Renown is a member of
+    // SCHOLAR_CAPS now, so the SCHOLAR_CAPS guard already excludes it and a second, redundant
+    // guard beside it is exactly how a resource ends up half-in and half-out of a family.
+    return RES[r].baseCap !== undefined && !CAP_MULT_EXEMPT[r] && !SCHOLAR_CAPS[r];
   }).length;
 }
 // Derived, never written. The previous string named resources the guards had already
@@ -2294,18 +2267,24 @@ function poppyLeadDesc() {
     "% across " + capMultNames() + " material lines";
 }
 (function () { var p = champDef("poppy"); if (p) p.lead = poppyLeadDesc(); })();
-// v0.59 PART 5.3: `scholarCapNames()` is DELETED with the family it read.
-//
-// The five Scholarship upgrades are INERT for the length of this slice — the family they raised
-// no longer exists — and their descriptions say so plainly rather than advertising a storage
-// bonus that no longer lands. Part 5.4 re-issues all five as knowledge amplifiers and replaces
-// these two generators outright. Nothing here is meant to survive the round; it exists so that
-// the Part 5.3 isolation slice is a page that loads and a tooltip that does not lie.
+function scholarCapNames() {
+  return Object.keys(SCHOLAR_CAPS).map(function (r) {
+    return RES[r] ? RES[r].name : r;
+  }).join(" & ");
+}
+// v0.48 §3: same split. scholarDesc is retained — it is asserted to exist by test-v43 —
+// but the table now reads the two halves separately.
+// v0.58 Part 3: the line is additive, so the prose says what an additive line actually does --
+// "+25%" against the base, with the all-five total stated the way the storage tooltips state
+// theirs. Saying "×1.25" for a rung that no longer multiplies is the same drift class v0.43
+// Part 0 built these generators to end.
 function scholarEffect(id, numeral) {
-  return "Scholarship " + numeral + " — no effect (re-issued at v0.59 Part 5.4).";
+  return "Scholarship " + numeral + " — " + scholarCapNames() + " storage +" +
+    Math.round(scholarAddOf(id) * 100) + "%.";
 }
 function scholarDesc(id, numeral, flavour) {
-  return "Scholarship " + numeral + " — " + flavour + ".";
+  return "Scholarship " + numeral + " — " + flavour +
+    ". " + scholarCapNames() + " storage +" + Math.round(scholarAddOf(id) * 100) + "%";
 }
 var UPGRADES = [
   { id: "runicAttunement", name: "Runic Attunement", cost: { mana: 120 },
@@ -4688,11 +4667,17 @@ function computeCaps() {
   // titanium / unobtainium / eludium, i.e. entirely outside RR's era window, which is
   // why knowledge still takes no multiplier here. The directive stands; the old
   // justification for it did not.
-  // v0.59 PART 5.3: `scholarAdd` / `scholarMult` are DELETED. v0.58 Part 3 had made the line an
-  // additive accumulator summing 1.60 (×2.60); with renown out of the family there is no
-  // resource left for it to multiply, so the accumulator, the ternary arm that consumed it and
-  // the family itself all go together rather than a ×2.60 being computed and applied to nothing.
-  // v0.45 Part 5: CAP_MULT_EXEMPT now carries knowledge
+  // v0.58 Part 3. Was `scholarMult *= u[1]` across five rungs of one category (×3.9926 at
+  // five). It is one additive accumulator now, read exactly as ratios.barn and ratios.ware
+  // are read: Σ 1.60 → ×2.60. The multiplication that remains is BETWEEN categories — this
+  // line against the buildings' own cultureCapPct and against mountainMult — which is what
+  // Kittens' Law permits and all it permits.
+  var scholarAdd = 0;
+  SCHOLAR_LINE.forEach(function (u) {
+    if (S.upgrades[u[0]]) scholarAdd += u[1];
+  });
+  var scholarMult = 1 + scholarAdd;
+  // v0.45 Part 5: CAP_MULT_EXEMPT (declared beside SCHOLAR_CAPS) now carries knowledge
   // as well as vigor, and the champion storage multiplier is gone entirely — Part 8.1
   // removed the passive that fed it, so that key has no call sites left anywhere.
   for (var rs in caps) {
@@ -4702,10 +4687,8 @@ function computeCaps() {
     // that should not have existed; with the chain gone there is nothing to take the root of,
     // and Renown is RR-ORIGINAL with no storage counterpart in the source. It moves to the
     // "none" tier and its ceiling rises with buildings instead. Measured in BUILD REPORT §5.
-    // v0.59 Part 5.3: the ternary is gone. ONE line decides a capped resource's storage
-    // multiplier, and renown resolves through it at the "none" tier — ×1, by the same path
-    // voidessence takes, rather than by a second family's arm.
-    caps[rs] *= storageMultFor(rs, ratios);
+    var line = SCHOLAR_CAPS[rs] ? scholarMult : storageMultFor(rs, ratios);
+    caps[rs] *= line;
   }
   // v0.58.1 NOTE 15: the Progress Day Parade is the ONE fixed multiplier culture keeps, cut
   // x1.35 -> x1.05 so the delivered fixed-multiplier ceiling is Jerry's x1.05 exactly.
@@ -4724,14 +4707,13 @@ function computeCaps() {
   // +8%. Knowledge, Vigor and the Scholarship lines are excluded — the same guards
   // poppyLeadDesc() generates its prose from, so the tooltip cannot drift away from this loop
   // the way the old one did.
-  // v0.59 PART 5.3: the `SCHOLAR_CAPS[r3]` guard is gone with the family, and this is a REAL
-  // BEHAVIOUR CHANGE rather than a refactor: Poppy's +8% now REACHES RENOWN, where it has been
-  // excluded since v0.57. That is the directive's intent — renown's ceiling is meant to be
-  // buildings plus the general multipliers, and a leader is a general multiplier. Culture,
-  // devotion, knowledge and vigor remain out through CAP_MULT_EXEMPT.
+  // v0.57 Part 1: the `r3 !== "renown"` special case is GONE for the same reason as the one in
+  // capMultNames() — Renown is in SCHOLAR_CAPS, so the SCHOLAR_CAPS guard covers it. Poppy's
+  // lead excludes Renown exactly as it did before; it now does so through the family rather
+  // than through a name.
   if (leaderIs("poppy")) {
     for (var r3 in caps) {
-      if (CAP_MULT_EXEMPT[r3]) continue;
+      if (CAP_MULT_EXEMPT[r3] || SCHOLAR_CAPS[r3]) continue;
       caps[r3] *= POPPY_CAP_MULT;
     }
   }

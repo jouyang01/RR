@@ -1,0 +1,1620 @@
+// Shared headless simulator for Runeterra Reclaimed.
+// Runs the game's own tick() at speed with a greedy player, a virtualised clock
+// (so Date.now-based cooldowns actually elapse) and rendering stubbed out.
+import { chromium } from "playwright";
+
+export async function openGame(file = new URL("../index.html", import.meta.url).pathname) {
+  const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const errors = [];
+  page.on("pageerror", e => errors.push(String(e)));
+  page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+  await page.goto("file://" + file);
+  await page.waitForTimeout(400);
+  return { browser, page, errors };
+}
+
+export async function runSim(page, years, seed = 1) {
+  return await page.evaluate(({ years, seed }) => {
+    // ---- deterministic RNG ----
+    let rngState = seed >>> 0 || 1;
+    Math.random = function () {
+      rngState ^= rngState << 13; rngState >>>= 0;
+      rngState ^= rngState >> 17;
+      rngState ^= rngState << 5; rngState >>>= 0;
+      return rngState / 4294967296;
+    };
+    // ---- virtual clock so cooldowns elapse ----
+    let simNow = 1700000000000;
+    Date.now = function () { return simNow; };
+    // ---- stub the presentation layer ----
+    renderTop = function () {}; renderAll = function () {}; renderLog = function () {};
+    updateAffordability = function () {}; showCostTooltip = function () {}; hideTooltip = function () {};
+    snapshotUndo = function () {}; renderUndoToast = function () {};
+
+    loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
+
+    const TICKS_PER_YEAR = TICKS_PER_DAY * DAYS_PER_SEASON * 4;   // 4000
+    const totalTicks = years * TICKS_PER_YEAR;
+    const yearNow = () => S.tick / TICKS_PER_YEAR;
+
+    const milestones = {};
+    const snaps = {};
+    // v0.46 Part 8 instrumentation
+    let tradeCount = 0;                 // trades executed, for trades-per-game-year
+    let vigorAtCapTicks = 0, tickCount = 0;
+    const tradeMarks = {};              // cumulative trade count at each milestone
+    const firstVisible = {};            // cold-start visibility years (Part 8)
+    const markVis = k => { if (firstVisible[k] === undefined) firstVisible[k] = +yearNow().toFixed(2); };
+    // ---- v0.53 instrumentation, ALL of it written BEFORE the first run of the round
+    // (HANDOFF v0.52 §6, "instrument before launching"; the v0.50 round paid two re-runs
+    // for not doing this). Every metric Parts 1-6 of the v0.53 spec name is below.
+    //
+    // 1. SPEND. pay() is the single choke point through which every building, tech,
+    //    discovery, craft, trade and recruitment leaves the stock, so wrapping it once
+    //    measures spend for EVERY resource without touching the game. Part 2.2 needs
+    //    crystal spend per game-year; Part 6 needs vigor spend split by cause; Part 4.3
+    //    needs the new craft's stock to stop rising, which is a spend question.
+    const spendTotal = {};              // cumulative spend, by resource, whole run
+    const spendMarks = {};              // cumulative spend snapshot at each milestone
+    const _origPay = pay;
+    pay = function (cost) {
+      for (const r in cost) spendTotal[r] = (spendTotal[r] || 0) + cost[r];
+      return _origPay(cost);
+    };
+    const spendSnap = () => Object.assign({}, spendTotal);
+    // 2. Vigor, split by cause. vigorSpent below already counts expeditions; trade is
+    //    the other half and Part 6 asks for the split at y50 and y100 explicitly.
+    let vigorOnTrade = 0;
+    const vigorSplit = {};              // { y50: {...}, y100: {...} }
+    // 3. seenMax for the crafted intermediates. Part 1.3's whole finding is that
+    //    hexgear's STOCK never accumulates while hexcore's does; that is a peak-stock
+    //    question and nothing in the harness recorded peaks.
+    const seenMaxOf = r => +(S.seenMax[r] || 0).toFixed(2);
+    // 4. Yearly series for the three resources whose accumulation is the question:
+    //    crystals (Part 2), voidessence and the new tier-5 craft (Part 4.3).
+    const stockSeries = [];             // { year, crystals, voidessence, <newCraft> }
+    // 5. The five buildings that measured zero, tracked at every milestone rather than
+    //    only at the three that snapshot().
+    const ZERO_FIVE = ["hextechFoundry", "hexdraulicPlant", "chembarrel",
+                       "hexcreteBastion", "frostguardCairn"];
+    const PORO_LADDER = ["poroPasture", "frostguardCairn", "avarosanHold",
+                         "iceWroughtSpire", "frozenWatcher", "watchersEye"];
+    // v0.44 Part 4 asks for two named numbers at Sparks and at Icathia: the full
+    // multiplier product per raw line, category by category, and the science building
+    // counts. Both are read off live state at the instant the tech lands.
+    function snapshot() {
+      const mor = morale() / 100;
+      const mw = S.upgrades.masterworkTools ? 1.25 : 1;
+      const villageMult = (1 + champPassive("village") / 100) * policyMult("village");
+      const jobBoosts = {};
+      BUILDINGS.forEach(b => {
+        if (!b.jobBoost) return;
+        const n = count(b.id); if (!n) return;
+        // v0.45: read the GAME's per-copy function rather than b.jobBoost directly —
+        // the saw line scales the Lumber Mill's term and the minerals upgrades add to
+        // the Mine's and Quarry's. Mirroring it by hand here is exactly how this
+        // snapshot would start lying.
+        for (const jb in b.jobBoost) jobBoosts[jb] = (jobBoosts[jb] || 0) + jobBoostPerCopy(b, jb) * n;
+      });
+      const jobSkill = {};
+      (S.wanderers || []).forEach(w => {
+        if (!w.j) return;
+        const e = jobSkill[w.j] || (jobSkill[w.j] = { sum: 0, n: 0 });
+        e.sum += 1 + rankOf(w, w.j).bonus; e.n++;   // v0.54 directive 8: rank is PER JOB
+      });
+      const skillMult = id => { const e = jobSkill[id]; return e && e.n ? e.sum / e.n : 1; };
+      let monumentSum = 0;
+      BUILDINGS.forEach(b => {
+        if (!b.globalBoost) return;
+        const amp = (b.id === "hextechFoundry") ? (1 + 0.15 * count("hexdraulicPlant")) : 1;
+        monumentSum += b.globalBoost * count(b.id) * amp;
+      });
+      const cats = {
+        monument:  1 + monumentSum,
+        charts:    1 + (S.upgrades.celestialCharts ? 0.10 : 0),
+        religion:  1 + worshipBonus(),
+        drake:     1 + drakeBonus("infernal", 0.5),
+        soul:      1 + (S.dragonSoul ? 0.25 : 0),
+        policy:    1 + policyGlobalBonus(),
+        morale:    mor,
+        workerPolicy: policyMult("worker")
+      };
+      const line = (job, tool, ratioUp) => ({
+        toolUpgrade: tool, masterwork: mw, village: villageMult,
+        buildingJobBoost: 1 + (jobBoosts[job] || 0),
+        censusRank: +skillMult(job).toFixed(4),
+        resGlobalRatio: ratioUp
+      });
+      const prod = (o) => Object.values(o).reduce((a, x) => a * x, 1);
+      // v0.45 Part 2 E1: the miner has NO tool line and ore has LEFT the per-resource
+      // global category. v0.45 Part 2 E2: the woodcutter's tool line is the six-rung
+      // axe line, read from the game's own axeMult().
+      const oreLine = line("miner", 1, 1);
+      // v0.46: record WHICH rungs are owned. The v0.45 report compared a measured value
+      // against a full-line formula and read a 51% "miss" that was the formula's fault.
+      const axesOwned = AXE_LINE.filter(u => S.upgrades[u[0]]).length;
+      const sawsOwned = SAW_LINE.filter(u => S.upgrades[u[0]]).length;
+      const timLine = line("woodcutter", +axeMult().toFixed(4),
+                           1 + (S.upgrades.seasonedTimberworks ? 0.25 : 0));
+      // v0.45 Part 2 E1: masterworkTools no longer applies to the miner.
+      oreLine.masterwork = 1;
+      const gp = prod(cats);
+      // v0.45 Part 1: knowledge and culture take catCharts x catReligion x catPolicy only.
+      const gpTransient = cats.charts * cats.religion * cats.policy;
+      // v0.46 Part 1.4 — decompose ore income into job / autoprod / converter, by
+      // switching each source off in the GAME's own computeRates rather than mirroring
+      // its maths. Kittens adds perTickAutoprod AFTER mineralsRatio is applied, so
+      // autoprod there bypasses the Mine/Quarry category entirely; the analyzer needs to
+      // know whether RR's ore autoprod is being multiplied by the x38 building category.
+      const oreTotal = computeRates().ore;
+      const savedMiner = S.jobs.miner || 0;
+      S.jobs.miner = 0;
+      const oreNoJobs = computeRates().ore;
+      S.jobs.miner = savedMiner;
+      const savedOff = Object.assign({}, S.buildingsOff);
+      BUILDINGS.forEach(b => { if (b.convert) S.buildingsOff[b.id] = true; });
+      const oreNoConverters = computeRates().ore;
+      S.buildingsOff = savedOff;
+      const oreJob = oreTotal - oreNoJobs;
+      const oreConv = oreTotal - oreNoConverters;
+      return {
+        year: +yearNow().toFixed(1), pop: S.pop, morale: Math.round(morale()),
+        worship: Math.round(S.worship || 0),
+        convergencePct: +(worshipBonus() * 100).toFixed(3),
+        science: { archive: count("archive"), academy: count("academy"),
+                   observatory: count("observatory"), hexLab: count("hexLab") },
+        amplifier: { foundries: count("hextechFoundry"), plants: count("hexdraulicPlant"),
+                     reactors: count("arcaneReactor"), swRatio: 1 + 0.15 * count("hexdraulicPlant") },
+        categories: Object.fromEntries(Object.entries(cats).map(([k, v]) => [k, +v.toFixed(4)])),
+        globalProduct: +gp.toFixed(2),
+        // v0.45 Part 1 — what knowledge and culture actually receive, and the ratio of
+        // what they no longer receive. This is the number Part 1 exists to move.
+        transientProduct: +gpTransient.toFixed(4),
+        excludedFromTransient: +(gp / gpTransient).toFixed(3),
+        oreDecomposition: {
+          total: +oreTotal.toFixed(2),
+          job: +oreJob.toFixed(2),
+          converterAndAutoprod: +oreConv.toFixed(2),
+          other: +(oreTotal - oreJob - oreConv).toFixed(2),
+          jobPct: +(100 * oreJob / (oreTotal || 1)).toFixed(1),
+          convPct: +(100 * oreConv / (oreTotal || 1)).toFixed(1)
+        },
+        vigorRate: +computeRates().vigor.toFixed(3),
+        vigorCap: Math.round(computeCaps().vigor),
+        knowledgeRate: +computeRates().knowledge.toFixed(3),
+        cultureRate: +computeRates().culture.toFixed(4),
+        // v0.45 Part 2 — N for each ratio building, so the composition table is checkable
+        ratioBuildings: { mine: count("mine"), quarry: count("quarry"), lumberMill: count("lumberMill") },
+        // v0.50 Parts 2.3 and 3
+        augmentChamber: count("augmentChamber"), arcaneReactor: count("arcaneReactor"),
+        hextechFoundry: count("hextechFoundry"), shimmerRefinery: count("shimmerRefinery"),
+        // v0.58 Part 7.2 / Part 8.1 — the shipped sink and the craft it exists to reach.
+        chemForgeworks: count("chemForgeworks"), riftAnchor: count("riftAnchor"),
+        // v0.58.1 NOTE 48 — the Manufactory and its three discoveries, counted, so an inert
+        // building cannot be mistaken for an unbuilt one.
+        manufactory: count("manufactory"),
+        manufactoryUpgrades: ["pressureRegulators", "rollingPress", "automatedWorkshop"].filter(u => S.upgrades[u]),
+        riftsteelHeld: Math.round(S.res.riftsteel || 0), hexgearHeld: Math.round(S.res.hexgear || 0),
+        voidessenceHeld: Math.round(S.res.voidessence || 0),
+        // ---- v0.52, instrumented BEFORE the first run this time ----
+        // Part 0: the knowledge multiplier the four science buildings actually deliver,
+        // and the counts behind it. The claim under test is that the overshoot in counts
+        // was a SYMPTOM of the bound, so both have to be on the same line.
+        // v0.53 Part 5.1. THE OLD READER COMPARED TWO DIFFERENT THINGS and the gap was
+        // read as a x3 overshoot for two rounds. Two defects, not one:
+        //   (a) Sigma summed the four science BUILDINGS only, while boosts.knowledge is
+        //       also written by the Rites of Insight worship tech (+0.10), by Swain's
+        //       knowledge passive, and by policyBoost("knowledge"). The spec calls these
+        //       "the Scholarship-ladder Discoveries"; verified from source this round,
+        //       NO Discovery writes to boosts.knowledge at all — Scholarship is a CAP
+        //       multiplier (scholarMultOf), not a rate boost. The missing terms are the
+        //       worship tech, the champion passive and the policy. Reported in §7.
+        //   (b) `delivered` set S.buildings = {} to get its denominator, which removes
+        //       the whole GLOBAL-production category (Foundries, Hexdraulic amplifier,
+        //       Arcane Reactors) and changes morale() by deleting every Bard's Hearth.
+        //       Neither belongs to the knowledge-boost category. That, not a missing
+        //       Sigma, is most of the x105-vs-x35.75 gap.
+        // The reader now neutralises EXACTLY the terms that feed boosts.knowledge and
+        // nothing else, by zeroing the four science buildings' counts and stubbing the
+        // three non-building contributors, so `delivered` is 1 + Sigma by construction
+        // and the two halves of the line are finally comparable.
+        science: (() => {
+          const counts = { archive: count("archive"), academy: count("academy"),
+                           observatory: count("observatory"), hexLab: count("hexLab") };
+          let sigmaBuildings = 0;
+          for (const id in counts) {
+            const b = BUILDINGS.find(x => x.id === id);
+            if (b && b.boost && b.boost.knowledge) sigmaBuildings += b.boost.knowledge * counts[id];
+          }
+          const sigmaRites = (S.wtechs && S.wtechs.ritesOfInsight) ? 0.10 : 0;
+          const sigmaChamp = champPassive("knowledge") / 100;
+          const sigmaPolicy = policyBoost("knowledge");
+          const sigma = sigmaBuildings + sigmaRites + sigmaChamp + sigmaPolicy;
+          const saveJobs = S.jobs, savePop = S.pop, saveB = S.buildings;
+          const saveRites = S.wtechs && S.wtechs.ritesOfInsight;
+          S.jobs = { loremaster: 20 }; S.pop = Math.max(20, S.pop);
+          const withB = computeRates().knowledge;
+          // neutralise the four boost carriers only — every other building stays, so
+          // catMonument, crowd relief and morale are identical on both sides
+          S.buildings = Object.assign({}, saveB);
+          for (const id in counts) S.buildings[id] = 0;
+          if (S.wtechs) S.wtechs.ritesOfInsight = false;
+          const origChamp = champPassive, origPolicy = policyBoost;
+          champPassive = k => (k === "knowledge" ? 0 : origChamp(k));
+          policyBoost = k => (k === "knowledge" ? 0 : origPolicy(k));
+          const bareB = computeRates().knowledge;
+          champPassive = origChamp; policyBoost = origPolicy;
+          if (S.wtechs) S.wtechs.ritesOfInsight = saveRites;
+          S.buildings = saveB; S.jobs = saveJobs; S.pop = savePop;
+          return { counts, sigma: +sigma.toFixed(4),
+                   sigmaParts: { buildings: +sigmaBuildings.toFixed(4), rites: sigmaRites,
+                                 champion: +sigmaChamp.toFixed(4), policy: +sigmaPolicy.toFixed(4) },
+                   kittensWouldGive: +(1 + sigma).toFixed(4),
+                   delivered: bareB > 0 ? +(withB / bareB).toFixed(4) : null };
+        })(),
+        // Part 1.2: the Irrigation Channel replaces the Farmstead's boost
+        irrigation: count("irrigation"), farmsteads: count("farmstead"),
+        provisionsPerSec: +computeRates().provisions.toFixed(3),
+        // ---- v0.55, instrumented BEFORE the first run of the round ----
+        // Part 4 asks for camp yields at all three milestones before and after the hunt-yield
+        // restructure, and Part 4's pass condition is a DELIVERED multiplier, so both the
+        // material and the comfort figures are recorded at every snapshot point.
+        campYield: +campYieldMult().toFixed(4),
+        luxCampYield: +campYieldMult(true).toFixed(4),
+        junglers: S.jobs.jungler || 0,
+        // Part 3: the food economy, in the units Part 3.1's table is written in. `eatPerSec`
+        // is measured by differencing the provisions rate against a settlement of zero
+        // wanderers, which is the same trick v0.53 Part 5.2 used to strip consumption out of
+        // a net rate — it reads the game rather than mirroring its eat formula.
+        food: (() => {
+          const grossAt = pop => { const sp = S.pop, sw = S.wanderers;
+            S.pop = pop; const r = computeRates().provisions; S.pop = sp; S.wanderers = sw; return r; };
+          const net = computeRates().provisions;
+          const noEat = grossAt(0);
+          return { netPerSec: +net.toFixed(3), grossPerSec: +noEat.toFixed(3),
+                   eatPerSec: +(noEat - net).toFixed(3),
+                   farmers: S.jobs.farmer || 0, pop: S.pop,
+                   season: currentSeason().id !== undefined ? currentSeason().id : currentSeason().name,
+                   farmMultNow: +currentSeason().farmMult.toFixed(3),
+                   provisionsCap: Math.round(computeCaps().provisions),
+                   held: Math.round(S.res.provisions) };
+        })(),
+        // Part 6: drakes are RR-ORIGINAL and the round changes their curve, so the kill counts
+        // and the delivered bonuses are recorded rather than inferred from the essence badges.
+        drakes: (() => {
+          const o = {};
+          (typeof DRAKE_TYPES !== "undefined" ? DRAKE_TYPES : []).forEach(d => {
+            // DRAKE_CAP arrives with v0.55 Part 6; the fallback keeps this snapshot valid on
+            // the v0.54 baseline slice, which is the whole point of instrumenting first.
+            const cap = (typeof DRAKE_CAP !== "undefined" && DRAKE_CAP[d.id] !== undefined)
+              ? DRAKE_CAP[d.id] : (d.id === "cloud" ? 1.0 : d.id === "infernal" ? 0.5 : 0.6);
+            o[d.id] = { kills: S.drakes[d.id] || 0, cap, delivered: +drakeBonus(d.id, cap).toFixed(4) };
+          });
+          return o;
+        })(),
+        // Part 7: time-to-Challenger is a real-hours question, so the roster's banked
+        // experience is recorded in seconds worked, per trade, at the top and the median.
+        xp: (() => {
+          const banks = [];
+          (S.wanderers || []).forEach(w => { for (const j in (w.jx || {})) banks.push(w.jx[j]); });
+          banks.sort((a, b) => b - a);
+          return { n: banks.length, top: +(banks[0] || 0).toFixed(1),
+                   median: +(banks[Math.floor(banks.length / 2)] || 0).toFixed(1),
+                   atChallenger: banks.filter(v => v >= RANKS[RANKS.length - 1].xp).length };
+        })(),
+        // ---- v0.56 Part 5, instrumented BEFORE the first run ----
+        // The storage restructure replaces one multiplicative chain with two additive
+        // accumulators applied at different SCOPE per resource, so the snapshot records the
+        // DELIVERED multiplier per resource rather than the upgrade count. It is computed by
+        // differencing the finished cap against the same cap with the storage upgrades
+        // stripped, which reads the game's own computeCaps() instead of mirroring its formula.
+        storage: (() => {
+          const owned = S.upgrades;
+          const STORE = ["expandedStores", "ironboundStores", "hexRunedStores", "chemtechSilos", "voidwardStores"];
+          const withAll = computeCaps();
+          const stripped = {}; for (const k in owned) if (STORE.indexOf(k) < 0) stripped[k] = owned[k];
+          S.upgrades = stripped; const without = computeCaps(); S.upgrades = owned;
+          const o = { owned: STORE.filter(u => owned[u]).length, delivered: {}, heldOverCap: {} };
+          for (const rr in withAll) {
+            if (without[rr] > 0) o.delivered[rr] = +(withAll[rr] / without[rr]).toFixed(4);
+            if (withAll[rr] > 0) o.heldOverCap[rr] = +((S.res[rr] || 0) / withAll[rr]).toFixed(3);
+          }
+          return o;
+        })(),
+        // ---- v0.57 PART 5: the Scholarship census, the same one v0.56 did for storage ----
+        // v0.56 found the instrument holds only 3 of the 5 STORAGE rungs through most of a run,
+        // so the fully-stacked table it shipped was never exercised. The Scholarship line is the
+        // identical multiplicative-chain shape STANDING-RULINGS §19 ruled out of existence for
+        // the material line -- surviving on culture, devotion and, from v0.57 Part 1, renown --
+        // and nobody has ever censused how many of ITS rungs a run reaches. The v0.58 sizing
+        // depends on that number, so it is measured here rather than assumed.
+        scholarship: (() => {
+          const owned = S.upgrades;
+          const LINE = SCHOLAR_LINE.map(u => u[0]);
+          const withAll = computeCaps();
+          const stripped = {}; for (const k in owned) if (LINE.indexOf(k) < 0) stripped[k] = owned[k];
+          S.upgrades = stripped; const without = computeCaps(); S.upgrades = owned;
+          const o = { owned: LINE.filter(u => owned[u]).length, of: LINE.length,
+                      held: LINE.filter(u => owned[u]), delivered: {},
+                      // v0.58 Part 3: SCHOLAR_LINE entries are INCREMENTS now, the same shape as
+                      // BARN_LINE and WAREHOUSE_LINE. Reading them as factors here produced
+                      // "product ×0.0225" and "all-five additive ×-2.4" -- the census reporting
+                      // nonsense while the game itself was correct, which is exactly the failure
+                      // mode a census exists to prevent. The two shapes are BOTH reported: what
+                      // the line delivers now, and what the retired multiplicative chain would
+                      // have delivered from the same members, so the cut stays auditable.
+                      sigmaHeld: +SCHOLAR_LINE.reduce((a, u) => a + (owned[u[0]] ? u[1] : 0), 0).toFixed(4),
+                      sigmaFull: +SCHOLAR_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
+                      product: +(1 + SCHOLAR_LINE.reduce((a, u) => a + (owned[u[0]] ? u[1] : 0), 0)).toFixed(4),
+                      fullProduct: +(1 + SCHOLAR_LINE.reduce((a, u) => a + u[1], 0)).toFixed(4),
+                      retiredChainWouldGive: +SCHOLAR_LINE.reduce((a, u) => a * (1 + u[1]), 1).toFixed(4),
+                      additiveWouldGive: +(1 + SCHOLAR_LINE.reduce((a, u) => a + u[1], 0)).toFixed(4) };
+          Object.keys(SCHOLAR_CAPS).forEach(rr => {
+            if (without[rr] > 0) o.delivered[rr] = +(withAll[rr] / without[rr]).toFixed(4);
+          });
+          // v0.58 Part 3 / Part 7.1. The restructure is a 35% ceiling cut on three resources and
+          // the round is judged on whether the ceiling was ever the constraint. That question is
+          // answerable only against ABSOLUTE numbers: Renown's substantive condition is "the
+          // ceiling clears the largest SINGLE purchase", and the largest single purchase is the
+          // tenth champion, whose price is BUILT by recruitCost() rather than declared. A cut
+          // that leaves the ceiling above 9,611 renown is a cut that cannot block the ladder;
+          // one that drops below it is a hard failure regardless of any cap-out fraction.
+          // NB: `held` above is the list of rung IDs owned. The per-resource stock is `heldRes`,
+          // deliberately a different key -- an earlier draft reused `held` and silently replaced
+          // the rung list with a resource map, which is the same class of collision §22 exists for.
+          // v0.58.1 — read the THREE resources this census is about, not SCHOLAR_CAPS' current
+          // membership. §29 moved culture and devotion out of the family and the readout
+          // immediately started printing `cap undefined` for both — the census stopped
+          // reporting the very resources the round had just changed, which is the same class of
+          // instrument-vs-code drift v0.58 §1.5 hit from the other direction. The family is
+          // reported separately below so a future membership change is still visible.
+          o.caps = {}; o.heldRes = {};
+          ["culture", "devotion", "renown"].forEach(rr => {
+            o.caps[rr] = Math.round(withAll[rr] || 0);
+            o.heldRes[rr] = Math.round(S.res[rr] || 0);
+          });
+          o.family = Object.keys(SCHOLAR_CAPS);
+          o.largestRenownPurchase = (() => {
+            let mx = 0;
+            (CHAMPS || []).forEach(c => {
+              const rc = (recruitCost(c.id) || {}).renown || 0;
+              if (rc > mx) mx = rc;
+              if (typeof trainCost === "function") {
+                const tc = (trainCost(c.id) || {}).renown || 0;
+                if (tc > mx) mx = tc;
+              }
+            });
+            return Math.round(mx);
+          })();
+          o.championsRecruited = (CHAMPS || []).filter(c => S.champs[c.id] && S.champs[c.id].r).length;
+          return o;
+        })(),
+        // ---- v0.57 PART 6: held/cap AND a producer/consumer ratio for EVERY capped resource --
+        // v0.56 sized two Era-3 ceilings from cap-out fractions and moved them by 3 points and 0
+        // points. The reason is that a cap-out fraction cannot tell three different situations
+        // apart, and all three are present in this game:
+        //
+        //   CONTINUOUS CONSUMER  something draws the resource every tick (a `convert` input, or
+        //                        eating). Then gross/consumed is meaningful and a ceiling only
+        //                        binds if the ratio is well above 1.
+        //   LUMPY SINK ONLY      nothing draws it per tick, but buildings, techs, Discoveries,
+        //                        crafts or expeditions buy it in lumps. Then the stock fills the
+        //                        ceiling BETWEEN purchases and a high cap-out fraction means
+        //                        "the player sat full waiting to spend", not "the cap is tight".
+        //                        THIS IS SHIMMER, and it is why raising its ceiling x2.5 moved
+        //                        its cap-out by 3 points.
+        //   NO SINK AT ALL       neither. That is a design question, not a tuning one.
+        //
+        // `gross` is measured by switching off ONLY the converters that CONSUME this resource --
+        // v0.56's first attempt switched off every converter and read gross 0/s for zaunore,
+        // because the Sump Mine that produces it is a converter too.
+        resourceBalance: (() => {
+          const caps = computeCaps(), rates = computeRates();
+          const capped = Object.keys(RES).filter(r2 => RES[r2].baseCap !== undefined);
+          const offSave = JSON.parse(JSON.stringify(S.buildingsOff || {}));
+          const lumpy = r2 => {
+            let n = 0;
+            const scan = list => (list || []).forEach(x => { if (x && x.cost && x.cost[r2]) n++; });
+            scan(BUILDINGS); scan(TECHS); scan(UPGRADES); scan(CRAFTS); scan(EXPEDITIONS);
+            (CHAMPS || []).forEach(c => { if (c.cost && c.cost[r2]) n++; });
+            if (typeof POLICIES !== "undefined") scan(POLICIES);
+            // DYNAMICALLY PRICED SINKS, and this one bit immediately. Champion recruit and train
+            // prices are BUILT by recruitCost()/trainCost() from RECRUIT_BASE x RECRUIT_RATIO^n,
+            // not declared in a `cost` field -- and v0.57 Part 1.4 deleted the ten static
+            // `renown:` figures that used to sit in CHAMPS looking like prices. A purely static
+            // scan therefore reported RENOWN as having NO SINK AT ALL, moments after the round
+            // moved its entire storage family. Read the real prices instead of the table.
+            (CHAMPS || []).forEach(c => {
+              if ((recruitCost(c.id) || {})[r2]) n++;
+              if (typeof trainCost === "function" && (trainCost(c.id) || {})[r2]) n++;
+            });
+            return n;
+          };
+          const o = {};
+          capped.forEach(r2 => {
+            const eaters = BUILDINGS.filter(b => b.convert && b.convert.input && b.convert.input[r2]);
+            let gross;
+            if (eaters.length) {
+              S.buildingsOff = JSON.parse(JSON.stringify(offSave));
+              eaters.forEach(b => S.buildingsOff[b.id] = true);
+              gross = computeRates()[r2];
+              S.buildingsOff = offSave;
+            } else gross = rates[r2];
+            const g = +(gross || 0).toFixed(4), n = +(rates[r2] || 0).toFixed(4);
+            const consumed = +(g - n).toFixed(4);
+            const sinks = lumpy(r2);
+            o[r2] = {
+              held: caps[r2] > 0 ? +((S.res[r2] || 0) / caps[r2]).toFixed(3) : null,
+              gross: g, net: n, consumed,
+              continuousConsumers: eaters.length, lumpySinks: sinks,
+              pcRatio: consumed > 1e-6 ? +(g / consumed).toFixed(2) : null,
+              kind: consumed > 1e-6 ? "continuous" : (sinks > 0 ? "lumpy-only" : "no-sink")
+            };
+          });
+          S.buildingsOff = offSave;
+          return o;
+        })(),
+        steelPerSec: +computeRates().steel.toFixed(4),
+        bloomery: count("bloomery"), forge: count("forge"),
+        bardsHearths: count("bardsHearth"), morale: morale(),
+        // v0.58 Part 2: the faith curve, counted. The analyzer's stated informative failure is
+        // "if the Chapel moves Convergence less than 2x, the bot is not building it and Part 2
+        // measured an apparatus rather than an economy" -- so the count is recorded, not inferred.
+        targon: { shrine: count("shrine"), chapel: count("chapel"), sanctum: count("sanctum"),
+                  marus: count("marus"), acolytes: S.jobs.acolyte || 0,
+                  devotionPerSec: +computeRates().devotion.toFixed(4),
+                  worship: Math.round(S.worship || 0), ascends: S.ascends || 0,
+                  // why the Chapel is or is not being built, rather than a bare zero.
+                  // GUARDED: the Chapel arrives with v0.58 Part 2 and the isolation slices are
+                  // cumulative PREFIXES of the shipped file, so this same simcore has to run
+                  // against builds where BUILDINGS.find() returns undefined. An unguarded call
+                  // here crashed the s2 comparison run outright.
+                  ...(() => {
+                    const cb = BUILDINGS.find(b2 => b2.id === "chapel");
+                    if (!cb) return { chapelVisible: null, chapelCost: null, chapelAfford: null };
+                    return { chapelVisible: buildingVisible(cb), chapelCost: buildingCost(cb),
+                             chapelAfford: canAfford(buildingCost(cb)) };
+                  })(),
+                  parchmentHeld: Math.round(S.res.parchment || 0),
+                  parchmentSeen: Math.round((S.seenMax || {}).parchment || 0),
+                  oreHeld: Math.round(S.res.ore || 0), cultureHeld: Math.round(S.res.culture || 0) },
+        // v0.52 Part 2.3: the delivered relief, so the merge is sized in the report and
+        // not inferred from the Hearth count.
+        crowdReliefPct: +(100 * limitedDR(bfield("bardsHearth", "crowdRelief") * count("bardsHearth"),
+                                          MORALE_RELIEF_LIMIT)).toFixed(1),
+        shimmerPerSec: +computeRates().shimmer.toFixed(4),
+        // Part 3.1: the Tinkerer/Augment chain, measured not touched
+        tinkerers: S.jobs.tinkerer || 0,
+        crystalsPerSec: +computeRates().crystals.toFixed(4),
+        crystalsHeld: Math.round(S.res.crystals), crystalsCap: Math.round(computeCaps().crystals),
+        // ---- v0.53, instrumented before the first run ----
+        // SEC_PER_GAME_YEAR: TICK_MS 200 x TICKS_PER_DAY 10 x DAYS_PER_SEASON 100 x 4 = 800 s.
+        // Part 2.2 asks for crystal income and crystal spend in the SAME unit, which is
+        // per game-year, and Part 2.4's "held < 3 game-years of production" needs both.
+        crystalIncomePerGameYear: +(computeRates().crystals * 800).toFixed(1),
+        crystalsHeldInGameYears: computeRates().crystals > 0
+          ? +(S.res.crystals / (computeRates().crystals * 800)).toFixed(2) : null,
+        // Part 4.2/4.3: the Void Essence income the tier-5 craft must be sized against.
+        voidessencePerSec: +computeRates().voidessence.toFixed(4),
+        voidessenceIncomePerGameYear: +(computeRates().voidessence * 800).toFixed(1),
+        voidessenceHeld: +(S.res.voidessence || 0).toFixed(1),
+        voidessenceCap: Math.round(computeCaps().voidessence || 0),
+        // Part 1: the five buildings that measured exactly zero, and the Freljord ladder
+        // whose whole category has never been built in a measured run.
+        zeroFive: Object.fromEntries(ZERO_FIVE.map(id => [id, count(id)])),
+        poroLadder: Object.fromEntries(PORO_LADDER.map(id => [id, count(id)])),
+        poros: +(S.res.poros || 0).toFixed(1),
+        poroTears: +(S.res.poroTears || 0).toFixed(1),
+        poroRatioDelivered: +poroRatio().toFixed(4),
+        // Part 1.3: the hexgear starvation is a PEAK-STOCK claim. Nothing recorded peaks.
+        seenMaxIntermediates: { hexgear: seenMaxOf("hexgear"), hexcore: seenMaxOf("hexcore"),
+                                alloy: seenMaxOf("alloy"), plating: seenMaxOf("plating"),
+                                scaffold: seenMaxOf("scaffold"), hexSlab: seenMaxOf("hexSlab"),
+                                voidessence: seenMaxOf("voidessence"), poroTears: seenMaxOf("poroTears"),
+                                trueice: seenMaxOf("trueice"), frostMegalith: seenMaxOf("frostMegalith") },
+        spendToDate: spendSnap(),
+        stocks: Object.fromEntries(Object.keys(RES).map(r => [r, +(S.res[r] || 0).toFixed(2)])),
+        // v0.53. EVERY building count, not a hand-picked five. Three rounds running, a
+        // report has wanted a count that the snapshot did not carry (v0.50 the Refinery,
+        // v0.52 the Foundry, this round the Vault and the Spire for Part 2.4's own
+        // prediction) and the only remedy has been another 20-minute run. 47 integers.
+        buildingCounts: Object.fromEntries(BUILDINGS.map(b => [b.id, count(b.id)])),
+        // v0.49 Part 6: catMonument decomposed by building. This is the category Part 1.7
+        // just cut from five members to Kittens' two, and nobody has ever measured it.
+        catMonument: (() => {
+          const parts = {}; let sum = 0;
+          BUILDINGS.forEach(b => {
+            if (!b.globalBoost) return;
+            const n = count(b.id); if (!n) return;
+            const per = globalBoostPerCopy(b), v = per * n;
+            parts[b.id] = { n, perCopy: +per.toFixed(4), contrib: +v.toFixed(4) };
+            sum += v;
+          });
+          return { total: +(1 + sum).toFixed(4), parts };
+        })(),
+        linesOwned: { axes: axesOwned, saws: sawsOwned, axeMult: +axeMult().toFixed(3), sawSum: +sawSum().toFixed(3) },
+        jobs: { miner: S.jobs.miner || 0, woodcutter: S.jobs.woodcutter || 0,
+                loremaster: S.jobs.loremaster || 0, acolyte: S.jobs.acolyte || 0 },
+        // v0.47 Part 6: acolyte share of population, gold ceiling and whether it binds a trade
+        acolytePctOfPop: +(100 * (S.jobs.acolyte || 0) / (S.pop || 1)).toFixed(1),
+        gold: { held: Math.round(S.res.gold), cap: Math.round(computeCaps().gold),
+                cheapestTradeGold: Math.min.apply(null, FACTIONS.map(f => tradeCost(f).gold || 0)),
+                ceilingBindsATrade: computeCaps().gold < Math.max.apply(null, FACTIONS.map(f => tradeCost(f).gold || 0)) },
+        // v0.50 Part 5. "First trade before Sparks" measured the BOT's expedition policy,
+        // not the game: the greedy policy spends vigor the instant it can afford an
+        // expedition and never banks, so its vigor is a flow where a player's is a stock.
+        // The replacement is a STATE question — can the cheapest route be paid for at all
+        // at this point — plus the income needed to judge how many a player could run.
+        cheapestTrade: (() => {
+          const SEC_PER_GAME_YEAR = 4 * 100 * 10 * (200 / 1000);   // 4 seasons x 100 days x 10 ticks x 0.2s = 800
+          const costs = FACTIONS.map(f => ({ id: f.id, c: tradeCost(f) }));
+          const cheapest = costs.slice().sort((a, b) => (a.c.vigor || 0) - (b.c.vigor || 0))[0];
+          const caps = computeCaps(), c = cheapest.c;
+          const binding = Object.keys(c).filter(r => caps[r] !== undefined && caps[r] < c[r]);
+          const vps = computeRates().vigor;
+          // v0.58 Part 3 diagnostic. "AFFORDABLE" and "the bot will actually trade" are two
+          // different questions and the round found out the hard way: a 700-year run reported
+          // the cheapest route affordable at every milestone and completed ZERO trades, because
+          // affordability asks `cap >= cost` while the bot's own policy asks tradeSurplusOk() --
+          // stock at or above 60% of the ceiling for every capped component. Which component
+          // fails is now recorded rather than reasoned about.
+          const surplusPer = {};
+          Object.keys(c).forEach(rr => {
+            if (rr === "vigor") { surplusPer[rr] = "n/a"; return; }
+            const cp = caps[rr], held = Math.round(S.res[rr] || 0), need = Math.round(c[rr] * SURPLUS_X);
+            const tight = cp !== undefined && cp < c[rr] * SURPLUS_X * 2;
+            if (!(S.res[rr] >= c[rr] * SURPLUS_X)) surplusPer[rr] = `hold ${held}, needs ${need} (${SURPLUS_X}x the route price)`;
+            else if (tight && !(S.res[rr] >= cp * 0.6)) surplusPer[rr] = `hold ${held} of a TIGHT cap ${Math.round(cp)} = ${(100 * held / cp).toFixed(0)}%, needs 60%`;
+            else surplusPer[rr] = "ok";
+          });
+          return { route: cheapest.id, cost: c, affordable: binding.length === 0, binding,
+                   surplusOk: tradeSurplusOk(c), surplusPer,
+                   vigorPerSec: +vps.toFixed(3),
+                   vigorPerGameYear: +(vps * SEC_PER_GAME_YEAR).toFixed(1),
+                   tradesPerGameYear: c.vigor ? +((vps * SEC_PER_GAME_YEAR) / c.vigor).toFixed(2) : null };
+        })(),
+        shrines: count("shrine"),
+        // v0.45 Part 8 — the aggregate champion multiplier across every line it reaches
+        championAggregate: +(["camp", "devotion", "caravan", "village", "gold", "knowledge",
+                             "culture", "craft", "respawn", "vigor"]
+                            .reduce((a, k) => a * (1 + champPassive(k) / 100), 1)).toFixed(3),
+        caps: { knowledge: Math.round(computeCaps().knowledge) },
+        ore: { line: Object.fromEntries(Object.entries(oreLine).map(([k, v]) => [k, +v.toFixed(4)])),
+               lineProduct: +prod(oreLine).toFixed(3), total: +(prod(oreLine) * gp).toFixed(2),
+               perWorker: +(prod(oreLine) / cats.morale / cats.workerPolicy).toFixed(3),
+               ratePerSec: +computeRates().ore.toFixed(2) },
+        timber: { line: Object.fromEntries(Object.entries(timLine).map(([k, v]) => [k, +v.toFixed(4)])),
+                  lineProduct: +prod(timLine).toFixed(3), total: +(prod(timLine) * gp).toFixed(2),
+                  perWorker: +(prod(timLine) / cats.morale / cats.workerPolicy).toFixed(3),
+                  ratePerSec: +computeRates().timber.toFixed(2) }
+      };
+    }
+    const mark = k => {
+      if (milestones[k] !== undefined) return;
+      milestones[k] = +yearNow().toFixed(1);
+      tradeMarks[k] = tradeCount;
+      spendMarks[k] = spendSnap();
+      // v0.53 Part 2.2 requires crystal income and spend measured "at Deep Works and at
+      // Icathia", and Deep Works has never been a snapshot point. Adding it costs one
+      // snapshot() call in a 2,500-year run.
+      if (k === "sparks" || k === "icathia" || k === "hexcore" || k === "deepWorks") snaps[k] = snapshot();
+    };
+
+    const samples = [];      // objectives + luxury samples, twice per year
+    const campRuns = {};     // how often each camp was actually hunted
+    let vigorOnLuxury = 0, vigorSpent = 0, vigorEarned = 0, crystalsAtCapTicks = 0;
+    const capTicks = {};   // v0.56 Part 5 — time at cap, per capped resource
+    // v0.58 Part 5: how many times the banking reserve actually held an expedition back. A
+    // policy that never fires is dead code wearing a comment, and this is how that is caught.
+    let tradeReserveBlocks = 0;
+    let tradeAffordableTicks = 0;
+    const tradeRefusedBy = {}, tradeFracMax = {}, tradeFaction = {};
+    const popSeries = [];
+
+    // ---------- player heuristics ----------
+    const net = r => computeRates()[r];
+    const caps = () => computeCaps();
+    const has = (r, n) => S.res[r] >= n;
+
+    function buildingByIdVisible(id) {
+      const b = BUILDINGS.find(x => x.id === id);
+      return b && buildingVisible(b) ? b : null;
+    }
+    function tryBuild(id) {
+      const b = buildingByIdVisible(id);
+      if (!b) return false;
+      if (!canAfford(buildingCost(b))) return false;
+      buyBuilding(id);
+      return true;
+    }
+
+    function assignTo(job, n) {
+      for (let i = 0; i < n; i++) assignJob(job, 1);
+    }
+    function idleCount() {
+      let a = 0; JOBS.forEach(j => a += S.jobs[j.id] || 0);
+      return S.pop - a;
+    }
+
+    // ========================================================================================
+    // v0.57 PART 4 — THE BOT'S FOOD POLICY.
+    //
+    // THE DEFECT, measured across five v0.56 slices and three rounds: manageJobs() staffed ONE
+    // FARMER at every milestone, in every era, at every population from 36 to 220. Net
+    // provisions at Sparks by v0.56 slice ran -6.5 / -59.9 / -68.0 / +25.7 / -27.9 per second
+    // with held/cap at 56% / 99% / 81% / 99% / 91%. The settlement sat between its food ceiling
+    // and its starvation floor, and which it touched first decided a millennium of the run --
+    // which is the mechanism behind v0.56's 2.6x Era-3 spread. §16: fix the bot, do not price
+    // around it.
+    //
+    // WHY THE OLD RULE DID NOTHING. It read
+    //     if (provNet < 0.5 && idleCount() > 0) { assignTo("farmer", 1); return; }
+    // and both halves were wrong for the settlement this game now produces:
+    //   (a) `idleCount() > 0` -- once every wanderer holds a job the clause cannot fire at all,
+    //       so a fully-employed settlement starves without ever reassigning anyone. That is
+    //       exactly the state the bot reaches by Sparks and never leaves.
+    //   (b) `net("provisions")` is the CURRENT net. In Firstbloom it reads healthy; the crisis
+    //       arrives one season later, and a policy that only reacts to today's number is always
+    //       three-quarters of a year late on a mechanic whose whole point is the calendar.
+    //
+    // THE RULE, stated because every future food number depends on it:
+    //
+    //   1. PROJECT, do not react. Net provisions is evaluated at the WORST seasonal multiplier
+    //      of the coming year -- Deepwinter -- by reading computeRates() with S.tick moved to a
+    //      winter tick and put straight back. computeRates() is a pure read.
+    //   2. STAFF UNDER PROJECTED DEFICIT, taking an idle wanderer if there is one and otherwise
+    //      PULLING one off the largest non-farm job. This is the half that was missing.
+    //   3. UNSTAFF ONLY WHEN BOTH hold: the provisions stock is at (>=98% of) its ceiling AND
+    //      projected winter net is comfortably positive. Unstaffing on a positive CURRENT net
+    //      alone is what let the settlement walk into every winter under-farmed.
+    //   4. NEVER below one farmer, and never past a hard share of the population, so the policy
+    //      cannot collapse the settlement into a monoculture that produces nothing else.
+    //
+    // NO PRICE IS CHANGED TO COMPENSATE. If this makes food easy, that is next round's ruling,
+    // taken with a working instrument behind it.
+    // ========================================================================================
+    const FARM_MAX_SHARE = 0.45;      // a settlement is not a farm; leave 55% for everything else
+    const WINTER_HEADROOM = 2.0;      // provisions/s of projected winter surplus before unstaffing
+    function projectedWinterNet() {
+      // move to the first tick of the next Deepwinter, read, and put S.tick straight back.
+      const perSeason = TICKS_PER_DAY * DAYS_PER_SEASON;
+      const idx = Math.floor(S.tick / perSeason);
+      const winterTick = (Math.floor(idx / 4) + 1) * 4 * perSeason - perSeason;   // winter is season 3
+      const save = S.tick;
+      S.tick = winterTick;
+      let v;
+      try { v = computeRates().provisions; } finally { S.tick = save; }
+      return v;
+    }
+    function largestNonFarmJob() {
+      let best = null, n = 0;
+      JOBS.forEach(j => { if (j.id !== "farmer" && (S.jobs[j.id] || 0) > n) { n = S.jobs[j.id]; best = j.id; } });
+      return n > 0 ? best : null;
+    }
+    function manageJobs() {
+      // shed everyone occasionally and re-lay the mix, cheap enough at this cadence
+      const targets = {};
+      const pop = S.pop;
+      if (!pop) return;
+      const provNet = net("provisions");
+      const winterNet = projectedWinterNet();
+      const farmers = S.jobs.farmer || 0;
+      const capsNow = caps();
+      const stockFull = capsNow.provisions > 0 && S.res.provisions >= capsNow.provisions * 0.98;
+      const farmCeiling = Math.max(1, Math.floor(pop * FARM_MAX_SHARE));
+
+      // (2) staff under PROJECTED deficit -- idle first, then pull off the largest other job.
+      if (winterNet < 0 && farmers < farmCeiling) {
+        if (idleCount() > 0) { assignTo("farmer", 1); return; }
+        const donor = largestNonFarmJob();
+        if (donor) { assignJob(donor, -1); assignJob("farmer", 1); return; }
+      }
+      // (3) unstaff ONLY when the stock is at ceiling AND winter is comfortably covered.
+      if (stockFull && winterNet > WINTER_HEADROOM && farmers > 1) { assignJob("farmer", -1); return; }
+      // the old current-net release, kept but now gated on winter too, so a good summer alone
+      // can no longer strip the settlement before Deepwinter.
+      if (provNet > 6 && winterNet > WINTER_HEADROOM && farmers > 1) { assignJob("farmer", -1); return; }
+      if (idleCount() <= 0) return;
+
+      const want = [];
+      // v0.42: RR's costs are now dominated by timber and ore, not knowledge. A player
+      // at a housing wall does not staff eight loremasters and three miners.
+      const c3 = caps();
+      const kPinned = S.res.knowledge >= c3.knowledge - 1e-6;
+      const atWall = S.pop >= maxPop() - 1;
+      if (atWall || kPinned) {
+        want.push(["woodcutter", 0.26]);
+        if (S.techs.mining) want.push(["miner", 0.26]);
+        want.push(["loremaster", 0.14]);
+      } else {
+        want.push(["loremaster", 0.30]);
+        want.push(["woodcutter", 0.18]);
+        if (S.techs.mining) want.push(["miner", 0.18]);
+      }
+      if (count("manaWell") >= 3) want.push(["arcanist", 0.10]);
+      if (S.techs.logistics) want.push(["jungler", 0.12]);
+      if (S.techs.ritesOfTargon) want.push(["acolyte", 0.18]);
+      if (count("refinery") >= 1) want.push(["tinkerer", 0.05]);
+
+      for (const [job, share] of want) {
+        const j = JOBS.find(x => x.id === job);
+        if (j.max && (S.jobs[job] || 0) >= j.max()) continue;
+        if ((S.jobs[job] || 0) < Math.floor(pop * share)) { assignJob(job, 1); return; }
+      }
+      // anything left over goes to farming
+      if (idleCount() > 0) assignJob("farmer", 1);
+    }
+
+    // v0.55 Part 9, correction: HANDOFF v0.54 §4 says these two are "at module scope and
+    // exported". They are NOT exported — they are `const`s inside runSim()'s page.evaluate,
+    // and they are returned in the run RESULT, which is what test-v53's enumeration actually
+    // reads. test-v53's own "module scope" check greps the source TEXT with indexOf, which
+    // matches at any scope. The reachability guard is real and works; the description of how
+    // it works was wrong, and it is corrected here and in HANDOFF v0.55 §4.
+    //
+    // v0.53 Part 1.1. The build order was a `const` INSIDE manageBuildings, which is
+    // exactly why nothing could assert against it: a list nothing outside the function
+    // can read cannot be enumerated, and the omission of the Shimmer Refinery survived
+    // three rounds and four more omissions survived this one. It is hoisted here and
+    // returned in the run result so `test-v53` can subtract it from BUILDINGS and fail
+    // on a non-empty remainder. A comment saying "tavern and bloomery removed" did not
+    // stop this happening again; an assertion will.
+    //
+    // DEDICATED_ROUTINES: the ids manageBuildings() handles by name above the loop.
+    // They are legitimately absent from `order` and the assertion has to know that.
+    const DEDICATED_ROUTINES = ["longhouse", "skyrise", "shelter", "harbor", "hallOfHeroes"];
+    const BUILD_ORDER = ["manaWell", "farmstead", "archive", "lumberMill", "mine", "academy",
+      // v0.55 Part 3.4: the Granary. Added in the SAME slice as the building — test-v53's
+      // reachability assertion fails if a building is not in one of these two lists.
+      "granary",
+      // v0.58 Part 2: the Chapel. Added in the SAME slice as the building — test-v53's
+      // reachability assertion fails if a building is not in one of these two lists, and an
+      // unbuilt Chapel would have made Part 2 measure an apparatus rather than an economy.
+      // Placed immediately after the Shrine it unlocks from, and before the Sanctum, which is
+      // where it sits on the faith curve.
+      "bardsHearth", "storehouse", "forge", "shrine", "chapel", "observatory", "workshop",
+      "tradeDock", "sanctum", "trainingGround", "warehouse",   // v0.55 Part 4: hunterLodge deleted
+      "refinery", "marus", "hexLab", "sumpMine", "coalgasVent", "hexQuarry",
+      // v0.52 Part 1.2: the Irrigation Channel; Part 3.2: the SHIMMER REFINERY, which
+      // was never in this list at all — the reason its measured count was 0 at every
+      // milestone in every prior round is that the bot never considered it, NOT that it
+      // was overpriced. Apparatus defect, reported in BUILD REPORT v0.52 §3.2.
+      "irrigation", "shimmerRefinery",
+      // v0.53 Part 1.1 — THE SWEEP. v0.52 fixed the Shimmer Refinery omission with one
+      // string and did not check for others. Two more ids were missing from this list
+      // and are added here, both of them load-bearing for the round's own thesis:
+      //   * `poroPasture` — without it the poro herd never grows, so PORO_SACRIFICE_COST
+      //     is never affordable, so no Poro Tears exist, so the ENTIRE Freljord
+      //     poroRatio ladder (Cairn -> Hold -> Spire -> Watcher) is unbuildable. That is
+      //     the category BUILD REPORT v0.52 §13.1 asked the analyzer to rule on: it had
+      //     never been built in any measured run of this project. Village block, beside
+      //     the other cheap Village producers.
+      //   * `hexcreteBastion` — the deep-storage tier for zaunore, coalgas, hexore,
+      //     shimmer and voidessence, i.e. exactly the resources Era 3 must bank. EVERY
+      //     Era 3 number in this project's history was measured with it absent. Placed
+      //     with the other Storage tiers, after `vault`.
+      "poroPasture",
+      "hextechFoundry", "hexdraulicPlant", "arcaneReactor", "chembarrel",
+      // v0.53 Part 4.3: the Rift Anchor, the tier-5 craft's repeatable consumer. Added in
+      // the SAME slice as the craft — a consumer the instrument cannot buy would reproduce
+      // the exact defect Part 1 exists to sweep.
+      // v0.58.1 NOTE 48: the Hexdraulic Manufactory, added in the SAME slice as the building —
+      // HANDOFF v0.58 operational rule 1, which exists because the Shimmer Refinery was read as
+      // a pricing defect for four rounds when the bot had simply never considered it.
+      "manufactory",
+      // v0.58 Part 7.2: the Chem-Forgeworks, added in the SAME slice as the building. An
+      // unbuilt consumer would have reproduced the Shimmer Refinery defect of v0.52 exactly --
+      // a shipped sink the instrument never considers, measuring 0 forever and being read as
+      // "the price is wrong" rather than "the bot never looked". Placed beside the Zaun
+      // converters it takes its shimmer from.
+      "chemForgeworks",
+      "piltoverSpire", "vault", "hexcreteBastion", "riftAnchor", "watchersEye",
+      "frostguardCairn", "avarosanHold", "iceWroughtSpire", "frozenWatcher",
+      "quarry", "augmentChamber", "hexgateBuilding", "wardOfWatchers"];
+      // v0.52 Part 2.3/2.4: "tavern" and "bloomery" removed — both buildings deleted.
+
+    function manageBuildings() {
+      // Morale multiplies ALL worker output, so a player buys the thing that fixes it
+      // before anything else. v0.41 raised the Tavern to 400/800/200, which pushed it
+      // to the back of a first-affordable-wins list and it was never bought at all.
+      // v0.52 Part 2.3: the Tavern is deleted; the Bard's Hearth carries crowdRelief now.
+      if (morale() < 115 && tryBuild("bardsHearth")) return;
+      // housing whenever we are at the ceiling — and SAVE for it rather than
+      // frittering the stock on whatever happens to be cheapest this tick
+      if (S.pop >= maxPop() - 1) {
+        if (tryBuild("longhouse")) return;
+        if (tryBuild("skyrise")) return;
+        if (tryBuild("shelter")) return;
+      }
+      // v0.44 Part 1: the amplifier pair and the Reactor tier are the whole point of
+      // the round, and a first-affordable-wins bot never reaches a 200-Hexgear Foundry
+      // because the Chembarrel at 160 alloy keeps eating the alloy the Hexgear needs.
+      // A player building toward a global multiplier saves for it. Measured without
+      // this: 0 Foundries and 0 Plants across a full run to Icathia.
+      if (S.techs.hexcore) {
+        if (tryBuild("hextechFoundry")) return;
+        if (S.techs.hexdraulics && count("hextechFoundry") >= 3 && tryBuild("hexdraulicPlant")) return;
+        if (S.techs.greyReclamation && tryBuild("arcaneReactor")) return;
+      }
+      // storage when something we need is pinned at its cap
+      const c = caps();
+      const pinned = r => S.res[r] >= c[r] - 1e-6;
+      // v0.41 §2.1 moved the Knowledge ceiling off Tomes and onto buildings, so the
+      // ceiling now costs 750 ore a copy. A greedy first-affordable-wins bot spends
+      // every ore the moment it arrives and can therefore never save for one — measured:
+      // ore sawtoothed between 100 and 250 against an 18,000 cap while the cap sat
+      // frozen at 16,640 for 800 game-years. A player SAVES for the thing that unblocks
+      // them. When knowledge is pinned, buy nothing but the ceiling.
+      if (pinned("knowledge")) {
+        if (tryBuild("hexLab")) return;
+        if (tryBuild("observatory")) return;
+        if (tryBuild("academy")) return;
+        if (tryBuild("archive")) return;
+        const ceiling = ["hexLab", "observatory", "academy", "archive"]
+          .map(buildingByIdVisible).filter(Boolean);
+        if (ceiling.length) return;   // save; do not fritter the stock on anything else
+      }
+      if (pinned("timber") || pinned("ore") || pinned("provisions") || pinned("gold") || pinned("mana")) {
+        if (tryBuild("harbor")) return;
+        if (tryBuild("warehouse")) return;
+        if (tryBuild("storehouse")) return;
+      }
+      if (S.techs.ritesOfTargon && pinned("devotion")) {
+        if (tryBuild("marus")) return;
+        if (tryBuild("sanctum")) return;
+      }
+      if (pinned("culture") && tryBuild("bardsHearth")) return;
+      if (S.techs.callToArms && pinned("renown") && tryBuild("hallOfHeroes")) return;
+
+      // steady economic build-out, cheapest useful thing first
+      const order = BUILD_ORDER;
+      for (const id of order) {
+        const b = buildingByIdVisible(id);
+        if (!b) continue;
+        if (count(id) >= 60) continue;
+        if (tryBuild(id)) return;
+      }
+    }
+
+    function manageResearch() {
+      // cheapest affordable first
+      const avail = TECHS.filter(t => !S.techs[t.id] && techVisible(t) && canAfford(discCost(t.cost)))
+        .sort((a, b) => (a.cost.knowledge || 0) - (b.cost.knowledge || 0));
+      if (avail.length) { buyTech(avail[0].id); return true; }
+      return false;
+    }
+    function manageDiscoveries() {
+      for (const u of UPGRADES) {
+        if (S.upgrades[u.id]) continue;
+        if (u.tech && !S.techs[u.tech]) continue;
+        if (u.unlock && !u.unlock(S)) continue;
+        if (canAfford(discCost(u.cost))) { buyUpgrade(u.id); return true; }
+      }
+      return false;
+    }
+    function managePolicies() {
+      for (const g of POLICY_GROUPS) {
+        if (!policyGroupOpen(g) || policyChoice(g.id)) continue;
+        for (const o of g.options) if (canAfford(faithCost(o.cost))) { buyPolicy(o.id); return true; }
+      }
+      return false;
+    }
+    // ========================================================================================
+    // v0.58 PART 5 — THE TRADE-BANKING POLICY.
+    //
+    // THE DEFECT: `firstTrade` spreads x4.46 across three seeds -- 317.2 / 350.8 / 1,414.8 --
+    // while every other figure collapsed to x1.07-1.37 after v0.57's food policy. It is the
+    // SAME CLASS of defect that food policy fixed: a greedy bot with no banking rule.
+    //
+    // manageWilds() runs BEFORE manageTrade() and spends every point of vigor it can afford, so
+    // a route is only ever run once vigor INCOME has outgrown the expedition sink entirely --
+    // which is deep into Era 3, and which arrives at a wildly different year depending on when
+    // the seed happens to open its camps. pacing.mjs's own standing calibration note has said
+    // for four rounds that the bot "never holds vigor for a route in preference to an
+    // expedition"; this is that note being acted on.
+    //
+    // THE RULE, stated because every future trade number depends on it:
+    //
+    //   1. RESERVE, don't react. If Trade is researched and at least one route is open, compute
+    //      the CHEAPEST open route whose NON-VIGOR components the settlement can already pay,
+    //      and reserve that route's vigor. The settlement is saving for a purchase it can
+    //      otherwise afford -- it is not hoarding against a route it has no goods for.
+    //   2. THE RESERVE IS NOT ABSOLUTE, and this is the half that keeps it honest. An expedition
+    //      may still spend into the reserve when it is URGENT, which means exactly two things:
+    //        (a) it is an EMPOWERED hunt -- a banked charge pays CHARGE_BONUS x3 and letting it
+    //            expire is a strictly larger loss than a delayed route; or
+    //        (b) it is a luxury camp whose resource is BELOW the morale target, because morale
+    //            is a live pass condition and food/comfort outrank a trade.
+    //   3. NEVER reserve more than half of the vigor CEILING, so a settlement with a small
+    //      vigor cap cannot deadlock itself into running no expeditions at all.
+    //
+    // NO ROUTE PRICE IS CHANGED. §16: fix the bot, do not price around it.
+    // ========================================================================================
+    // THE RESERVE AND THE TRADE GATE MUST BE THE SAME TEST, and the first draft of this Part
+    // proved why: I reserved against "every non-vigor component is affordable" while
+    // manageTrade() ran its own stricter `surplus()` rule (a capped material must also be at
+    // 60% of its ceiling, so the bot trades a SURPLUS rather than its entire stock). The bot
+    // then banked vigor for a route it would go on to refuse -- expeditions blocked, trade
+    // still not firing, and the first trade moved from y317 to NEVER inside 500 years. One
+    // helper, both callers.
+    // ========================================================================================
+    // v0.58 PART 5, AMENDED BY PART 2 — THE SURPLUS RULE IS DENOMINATED IN THE ROUTE PRICE,
+    // NOT IN THE CEILING. (§16: fix the bot, never price around it. No route price is touched.)
+    //
+    // The old rule was `stock >= cost AND stock >= 0.6 x ceiling`. That second clause was a
+    // PROXY for "trade a surplus, not your entire stock", and it stopped tracking its own intent
+    // the moment §19 multiplied the material ceilings by ~15. Measured this round, at hexcore:
+    //   timber  cost 600   ceiling 364,377   0.6 x ceiling = 218,626   best ever held = 1.0%
+    // so the Demacia route was UNSATISFIABLE BY CONSTRUCTION for the whole run. Every trade the
+    // project has ever measured came from ONE route -- Freljord, which charges ORE, and only
+    // because ore happened to idle at 99.9% of its ceiling. Per-faction counts, seed 1, 450y:
+    //   v0.57 build:  demacia  affordable 52, surplus-ok   0   |  freljord affordable 142, ok 142
+    //   + Part 2:     demacia  affordable 32, surplus-ok   0   |  freljord NEVER DISCOVERED
+    // Part 2's Chapel diverts labour into acolytes, vigor income falls ~23% (2,612 -> 2,017 per
+    // game-year at y100), the 500-vigor scouting party runs fewer times, Freljord is not found
+    // inside the horizon -- and TRADE GOES TO ZERO. First trade y317.2 -> NEVER.
+    //
+    // A rule that leaves the entire trade economy resting on one route's stock idling at 99.9%
+    // of a ceiling is a knife-edge, and Part 2 stepped on it. The intent is restored in the unit
+    // the intent was always about: hold THREE TIMES WHAT THE ROUTE CHARGES. The ceiling clause
+    // survives only where it still means something -- a ceiling so tight that 3x the price is a
+    // large share of it, which is the situation the clause was written for.
+    // ========================================================================================
+    // ========================================================================================
+    // v0.58 PART 5, SECOND AMENDMENT — A PLAYER TRADES FOR SOMETHING. THE BOT MUST TOO.
+    //
+    // The price-denominated rule above is correct and it is not enough. The 2,500-year ensemble
+    // measured what "not enough" looks like: the Demacia route was affordable on 122,828 bot
+    // ticks and the bot took 122,709 of them -- roughly FIFTY TRADES A GAME-YEAR, sustained for
+    // two and a half millennia -- while the banking reserve blocked 434,498 expeditions to fund
+    // them. Era 3's raws come from expeditions. Icathia was never reached on any seed.
+    //
+    // The missing half of the rule is the OUTPUT. Removing the ceiling clause removed the only
+    // thing that had ever accidentally throttled trade, and nothing replaced it, so the bot
+    // bought steel it could not store, forever, with vigor the Sump Crawl needed.
+    //
+    // A player does not run a caravan because they CAN. They run it because they want what it
+    // brings back. So: skip a route whose PRIMARY YIELD is already at or near its ceiling.
+    // `primaryYield` is declared on every faction, so this reads the game's own data rather
+    // than a list maintained here. Uncapped yields are always wanted (nothing is wasted).
+    //
+    // This is a BOT policy and no route price is touched (§16). It is also the rule the
+    // ceiling-fraction test was a bad proxy FOR: "don't spend on what you're already full of"
+    // is a statement about the goods, and the old rule made it a statement about the payment.
+    // ========================================================================================
+    const YIELD_FULL_AT = 0.9;
+    function tradeYieldWanted(f) {
+      const ys = f.primaryYield || [];
+      if (!ys.length) return true;                       // undeclared: never block on it
+      const c2 = caps();
+      return ys.some(r => {
+        const cap = c2[r];
+        if (cap === undefined || !(cap > 0)) return true; // uncapped: always wanted
+        return (S.res[r] || 0) < cap * YIELD_FULL_AT;
+      });
+    }
+    const SURPLUS_X = 3;
+    function tradeSurplusOk(cost) {
+      const c2 = caps();
+      return Object.keys(cost).every(r => {
+        if (r === "vigor") return true;
+        if (!(S.res[r] >= cost[r] * SURPLUS_X)) return false;
+        const cap = c2[r];
+        // Tight ceiling (under 6x the price): the old 60% clause is still the right guard, since
+        // holding 3x the price there really would be most of the settlement's stock.
+        if (cap !== undefined && cap < cost[r] * SURPLUS_X * 2) return S.res[r] >= cap * 0.6;
+        return true;
+      });
+    }
+    function tradeVigorReserve() {
+      if (!S.techs.trade) return 0;
+      const c2 = caps();
+      let cheapest = 0;
+      for (const f of FACTIONS) {
+        if (!tradeOpen(f.id)) continue;
+        const tc = (typeof tradeCost === "function") ? tradeCost(f) : f.cost;
+        // Reserve ONLY for a route this settlement would actually run -- same gate, same answer.
+        if (!tradeSurplusOk(tc) || !tradeYieldWanted(f)) continue;
+        const v = tc.vigor || 0;
+        if (!cheapest || v < cheapest) cheapest = v;
+      }
+      if (!cheapest) return 0;
+      const ceiling = (c2.vigor || 0) * 0.5;
+      return ceiling > 0 ? Math.min(cheapest, ceiling) : cheapest;
+    }
+    function manageWilds() {
+      if (!S.techs.logistics) return;
+      // v0.58 Part 5: what the Wilds may spend down to, before the urgency exceptions below.
+      const vigorReserve = tradeVigorReserve();
+      const avail = EXPEDITIONS.filter(e => {
+        if (e.tech && !S.techs[e.tech]) return false;
+        if (e.id === "scouting" && factionsFoundCount() >= FACTIONS.length) return false;
+        if (campCooldownLeft(e) > 0) return false;
+        return canAfford(expCost(e));
+      });
+      const LUX_OF = { wolves: "furs", gromp: "mushrooms", raptors: "plumes", krugs: null };
+      // hold roughly an hour of demand in reserve; 0.002/s/wanderer x 3600
+      const target = Math.max(120, 7.2 * S.pop);
+      // charged camps first: an empowered haul is worth far more per unit of vigor.
+      // Then SCARCEST luxury first. Before v0.40 the three luxury camps cost 40/60/100
+      // vigor, so cheaper ones ran first and the rest spilled naturally. At a flat 100
+      // each, plain list order let Wolves eat every point of vigor and the other two
+      // ran dry 100% of the time — a harness artifact, not a game property. A player
+      // managing morale hunts whatever they are short of.
+      const scarcity = e => {
+        const lux = LUX_OF[e.id];
+        return lux ? Math.min(9, S.res[lux] / target) : 9;
+      };
+      avail.sort((a, b) => {
+        const ca = (typeof isChargeCamp === "function" && isChargeCamp(a) && campCharges(a) > 0) ? 0 : 1;
+        const cb = (typeof isChargeCamp === "function" && isChargeCamp(b) && campCharges(b) > 0) ? 0 : 1;
+        if (ca !== cb) return ca - cb;
+        return scarcity(a) - scarcity(b);
+      });
+      for (const e of avail) {
+        if (campCooldownLeft(e) > 0) continue;
+        const c = expCost(e);
+        if (!canAfford(c)) continue;
+        if (typeof isChargeCamp === "function" && isChargeCamp(e)) {
+          const lux = LUX_OF[e.id];
+          const charged = campCharges(e) > 0;
+          // skip a routine hunt when already well stocked; never skip an empowered one
+          // stop entirely when massively overstocked — even an empowered haul is
+          // not worth the vigor if you are sitting on ten hours of the stuff
+          if (lux && S.res[lux] > target * 2) continue;
+          if (!charged && lux && S.res[lux] > target) continue;
+          if (!lux && S.res.ore > computeCaps().ore * 0.75) continue;
+        }
+        // v0.58 Part 5: the reserve, and its two urgency exceptions.
+        if (vigorReserve > 0 && (c.vigor || 0) > 0) {
+          const charged = (typeof isChargeCamp === "function" && isChargeCamp(e) && campCharges(e) > 0);
+          const lux2 = LUX_OF[e.id];
+          const short = !!lux2 && S.res[lux2] < target;
+          const urgent = charged || short;
+          if (!urgent && S.res.vigor - c.vigor < vigorReserve) { tradeReserveBlocks++; continue; }
+        }
+        const vBefore = S.res.vigor;
+        runExpedition(e.id); mark("firstExpedition");
+        campRuns[e.id] = (campRuns[e.id] || 0) + 1;
+        const spent = vBefore - S.res.vigor;
+        if (typeof isChargeCamp === "function" && isChargeCamp(e)) vigorOnLuxury += spent;
+        vigorSpent += spent;
+      }
+    }
+    function manageTrade() {
+      if (!S.techs.trade) return;
+      // v0.41 routes charge bulk RAW materials (Demacia 600 timber, Freljord 500 ore),
+      // which are the same materials housing and storage want. A player trades their
+      // SURPLUS, not their entire stock — without this rule the bot trades itself into
+      // permanent poverty and nothing downstream is measurable.
+      // v0.58 Part 5: this rule is now tradeSurplusOk(), shared with the banking reserve so the
+      // bot cannot bank for a route it will refuse.
+      const surplus = tradeSurplusOk;
+      for (const f of FACTIONS) {
+        if (!tradeOpen(f.id)) continue;
+        // v0.54 directive 10: merchant fatigue is deleted, so there is no weariness to wait
+        // out and the bot no longer sits on a route it can afford.
+        // v0.46 Part 3: trades now cost gold AND vigor, and tradeCost() applies the two
+        // subtractive discounts. Reading f.cost here would let the bot attempt trades it
+        // cannot pay for and under-count the gate's effect.
+        // tradeCost() only exists from v0.46; isolation builds cut from earlier
+        // versions do not have it, and the sim must still run against them.
+        const tc = (typeof tradeCost === "function") ? tradeCost(f) : f.cost;
+        // v0.53 Part 6: vigor spend has to be split by CAUSE. Expeditions were already
+        // counted (vigorSpent, above); trade was not, so "the cheapest early sink" could
+        // not be checked against the +75% route-vigor rise the spec attributes it to.
+        // v0.58 Part 3 diagnostic. The Chapel slice took first-trade from y317 to NEVER and the
+        // surplus rule was the suspect, so WHICH component refuses is counted rather than
+        // reasoned about -- and the max fraction each capped component ever reached is recorded,
+        // because a point sample at a milestone cannot distinguish "never close" from "crossed
+        // the line between samples".
+        const fx = tradeFaction[f.id] || (tradeFaction[f.id] = { openTicks: 0, affordable: 0, surplusOk: 0, refusedBy: {} });
+        fx.openTicks++;
+        if (canAfford(tc)) {
+          tradeAffordableTicks++; fx.affordable++;
+          const c3 = caps();
+          // The diagnostic MIRRORS tradeSurplusOk() exactly. An earlier draft kept the retired
+          // 60%-of-ceiling test here and went on reporting "refused by timber x59" for 34 trades
+          // that had just succeeded -- an instrument disagreeing with the code it measures.
+          Object.keys(tc).forEach(rr => {
+            if (rr === "vigor") return;
+            const cp = c3[rr];
+            const held = S.res[rr] || 0;
+            if (cp !== undefined && cp > 0) {
+              const fr = held / cp;
+              if (!(tradeFracMax[rr] >= fr)) tradeFracMax[rr] = +fr.toFixed(4);
+            }
+            let ok = held >= tc[rr] * SURPLUS_X;
+            if (ok && cp !== undefined && cp < tc[rr] * SURPLUS_X * 2) ok = held >= cp * 0.6;
+            if (!ok) { tradeRefusedBy[rr] = (tradeRefusedBy[rr] || 0) + 1; fx.refusedBy[rr] = (fx.refusedBy[rr] || 0) + 1; }
+          });
+          if (tradeSurplusOk(tc)) fx.surplusOk++;
+          if (!tradeYieldWanted(f)) fx.refusedBy["<yield already full>"] = (fx.refusedBy["<yield already full>"] || 0) + 1;
+        }
+        if (canAfford(tc) && surplus(tc) && tradeYieldWanted(f)) {
+          const vB = S.res.vigor;
+          tradeCaravan(f.id); tradeCount++; mark("firstTrade");
+          vigorOnTrade += Math.max(0, vB - S.res.vigor);
+        }
+      }
+      // v0.41: embassies are the primary culture sink and the slot ladder runs to 15,
+      // so a player who cares about a chain keeps buying past the old cap of 9.
+      for (const f of FACTIONS) {
+        if (!tradeOpen(f.id)) continue;
+        if (caravanCount(f.id) >= 20) continue;
+        if (canAfford(caravanCost(f.id))) { buildCaravan(f.id); return; }
+      }
+    }
+    function manageCrafts() {
+      if (S.res.mana > caps().mana * 0.8) transmuteMana(5);
+      const p = CRAFTS.find(c => c.id === "parchment");
+      if (p && p.show(S) && S.res.furs > craftCostOf("parchment").furs * 1.5 && canAfford(craftCostOf("parchment"))) craftItem("parchment", 2);
+      const t = CRAFTS.find(c => c.id === "tome");
+      if (t && t.show(S) && canAfford(craftCostOf("tome"))) craftItem("tome", 1);
+      const g = CRAFTS.find(c => c.id === "gear");
+      if (g && g.show(S) && canAfford(craftCostOf("gear")) && S.res.steel > craftCostOf("gear").steel * 2) craftItem("gear", 1);
+      const sl = CRAFTS.find(c => c.id === "stoneSlab");
+      if (sl && sl.show(S) && canAfford(craftCostOf("stoneSlab")) && S.res.ore > craftCostOf("stoneSlab").ore * 1.5) craftItem("stoneSlab", 1);
+      // v0.39 §5 routes storage through crafted goods, so the player must actually
+      // keep a stock of intermediates. Craft any intermediate a visible building
+      // needs and we are short of, cheapest-first.
+      const wantIntermediate = {};
+      const wantFrom = c => {
+        for (const r in c) if (RES[r] && (RES[r].kind === "made" || RES[r].kind === "craft")) {
+          wantIntermediate[r] = Math.max(wantIntermediate[r] || 0, c[r]);
+        }
+      };
+      // Only chase intermediates for a building we are actually CLOSE to buying. The
+      // Warehouse's crafted cost escalates at 1.15, so by copy #24 it wants 199 Stone
+      // Slabs = 39,800 ore, and a bot that chases it converts every ore it will ever
+      // mine into slabs it can never finish. Measured: ore sat at ~130 against an
+      // 18,000 ceiling for 900 game-years, which is why the Tavern at 800 ore was never
+      // once affordable. A player crafts toward the thing in front of them.
+      BUILDINGS.forEach(b => {
+        if (!buildingVisible(b)) return;
+        const c = buildingCost(b);
+        const rawAffordable = Object.keys(c).every(r => {
+          const craftable = RES[r] && (RES[r].kind === "made" || RES[r].kind === "craft");
+          return craftable || S.res[r] >= c[r];
+        });
+        if (rawAffordable) wantFrom(c);
+      });
+      // Techs and upgrades also demand crafted goods (Deep Works wants 5 Hextech
+      // Cores, Scholarship IV/V want Tomes), and those are the deepest chains in
+      // the game — without this the bot never drives Era 3 to its end.
+      TECHS.forEach(t => { if (!S.techs[t.id] && techVisible(t)) wantFrom(t.cost); });
+      UPGRADES.forEach(u => {
+        if (S.upgrades[u.id]) return;
+        if (u.tech && !S.techs[u.tech]) return;
+        wantFrom(u.cost);
+      });
+      // Deepest-first: a Hextech Core is worthless if nobody machines the Hexgear.
+      const depth = id => {
+        const rec = CRAFTS.find(c => c.out === id);
+        if (!rec) return 0;
+        let d = 0;
+        for (const r in rec.cost) if (CRAFTS.some(c => c.out === r)) d = Math.max(d, 1 + depth(r));
+        return d;
+      };
+      // ======================================================================
+      // v0.53 Part 1.3 — THE HEXGEAR STARVATION, and why it was not a price problem.
+      //
+      // Measured on v0.52: seenMax.hexgear peaks at 50.96 across 1,100 game-years while
+      // seenMax.hexcore reaches 610 and seenMax.scaffold reaches 30,320. The Hextech
+      // Foundry's first copy costs hexgear 200, so it was visible from y627.7 and
+      // unaffordable forever — 0 Foundries, 0 Hexdraulic Plants, 0 Chembarrels at every
+      // milestone in every run this project has ever measured.
+      //
+      // The cause is not the Foundry's price. It is that `wantIntermediate` records only
+      // the demand of the thing being BOUGHT, never the demand that thing's own recipe
+      // creates further down the chain. The Foundry wants 200 hexgear; a hexgear costs
+      // 25 alloy; nothing in this function ever asked for 5,000 alloy. Alloy's want
+      // topped out at the Chembarrel's 160, alloy stopped being crafted the moment it
+      // reached 160, and hexgear could therefore never be machined in quantity. Combined
+      // with deepest-first ordering — hexcore (depth 2) is crafted before hexgear
+      // (depth 1) — every hexgear made was consumed into the deeper chain in the same
+      // pass and the STOCK never accumulated.
+      //
+      // WHICH FIX, AND WHY (the spec's Part 1.3 asks for this explicitly):
+      //
+      //  * The spec's option (b), "reserve wantIntermediate[r] from consumption by
+      //    deeper crafts", DEADLOCKS and was rejected after tracing it: hexgear needs
+      //    alloy 25, alloy's want is 160, so hexgear may only be machined once alloy
+      //    exceeds 185 — but alloy STOPS being crafted at 160 because it has reached its
+      //    own want. Alloy then sits between 160 and 185 forever and the chain never
+      //    moves. A reservation without demand propagation is a deadlock, not a fix.
+      //
+      //  * The spec's option (a), raising the batch ceiling when the shortfall exceeds
+      //    it, is SHIPPED (see the batch line below) — but it cannot fix this on its own
+      //    either, because the shortfall it reads is against a want that was never
+      //    raised in the first place.
+      //
+      //  * So the actual fix is the missing step both options presuppose: PROPAGATE
+      //    DEMAND DOWN THE CRAFT TREE. For every wanted output, ask what its recipe
+      //    needs to close the shortfall and want that too, deepest-first so a want
+      //    propagates all the way to the shallowest craft in one pass. This is what a
+      //    player does — "the Foundry wants 200 Hexgear, so I need five thousand Alloy"
+      //    — and it is the same reasoning v0.39 §5 used when it routed storage through
+      //    crafted goods in the first place. Raw inputs are untouched: propagation stops
+      //    at anything no recipe makes, and the "never spend more than half of any raw
+      //    input in one go" guard below still holds, so this cannot starve the ore and
+      //    timber that housing and storage need.
+      // ======================================================================
+      const craftDepth = {};
+      CRAFTS.forEach(c => { craftDepth[c.out] = depth(c.out); });
+      const propagationOrder = Object.keys(craftDepth).sort((a, b) => craftDepth[b] - craftDepth[a]);
+      for (const r of propagationOrder) {
+        const want = wantIntermediate[r];
+        if (want === undefined) continue;
+        const need = want - (S.res[r] || 0);
+        if (need <= 0) continue;
+        const rec = CRAFTS.find(c => c.out === r && c.show(S));
+        if (!rec || rec.id === "poroTears") continue;   // its input is a live herd, see managePoroSacrifice
+        const actions = Math.ceil(need / (craftYield(rec.id) || 1));
+        for (const inp in rec.cost) {
+          if (!RES[inp] || (RES[inp].kind !== "made" && RES[inp].kind !== "craft")) continue;
+          wantIntermediate[inp] = Math.max(wantIntermediate[inp] || 0,
+                                           (S.res[inp] || 0) + rec.cost[inp] * actions);
+        }
+      }
+      const wanted = Object.keys(wantIntermediate).sort((a, b) => depth(b) - depth(a));
+      for (const r of wanted) {
+        if (S.res[r] >= wantIntermediate[r]) continue;
+        const rec = CRAFTS.find(c => c.out === r && c.show(S));
+        // v0.53 Part 1.2: the literal `poroTears` skip STAYS here and is now justified
+        // rather than unexplained — its input is a live population, not a stock, so it
+        // does not belong in a deepest-first stock-chasing loop. It is handled by
+        // managePoroSacrifice(), a dedicated call beside manageTargon()'s Ascent.
+        if (!rec || rec.id === "poroTears") continue;
+        if (rec.id === "parchment" && S.res.furs < craftCostOf("parchment").furs * 1.5) continue;
+        const cst = craftCostOf(rec.id);
+        if (!canAfford(cst)) continue;
+        // Batch, or the 60,000-Zaun-Ore chains never finish inside a run — but never
+        // spend more than half of any raw input in one go. A Stone Slab is 200 ore and
+        // 25 of them is 5,000; unbounded batching starves the ore that housing, storage
+        // and the Observatory all need.
+        const short = Math.ceil(wantIntermediate[r] - S.res[r]);
+        // v0.53 Part 1.3, the spec's option (a), shipped as specified: the ceiling of 25
+        // is lifted for an intermediate whose OWN shortfall exceeds it. Without this the
+        // propagated 5,000-alloy want would be served 25 at a time and take a thousand
+        // decision passes to fill. The half-of-any-raw-input guard below is what actually
+        // bounds the spend, and it is unchanged.
+        const BATCH_CEILING = 25;
+        let batch = Math.max(1, short > BATCH_CEILING ? short : Math.min(BATCH_CEILING, short));
+        for (const inp in cst) {
+          if (!cst[inp]) continue;
+          batch = Math.min(batch, Math.max(1, Math.floor(S.res[inp] * 0.5 / cst[inp])));
+        }
+        craftItem(rec.id, batch);
+      }
+    }
+    // ========================================================================
+    // v0.53 Part 1.2 — THE PORO SACRIFICE, which no measured run of this project has
+    // ever performed.
+    //
+    // `manageCrafts()` carried a literal `if (rec.id === "poroTears") continue;`. It is
+    // correct that the sacrifice does not belong in that loop — its input is a live
+    // population that regrows, not a stock that is mined — but nothing anywhere else
+    // performed it, so `poroTears` was 0 for the whole run. The shipped v0.52 run builds
+    // 17 Watcher's Eyes and 0 Tears, which makes `frostguardCairn` (trueice 30 +
+    // poroTears 5) unbuildable, and with it `avarosanHold`, `iceWroughtSpire` and
+    // `frozenWatcher` — THE ENTIRE poroRatio CATEGORY. That category is the one BUILD
+    // REPORT v0.52 §13.1 and HANDOFF §7.1 both asked the analyzer to rule on. It has
+    // never been built.
+    //
+    // Shape: a dedicated call beside manageTargon()'s Ascent, exactly as the spec asks.
+    // Policy: sacrifice only from SURPLUS. The herd is the faucet, so the threshold is
+    // the spec's — poros >= PORO_SACRIFICE_COST x count("watchersEye") — and never more
+    // than half the herd in one pass, which is the same discipline the craft loop applies
+    // to every raw input. One action costs 60 poros and yields one Tear per Eye owned
+    // (craftYield's ziggurat gainMultiplier), so the Eye count is the lever, not the cost.
+    // ========================================================================
+    function managePoroSacrifice() {
+      const eyes = count("watchersEye");
+      if (eyes <= 0) return;
+      const rec = CRAFTS.find(c => c.id === "poroTears");
+      if (!rec || !rec.show(S)) return;
+      // "and a visible building wants Tears" — techs count too: The Watchers Below
+      // costs poroTears 40, and it gates the Ward.
+      let want = 0;
+      BUILDINGS.forEach(b => {
+        if (!buildingVisible(b)) return;
+        const c = buildingCost(b);
+        if (c.poroTears) want = Math.max(want, c.poroTears);
+      });
+      TECHS.forEach(t => {
+        if (S.techs[t.id] || !techVisible(t)) return;
+        const c = discCost(t.cost);
+        if (c.poroTears) want = Math.max(want, c.poroTears);
+      });
+      if (want <= 0) return;
+      if ((S.res.poroTears || 0) >= want) return;
+      if (S.res.poros < PORO_SACRIFICE_COST * eyes) return;      // surplus only; keep the herd
+      const short = want - (S.res.poroTears || 0);
+      let actions = Math.max(1, Math.ceil(short / eyes));
+      actions = Math.min(actions, Math.floor(S.res.poros * 0.5 / PORO_SACRIFICE_COST));
+      if (actions >= 1) craftItem("poroTears", actions);
+    }
+    function manageTargon() {
+      if (!S.techs.ritesOfTargon) return;
+      if (S.res.devotion >= caps().devotion * 0.9 && Math.floor(S.res.devotion) >= 5) {
+        ascendTargon();
+        mark("firstAscent");
+      }
+      for (const w of WTECHS) {
+        if (S.wtechs[w.id]) continue;
+        if ((S.worship || 0) < w.threshold) continue;
+        if (canAfford(faithCost(w.cost))) buyWtech(w.id);
+      }
+    }
+    function manageChampions() {
+      if (!S.techs.callToArms) return;
+      for (const d of CHAMPS) {
+        if (S.champs[d.id] && S.champs[d.id].r) continue;
+        if (canAfford(recruitCost(d.id))) { recruitChamp(d.id); mark("firstChampion"); return; }
+      }
+      if (!S.leader) {
+        const owned = CHAMPS.filter(d => S.champs[d.id] && S.champs[d.id].r);
+        if (owned.length) makeLeader(owned[0].id);
+      }
+      // v0.43: levelling now needs the XP threshold as well as the materials, and a
+      // player rotates leadership so the champion they are levelling actually earns it.
+      for (const d of CHAMPS) {
+        const c = S.champs[d.id];
+        if (!c || !c.r) continue;
+        if (canTrain(d.id) && S.res.renown > recruitCost(d.id).renown * 0.5) { trainChamp(d.id); return; }
+      }
+      // lead whoever is closest to their next threshold — leading is 15x bench XP
+      const owned2 = CHAMPS.filter(d => S.champs[d.id] && S.champs[d.id].r);
+      if (owned2.length) {
+        let best = null, bestGap = Infinity;
+        for (const d of owned2) {
+          const lvl = champLevel(d.id);
+          if (lvl >= 10) continue;
+          const gap = xpTotalFor(lvl + 1) - champXp(d.id);
+          if (gap > 0 && gap < bestGap) { bestGap = gap; best = d.id; }
+        }
+        if (best && best !== S.leader) makeLeader(best);
+      }
+    }
+
+    function countObjectives() {
+      let buyable = 0, visible = 0;
+      TECHS.forEach(t => {
+        if (S.techs[t.id] || !techVisible(t)) return;
+        canAfford(discCost(t.cost)) ? buyable++ : visible++;
+      });
+      UPGRADES.forEach(u => {
+        if (S.upgrades[u.id]) return;
+        if (u.tech && !S.techs[u.tech]) return;
+        if (u.unlock && !u.unlock(S)) return;
+        canAfford(discCost(u.cost)) ? buyable++ : visible++;
+      });
+      BUILDINGS.forEach(b => {
+        if (count(b.id) > 0 || !buildingVisible(b)) return;
+        canAfford(buildingCost(b)) ? buyable++ : visible++;
+      });
+      WTECHS.forEach(w => {
+        if (S.wtechs[w.id]) return;
+        if ((S.worship || 0) < w.threshold) return;
+        canAfford(faithCost(w.cost)) ? buyable++ : visible++;
+      });
+      CHAMPS.forEach(d => {
+        if (S.champs[d.id] && S.champs[d.id].r) return;
+        if (!S.techs.callToArms) return;
+        canAfford(d.cost) ? buyable++ : visible++;
+      });
+      POLICY_GROUPS.forEach(g => {
+        if (!policyGroupOpen(g) || policyChoice(g.id)) return;
+        g.options.forEach(o => { canAfford(faithCost(o.cost)) ? buyable++ : visible++; });
+      });
+      return { buyable, visible, total: buyable + visible };
+    }
+
+    // ---------- main loop ----------
+    const DECIDE_EVERY = 25;                  // 5 game-seconds
+    const SAMPLE_EVERY = TICKS_PER_YEAR / 2;  // twice a game-year
+    let starved = 0;
+
+    for (let i = 0; i < totalTicks; i++) {
+      // bootstrap: the only manual faucet before Mana Wells exist
+      if (S.pop === 0 && count("manaWell") < 2) channelMana();
+
+      const vBeforeTick = S.res.vigor;
+      tick();
+      if (S.res.vigor > vBeforeTick) vigorEarned += S.res.vigor - vBeforeTick;
+      simNow += TICK_MS;
+
+      if (i % DECIDE_EVERY === 0) {
+        manageJobs();
+        manageBuildings();
+        manageResearch();
+        manageDiscoveries();
+        manageCrafts();
+        // random-event banners a real player clicks
+        if (S.jackActive && typeof clickJack === "function") clickJack();
+        if (S.honeyActive && typeof clickHoney === "function") clickHoney();
+        if (S.scuttlerActive && typeof clickScuttler === "function") clickScuttler();
+        manageWilds();
+        // a player holds a festival when comfort is thin and they can spare the stew
+        if (typeof festivalUnlocked === "function" && festivalUnlocked() && !festivalActive()) {
+          const c = luxuryComfort();
+          const thin = ["furs", "mushrooms", "plumes"].some(r => S.res[r] < c);
+          if (thin && canAfford(festivalCost())) holdFestival();
+        }
+        manageTrade();
+        manageTargon();
+        managePoroSacrifice();          // v0.53 Part 1.2
+        manageChampions();
+        managePolicies();
+
+        if (S.techs.ritesOfTargon) mark("ritesOfTargon");
+        if (S.techs.callToArms) mark("callToArms");
+        if (S.techs.voidStudies) mark("voidStudies");
+        if (S.techs.sparks) mark("sparks");
+        if (S.techs.chemtech) mark("chemtech");
+        if (S.techs.hexcore) mark("hexcore");
+        if (S.techs.deepWorks) mark("deepWorks");
+        if (S.techs.icathia) mark("icathia");
+        // v0.50 Part 2.3: both of these are ZERO in every build ever measured — the tech
+        // was unresearchable and the building behind it unreachable. First round they can fire.
+        if (S.techs.gloriousEvolution) mark("gloriousEvolution");
+        if (count("augmentChamber") > 0) mark("firstAugmentChamber");
+        if ((S.res.hexcore || 0) >= 1) mark("firstHexcore");
+        if (S.pop >= 75) mark("pop75");
+        if (S.pop >= 130) mark("pop130");
+        // v0.57 Part 1 pass condition 3/4: the year the TENTH champion first becomes affordable.
+        // Jerry's conditional -- "if the culture and devotion multipliers are not sufficient for
+        // renown to unlock all champions" -- turns on this exact quantity, and inferring it from
+        // a ceiling is not the same thing: a ceiling says the stock CAN reach the price, this
+        // says a settlement DID. Measured against recruitCost() of the first unrecruited
+        // champion once nine are held, which is what the tenth rung actually costs.
+        if (!S.champs || Object.keys(S.champs).filter(k => S.champs[k] && S.champs[k].r).length >= 9) {
+          const tenth = CHAMPS.find(d => !(S.champs[d.id] && S.champs[d.id].r));
+          if (tenth && canAfford(recruitCost(tenth.id))) mark("tenthChampionAffordable");
+        }
+        if (CHAMPS.every(d => S.champs[d.id] && S.champs[d.id].r)) mark("tenthChampionRecruited");
+        if ((S.ascends || 0) >= 1) mark("firstAscent");
+      }
+
+      tickCount++;
+      if (computeCaps().vigor > 0 && S.res.vigor >= computeCaps().vigor * 0.999) vigorAtCapTicks++;
+      // v0.52 Part 3.1 — is the crystal line producing into a full bucket?
+      if (computeCaps().crystals > 0 && S.res.crystals >= computeCaps().crystals * 0.999) crystalsAtCapTicks++;
+      // ---- v0.56, instrumented BEFORE the first run of the round ----
+      // Part 5's pass conditions are stated as CAP-OUT FRACTIONS per resource (Era-3 raws in a
+      // 30-60% band), and the only two the harness measured were vigor and crystals. The v0.55
+      // analysis had to take its culture/knowledge/crystals/renown figures in a separate
+      // 1,200-year probe run because this loop did not record them. It does now, for every
+      // capped resource, so the restructure can be judged against the same run that produces
+      // the milestones instead of against a second one.
+      {
+        const cc = computeCaps();
+        for (const rr in cc) {
+          if (cc[rr] > 0 && S.res[rr] >= cc[rr] * 0.999) capTicks[rr] = (capTicks[rr] || 0) + 1;
+        }
+      }
+      // v0.46 Part 8: the first four minutes of the game, which nobody has ever measured
+      if (buildingVisible(BUILDINGS.find(b => b.id === "shelter"))) markVis("shelter");
+      if (buildingVisible(BUILDINGS.find(b => b.id === "archive"))) markVis("archive");
+      const craftTab = TABS.find(t => t.id === "crafting");
+      if (!craftTab.show || craftTab.show(S)) markVis("craftingTab");
+      const loreJob = JOBS.find(j => j.id === "loremaster");
+      if (!loreJob.unlock || loreJob.unlock(S)) markVis("loremaster");
+      if (count("shelter") > 0) markVis("firstShelterBuilt");
+      if (count("archive") > 0) markVis("firstArchiveBuilt");
+
+      // v0.53 Part 6: the early vigor economy, measured at the two years the spec names.
+      // Cumulative income and cumulative spend split expeditions/trade, so the ratio is
+      // readable rather than inferred from a rate at one instant.
+      if (vigorSplit.y50 === undefined && yearNow() >= 50) {
+        vigorSplit.y50 = { year: 50, earned: +vigorEarned.toFixed(1), onExpeditions: +vigorSpent.toFixed(1),
+                           onTrade: +vigorOnTrade.toFixed(1), ratePerSec: +computeRates().vigor.toFixed(4),
+                           perGameYear: +(computeRates().vigor * 800).toFixed(1),
+                           cheapestRouteVigor: Math.min.apply(null, FACTIONS.map(f =>
+                             ((typeof tradeCost === "function" ? tradeCost(f) : f.cost).vigor) || 0)) };
+      }
+      if (vigorSplit.y100 === undefined && yearNow() >= 100) {
+        vigorSplit.y100 = { year: 100, earned: +vigorEarned.toFixed(1), onExpeditions: +vigorSpent.toFixed(1),
+                            onTrade: +vigorOnTrade.toFixed(1), ratePerSec: +computeRates().vigor.toFixed(4),
+                            perGameYear: +(computeRates().vigor * 800).toFixed(1),
+                            cheapestRouteVigor: Math.min.apply(null, FACTIONS.map(f =>
+                              ((typeof tradeCost === "function" ? tradeCost(f) : f.cost).vigor) || 0)) };
+      }
+      // v0.53 Part 4.3: "the new craft's stock does not monotonically increase after
+      // Icathia" is a SERIES question, so the series has to exist. Sampled yearly with
+      // the crystal and Void Essence stocks beside it, because Part 2 asks the same
+      // question of crystals in a different sentence.
+      if (i % TICKS_PER_YEAR === 0) {
+        const row = { year: +yearNow().toFixed(0), crystals: +(S.res.crystals || 0).toFixed(1),
+                      voidessence: +(S.res.voidessence || 0).toFixed(2) };
+        CRAFTS.forEach(c => { if (c.tier5) row[c.out] = +(S.res[c.out] || 0).toFixed(2); });
+        stockSeries.push(row);
+      }
+
+      if (i % SAMPLE_EVERY === 0) {
+        const o = countObjectives();
+        samples.push({
+          year: +yearNow().toFixed(1),
+          buyable: o.buyable, visible: o.visible, total: o.total,
+          pop: S.pop,
+          morale: morale(),
+          bardsHearths: count("bardsHearth"),
+          shrines: count("shrine"),
+          sunAltar: !!(S.wtechs && S.wtechs.sunAltar),
+          fursFlow: +computeRates().furs.toFixed(4),
+          furs: +S.res.furs.toFixed(1),
+          mushrooms: +S.res.mushrooms.toFixed(1),
+          plumes: +S.res.plumes.toFixed(1),
+          knowledge: Math.round(S.res.knowledge),
+          knowledgeCap: Math.round(caps().knowledge),
+          gold: Math.round(S.res.gold),
+          devotion: Math.round(S.res.devotion),
+          worship: Math.round(S.worship || 0),
+          comfort: Math.round(luxuryComfort()),
+          worshipBonus: +(worshipBonus() * 100).toFixed(2)
+        });
+        popSeries.push(S.pop);
+      }
+    }
+
+    // v0.58 Part 7.2. EVERY resourceBalance in this project was read at a MILESTONE, and a
+    // milestone snapshot fires at the instant the tech lands -- so a consumer gated on that
+    // same tech is measured with ZERO copies built, by construction. The Chem-Forgeworks read
+    // "consumed 0/s" at Deep Works for exactly that reason while the run had 505 further years
+    // to build it. A final-state snapshot is taken as well, and the Era-3 classification reads
+    // the final one in preference: a sink is judged after it has had time to exist.
+    snaps.final = snapshot();
+
+    return {
+      years, seed,
+      milestones,
+      snaps,
+      samples,
+      campRuns,
+      trades: { total: tradeCount, atMilestone: tradeMarks },
+      firstVisible,
+      // ---- v0.53 instrumentation, returned so the report can quote it rather than infer it ----
+      // Part 1.1: the enumeration `test-v53` subtracts. Exported from the run rather than
+      // re-parsed out of the source, so the assertion reads the list the bot actually used.
+      buildOrder: BUILD_ORDER.slice(),
+      dedicatedRoutines: DEDICATED_ROUTINES.slice(),
+      unreachableBuildings: BUILDINGS.map(b => b.id)
+        .filter(id => BUILD_ORDER.indexOf(id) < 0 && DEDICATED_ROUTINES.indexOf(id) < 0),
+      spend: spendTotal,                 // Part 2.2, Part 4.3
+      spendAtMilestone: spendMarks,
+      vigorSplit,                        // Part 6
+      stockSeries,                       // Part 4.3 monotonicity, Part 2 crystal accumulation
+      seenMaxFinal: Object.fromEntries(Object.keys(RES).map(r => [r, seenMaxOf(r)])),
+      vigorAtCapPct: +(100 * vigorAtCapTicks / (tickCount || 1)).toFixed(1),
+      crystalsAtCapPct: +(100 * crystalsAtCapTicks / (tickCount || 1)).toFixed(1),
+      // v0.56 Part 5 — the whole cap-out distribution, sorted worst-first
+      tradeReserveBlocks, tradeAffordableTicks, tradeRefusedBy, tradeFracMax, tradeFaction,
+      capOutPct: (() => { const o = {};
+        Object.keys(capTicks).sort((a, b) => capTicks[b] - capTicks[a])
+          .forEach(rr => o[rr] = +(100 * capTicks[rr] / (tickCount || 1)).toFixed(1));
+        return o; })(),
+      vigor: { onLuxuryCamps: Math.round(vigorOnLuxury), onAllCamps: Math.round(vigorSpent), earned: Math.round(vigorEarned) },
+      peakPop: popSeries.length ? Math.max.apply(null, popSeries) : S.pop,
+      final: {
+        pop: S.pop, maxPop: maxPop(), morale: morale(), bardsHearths: count("bardsHearth"),
+        quarries: count("quarry"),
+        campYieldMult: +campYieldMult().toFixed(2),
+        luxCampYieldMult: +campYieldMult(true).toFixed(2),
+        comfort: Math.round(luxuryComfort()),
+        worshipBonusPct: +(worshipBonus() * 100).toFixed(2),
+        vigorPerSec: +computeRates().vigor.toFixed(2),
+        techs: Object.keys(S.techs).length,
+        upgrades: Object.keys(S.upgrades).length,
+        ascends: S.ascends || 0,
+        worship: Math.round(S.worship || 0),
+        champions: CHAMPS.filter(d => S.champs[d.id] && S.champs[d.id].r).length,
+        policies: Object.keys(S.policies || {}).length,
+        caravans: FACTIONS.reduce((a, f) => a + caravanCount(f.id), 0),
+        buildings: BUILDINGS.reduce((a, b) => a + count(b.id), 0),
+        buildingCount: BUILDINGS.length
+      }
+    };
+  }, { years, seed });
+}
