@@ -183,7 +183,7 @@ check("Tome 5 parchment → 50 parchment, and costs Knowledge like Kittens' Comp
 // asserted now is the SHAPE that produces Kittens' median and geometric mean together.
 // SUPERSEDED v0.47 Part 1 — the ladder is Kittens' ladder rank for rank now.
 check("Era 3 tech ladder sits on the v0.47 Kittens-parity curve",
-  s7.techs.sparks === 20000 && s7.techs.chemtech === 60000 && s7.techs.hexcore === 75000 &&
+  s7.techs.sparks === 20000 && s7.techs.chemtech === 55000 && s7.techs.hexcore === 75000 &&
   s7.techs.deepWorks === 100000 && s7.techs.icathia === 135000, JSON.stringify(s7.techs));
 check("Hextech Foundry 30/15 → 200/100", s7.foundry.hexgear === 200 && s7.foundry.scaffold === 100);
 check("The Vault 15/25 → 100/160", s7.vault.hexSlab === 100 && s7.vault.plating === 160);

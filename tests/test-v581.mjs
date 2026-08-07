@@ -144,10 +144,23 @@ const bulk = await page.evaluate(() => {
 });
 check("10 — job allocation moves in bulk and CLAMPS: +20, +all, −5, −all",
   JSON.stringify(bulk.seq) === JSON.stringify([20, 100, 95, 0]), JSON.stringify(bulk.seq));
-check("10 — ...and the buttons exist for both directions",
-  /data-d="-1000000000"/.test(CODE) && /data-d="1000000000"/.test(CODE) &&
-  /data-d="-20"/.test(CODE) && /data-d="20"/.test(CODE) &&
-  /data-d="-5"/.test(CODE) && /data-d="5"/.test(CODE));
+// RE-POINTED v0.59.1, superseded by NOTE 2 (Jerry): the eight-chip row is replaced by two
+// buttons plus a hover flyout, and the STEPS become Kittens' own 5 / 25 / all rather than RR's
+// 5 / 20 / all. Note 10's property — bulk allocation exists in BOTH directions and clamps —
+// is asserted above against measured behaviour, which is the assertion that was always doing
+// the work; this one only ever checked that some markup existed. It now checks the markup the
+// note actually asks for.
+// The old form grepped for eight literal `data-d="-20"` strings because the old markup wrote
+// eight literal buttons. The new markup GENERATES them from a `step(d, label)` helper, so the
+// literals no longer exist in the source at all — grepping for them would now be asserting the
+// absence of a refactor rather than the presence of a feature. Asserted against the step calls
+// and the flyout the note asks for.
+check("10/2 — bulk steps exist in both directions, at Kittens' 5 / 25 / all, inside a flyout",
+  /step\(5, "\+5"\)/.test(CODE) && /step\(25, "\+25"\)/.test(CODE) &&
+  /step\(1000000000, "\+all"\)/.test(CODE) &&
+  /step\(-5, "−5"\)/.test(CODE) && /step\(-25, "−25"\)/.test(CODE) &&
+  /step\(-1000000000, "−all"\)/.test(CODE) &&
+  /class="job-flyout"/.test(CODE) && /\.job-ctl:hover \.job-flyout \{ display: block; \}/.test(RAW));
 // RE-POINTED v0.59, superseded by spec Part 8 note 4 (Jerry): "bulk hunting on charge camps but
 // not cooldown camps." Note 12's charge-camp exclusion rested on "a bulk run would spend the
 // banked x3 on the first clear and waste it" — and Part 2.1 removes the premise by making every
@@ -561,10 +574,26 @@ const fac = await page.evaluate(() => {
   o.inertParchment = +(computeRates().parchment || 0).toFixed(4);
   S.upgrades.pressureRegulators = 1; o.fuelCut = +computeRates().crystals.toFixed(4);
   S.upgrades.rollingPress = 1; o.parchment = +computeRates().parchment.toFixed(4);
-  S.upgrades.automatedWorkshop = 1;
-  const before = ["beam", "stoneSlab", "gear", "plating"].map(r => S.res[r] || 0);
+  // RE-POINTED v0.59.1, superseded by NOTE 7.2 (Jerry): "Automated Workshop discovery should
+  // work just like the Kitten's Workshop Automation upgrade." The fixture has to change with
+  // it: automation is a SPILL-GUARD now, so it does nothing unless a raw stockpile is standing
+  // at its ceiling, and it CONSUMES the input at the ordinary craft price.
+  S.upgrades.automatedWorkshop = 1; S.upgrades.carpentry = 1; S.techs.carpentry = 1;
+  S.buildings.storehouse = 40; S.buildings.warehouse = 20;
+  const cps = computeCaps();
+  // (a) BELOW the trigger it must do nothing at all — the half that makes it bounded.
+  S.res.timber = cps.timber * 0.5; S.res.ore = cps.ore * 0.5;
+  const idleBefore = ["beam", "stoneSlab"].map(r => S.res[r] || 0);
   manufactoryYear();
-  o.autocraft = ["beam", "stoneSlab", "gear", "plating"].map((r, i) => (S.res[r] || 0) - before[i]);
+  o.autoIdle = ["beam", "stoneSlab"].map((r, i) => (S.res[r] || 0) - idleBefore[i]);
+  // (b) AT the ceiling it converts the overflow, and pays for it.
+  S.res.timber = cps.timber; S.res.ore = cps.ore;
+  const before = ["beam", "stoneSlab"].map(r => S.res[r] || 0);
+  const rawBefore = [S.res.timber, S.res.ore];
+  manufactoryYear();
+  o.autocraft = ["beam", "stoneSlab"].map((r, i) => (S.res[r] || 0) - before[i]);
+  o.autoSpent = [rawBefore[0] - S.res.timber, rawBefore[1] - S.res.ore];
+  o.autoTrigger = AUTOMATION_TRIGGER;
   S.res.crystals = 0; o.unfuelled = +(computeRates().parchment || 0).toFixed(4);
   S.buildings = {}; S.upgrades = {}; S.techs = {};
   return o;
@@ -579,8 +608,18 @@ check("48.2A — Pressure Regulators halve the crystal draw",
   Math.abs(fac.fuelCut - fac.fuelBase / 2) < 1e-9, `${fac.fuelBase} → ${fac.fuelCut}`);
 check("48.2B — the Rolling Press prints 0.005 parchment/s per copy, Jerry's figure",
   Math.abs(fac.parchment - 0.05) < 1e-9, `${fac.parchment}/s at ten copies`);
-check("48.2C — the Automated Workshop turns out beams, slabs, gears and plating once a year",
-  JSON.stringify(fac.autocraft) === JSON.stringify([10, 10, 10, 10]), JSON.stringify(fac.autocraft));
+// v0.58.1 note 48.2C shipped a YEARLY FLAT GRANT of one of each of four goods per Manufactory,
+// paid out of nothing — a faucet with no input, which is exactly why the ledger rated it EASIER.
+// v0.59.1 note 7.2 replaces it with Kittens' Workshop Automation: at 95% of a raw resource's
+// ceiling the overflow is converted into the crafted tier AT THE ORDINARY PRICE. It can only
+// ever act on units that were about to be thrown away, so it is a spill-guard, not a faucet.
+check("48.2C/7.2 — automation does NOTHING below the 95% trigger",
+  JSON.stringify(fac.autoIdle) === JSON.stringify([0, 0]) && fac.autoTrigger === 0.95,
+  JSON.stringify(fac.autoIdle));
+check("48.2C/7.2 — ...and AT the ceiling it converts the overflow AND PAYS for it",
+  fac.autocraft[0] > 0 && fac.autocraft[1] > 0 &&
+  fac.autoSpent[0] > 0 && fac.autoSpent[1] > 0,
+  `made ${JSON.stringify(fac.autocraft)} for ${JSON.stringify(fac.autoSpent)} raw`);
 check("48 — ...on the SAME yearly hook the Arcanist's Circle uses, not a second one",
   /arcanistsCircleYear\(\); manufactoryYear\(\);/.test(CODE));
 check("48 — and the bot can buy it: `manufactory` is in BUILD_ORDER", /"manufactory"/.test(SIMCORE));

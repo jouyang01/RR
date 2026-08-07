@@ -202,7 +202,7 @@ check("cost rises monotonically along every prerequisite chain (Part 0.6's real 
 // SUPERSEDED v0.46 Part 5 — re-skewed ladder.
 // SUPERSEDED v0.47 Part 1 — the ladder is Kittens' ladder rank for rank now.
 check("the five Era-3 anchors sit on the v0.47 Kittens-parity ladder",
-  ladder.prices.sparks === 20000 && ladder.prices.chemtech === 60000 && ladder.prices.hexcore === 75000 &&
+  ladder.prices.sparks === 20000 && ladder.prices.chemtech === 55000 && ladder.prices.hexcore === 75000 &&
   ladder.prices.deepWorks === 100000 && ladder.prices.icathia === 135000, JSON.stringify(ladder.prices));
 
 // ---- the new content actually does something ----

@@ -95,7 +95,7 @@ const prices41 = await page.evaluate(() => {
 // SUPERSEDED v0.46 Part 5 — ladder trimmed 45 -> 38 and re-skewed to Kittens' shape.
 // SUPERSEDED v0.47 Part 1 — the ladder is Kittens' ladder rank for rank now.
 check("Era-3 tech prices sit on the v0.47 Kittens-parity ladder",
-  prices41.sparks === 20000 && prices41.chemtech === 60000 && prices41.hexcore === 75000 &&
+  prices41.sparks === 20000 && prices41.chemtech === 55000 && prices41.hexcore === 75000 &&
   prices41.deepWorks === 100000 && prices41.icathia === 135000, JSON.stringify(prices41));
 
 // ==================== §2.4 / §2.2 / §2.5 ====================
@@ -117,8 +117,14 @@ check("Parchment is back to exact Kittens parity — 175 furs, no quills",
 check("the Tavern is deleted, and the Bard's Hearth carries the relief instead",
   small.tavernGone && small.hearth.crowdRelief === 0.0115 && small.hearth.ratio === 1.10,
   `gone ${small.tavernGone}, hearth ${small.hearth.crowdRelief}@${small.hearth.ratio}`);
-check("Harvest Rites exists in the Songcraft line with the specified cost",
-  small.harvestRites && small.harvestRites.tech === "songcraft" && small.harvestRites.cost.mushrooms === 400 &&
+// RE-POINTED v0.59.1, superseded by NOTE 8 (Jerry): "Masquerade should unlock Harvest Rites
+// discovery, songcraft should not." Songcraft is the tech that makes CULTURE A RESOURCE, so
+// gating the festival on it put the game's first culture SINK on the same rung that opens the
+// faucet — a player reached Harvest Rites with a 300-culture price and no culture. Masquerade
+// (1,500 knowledge, off `trade`) is the festival-and-strangers tech. THE COST IS UNTOUCHED, and
+// that half of this assertion is the half worth keeping: only the gate moved.
+check("Harvest Rites exists in the Masquerade line with the SAME cost (v0.59.1 note 8)",
+  small.harvestRites && small.harvestRites.tech === "masquerade" && small.harvestRites.cost.mushrooms === 400 &&
   small.harvestRites.cost.culture === 300 && small.harvestRites.cost.parchment === 10,
   JSON.stringify(small.harvestRites && small.harvestRites.cost));
 check("the Festival now unlocks from that research, not a tech-plus-sighting check",

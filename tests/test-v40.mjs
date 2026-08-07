@@ -105,7 +105,7 @@ const prices = await page.evaluate(() => {
 // SUPERSEDED v0.46 Part 5 — ladder trimmed 45 -> 38 and re-skewed to Kittens' shape.
 // SUPERSEDED v0.47 Part 1 — the ladder is Kittens' ladder rank for rank now.
 check("Era-3 tech prices sit on the v0.47 Kittens-parity ladder",
-  prices.sparks === 20000 && prices.chemtech === 60000 && prices.hexcore === 75000 &&
+  prices.sparks === 20000 && prices.chemtech === 55000 && prices.hexcore === 75000 &&
   prices.deepWorks === 100000 && prices.icathia === 135000, JSON.stringify(prices));
 
 // ============ Part 1B — the luxury camp yield ceiling ============

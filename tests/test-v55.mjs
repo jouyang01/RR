@@ -121,8 +121,11 @@ check("3 — petricite is knowledge 65,000 + morellonomicon 65, exactly Kittens'
 check("3 — the Quarry's own cost and id are UNTOUCHED (§5: one lever a round)",
   rungs.quarryTech === "petricite" && rungs.quarryCost !== null,
   `${rungs.quarryTech} — ${JSON.stringify(rungs.quarryCost)}`);
-check("4 — ladder recomputed: 37 techs, ties ≥ 5, median ×1.10–1.20, geo ×1.25–1.30, max ≤ ×3.4",
-  rungs.n === 37 && rungs.ties >= 5 && rungs.med >= 1.10 && rungs.med <= 1.20 &&
+// RE-POINTED v0.59.1 note 3 — 36 techs. The four SHAPE conditions are untouched and are what
+// this assertion is actually for; only the count moved, and it moved because a tech was
+// deliberately deleted.
+check("4 — ladder recomputed: 36 techs, ties ≥ 5, median ×1.10–1.20, geo ×1.25–1.30, max ≤ ×3.4",
+  rungs.n === 36 && rungs.ties >= 5 && rungs.med >= 1.10 && rungs.med <= 1.20 &&
   rungs.geo >= 1.25 && rungs.geo <= 1.30 && rungs.max <= 3.4,
   `N=${rungs.n}, ${rungs.ties} ties, median ×${rungs.med}, geo ×${rungs.geo}, max ×${rungs.max}`);
 check("4 — prerequisite fan-out is still ≤ 3 (v0.53 directive 1)", rungs.maxFan <= 3, `max fan-out ${rungs.maxFan}`);

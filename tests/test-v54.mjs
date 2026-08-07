@@ -449,11 +449,11 @@ check("regression — BOOST_LIMIT still has seven keys and `knowledge` is still 
 check("regression — auditCostGraph() and auditRawGraph() are both still zero",
   await page.evaluate(() => auditCostGraph().length === 0 && auditRawGraph().length === 0),
   await page.evaluate(() => JSON.stringify([auditCostGraph(), auditRawGraph()])));
-check("regression — the tech ladder is untouched at 37 techs and no research reveals more than three",
+check("regression — the tech ladder is untouched at 36 techs and no research reveals more than three",
   await page.evaluate(() => {
     const kids = {};
     TECHS.forEach(t => { if (t.req) (kids[t.req] = kids[t.req] || []).push(t.id); });
-    return TECHS.length === 37 && Object.values(kids).every(v => v.length <= 3);
+    return TECHS.length === 36 && Object.values(kids).every(v => v.length <= 3);   // v0.59.1 note 3
   }));
 check("regression — poroRatio is still unbounded and `audience` still carries its tripwire",
   await page.evaluate(() => !/limitedDR/.test(poroRatio.toString()) && AUDIENCE_REOPEN_POP === 600));

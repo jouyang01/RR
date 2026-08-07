@@ -176,7 +176,8 @@ check("2.4 — the Bloomery and Refined Metallurgy are both gone, with no orphan
   p2.orphanReq.length === 0, JSON.stringify({ u: p2.orphanU, b: p2.orphanB, r: p2.orphanReq }));
 check("2.4 — ...and Steel Axes is re-homed on `smelting`, which already carried its prerequisite",
   p2.steelAxesTech === "smelting", p2.steelAxesTech);
-check("2.4 — ...taking the ladder to 37 techs", p2.techCount === 37, String(p2.techCount));
+check("2.4 — ...taking the ladder to 36 techs (37 before v0.59.1 note 3 deleted Kindling)",
+  p2.techCount === 36, String(p2.techCount));
 check("2.5 — CAMP_YIELD_LIMIT is kept at 6 by ruling, not changed", p2.campLimit === 6, String(p2.campLimit));
 
 // the migrations, exercised rather than read

@@ -252,12 +252,13 @@ const lad = await page.evaluate(() => {
 // SUPERSEDED v0.46 Part 5 — ladder trimmed 45 -> 38 and re-skewed to Kittens' shape.
 // SUPERSEDED v0.47 Part 1 — the ladder is Kittens' ladder rank for rank now.
 check("the five Era-3 anchors land on the v0.47 Kittens-parity ladder",
-  lad.era3.sparks === 20000 && lad.era3.chemtech === 60000 && lad.era3.hexcore === 75000 &&
+  lad.era3.sparks === 20000 && lad.era3.chemtech === 55000 && lad.era3.hexcore === 75000 &&
   lad.era3.deepWorks === 100000 && lad.era3.icathia === 135000, JSON.stringify(lad.era3));
 // SUPERSEDED v0.46 Part 5 — ladder trimmed 45 -> 38 and re-skewed to Kittens' shape.
 // SUPERSEDED v0.47 Part 1 — the ladder is Kittens' ladder rank for rank now.
 check("all ten Era-3 interstitials land on the v0.47 Kittens-parity ladder",
-  lad.interstitial.hexdraulics === 50000 && lad.interstitial.sumpEcology === 55000 &&
+  // v0.59.1 note 4.2 — Sump Ecology takes The Chemtech Whisper's 60,000 and vice versa.
+  lad.interstitial.hexdraulics === 50000 && lad.interstitial.sumpEcology === 60000 &&
   lad.interstitial.progressDay === 60000 && lad.interstitial.chemBaronAccords === 65000 &&
   lad.interstitial.gloriousEvolution === 85000 && lad.interstitial.atlasGauntlets === 90000 &&
   lad.interstitial.hexgate === 115000 && lad.interstitial.greyReclamation === 115000 &&

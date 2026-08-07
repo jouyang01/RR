@@ -364,9 +364,14 @@ check("15 — science parity is still ×20.8000", Math.abs(unchanged.science - 2
 check("15 — BOOST_LIMIT still has seven keys and `knowledge` is still absent",
   unchanged.boostKeys === 7 && unchanged.noKnowledge, `${unchanged.boostKeys} keys`);
 check("15 — CAMP_YIELD_LIMIT is still 6", unchanged.campLimit === 6);
-check("15 — the ladder is unmoved: 37 techs, 9 ties, median ×1.1111, geo ×1.2632, max ×3.333",
-  unchanged.n === 37 && unchanged.ties === 9 && unchanged.med === 1.1111 &&
-  unchanged.geo === 1.2632 && unchanged.max === 3.333,
+// RE-POINTED v0.59.1 — notes 3 and 4.2. Deleting Kindling Theory takes the ladder 37 -> 36,
+// which changes the count, drops one tie and moves the geometric mean; swapping Sump
+// Ecology and The Chemtech Whisper reorders two adjacent rungs. All five figures are
+// RE-MEASURED here rather than nudged: 36 techs, 8 ties, median ×1.1111 (unmoved), geo
+// ×1.2717, max ×3.333 (unmoved). The BANDS the ladder is judged against are untouched.
+check("15 — the ladder is unmoved apart from note 3: 36 techs, 8 ties, median ×1.1111, geo ×1.2717, max ×3.333",
+  unchanged.n === 36 && unchanged.ties === 8 && unchanged.med === 1.1111 &&
+  unchanged.geo === 1.2717 && unchanged.max === 3.333,
   `N=${unchanged.n}, ${unchanged.ties} ties, ×${unchanged.med}, ×${unchanged.geo}, ×${unchanged.max}`);
 check("15 — auditCostGraph() and auditRawGraph() are both still zero — the new Warehouse cap is clean",
   unchanged.cost === 0 && unchanged.raw === 0, `${unchanged.cost} / ${unchanged.raw}`);

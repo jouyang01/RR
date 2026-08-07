@@ -149,7 +149,7 @@ check("auditCostGraph stays green too", gates.clean.length === 0, gates.clean.jo
 check("...and the check still bites: an ore-priced Storehouse adds exactly one violation back",
   gates.withOre.length === 1 && /storehouse/i.test(gates.withOre[0]), gates.withOre.join(" | "));
 check("2.1 — the Shimmer Refinery moved to `chemtech`, which also gates its own alloy input",
-  gates.refinery === "chemtech" && gates.prices.chemtech === 60000, gates.refinery);
+  gates.refinery === "chemtech" && gates.prices.chemtech === 55000, gates.refinery);
 check("2.1 — shimmer's VISIBILITY moved with its producer; the two are separate declarations",
   /techs\.chemtech/.test(gates.shimmerHidden) && !/deepWorks/.test(gates.shimmerHidden));
 check("2.1 — THE GLORIOUS EVOLUTION IS RESEARCHABLE for the first time in any measured build",
@@ -205,8 +205,8 @@ const TABLE = {
   petricite: 65000, voidStudies: 12000, ritesOfTargon: 12000, callToArms: 15000, sparks: 20000,
   championsRegimen: 28000, deepCartography: 35000,
   // v0.52 Part 2.4: refinedMetallurgy (42000) deleted with the Bloomery; ladder is 37.
-  kindling: 50000, hexdraulics: 50000, sumpEcology: 55000, progressDay: 60000,
-  chemtech: 60000, chemBaronAccords: 65000, hexcore: 75000, gloriousEvolution: 85000,
+  hexdraulics: 50000, sumpEcology: 60000, progressDay: 60000,
+  chemtech: 55000, chemBaronAccords: 65000, hexcore: 75000, gloriousEvolution: 85000,
   atlasGauntlets: 90000, deepWorks: 100000, hexgate: 115000, greyReclamation: 115000,
   voidglassOptics: 125000, watchersBelow: 125000, icathia: 135000
 };
@@ -258,9 +258,9 @@ const reg = await page.evaluate(table => {
   };
 }, TABLE);
 check("no regression — all 37 tech prices unchanged, to the digit",
-  reg.wrongPrice.length === 0 && reg.n === 37, reg.wrongPrice.join(", ") || "37 techs");
+  reg.wrongPrice.length === 0 && reg.n === 36, reg.wrongPrice.join(", ") || "36 techs");   // v0.59.1 notes 3, 4.2
 check("no regression — the five ladder conditions still hold together",
-  reg.n === 37 && reg.ties >= 5 && reg.med >= 1.10 && reg.med <= 1.25 &&
+  reg.n === 36 && reg.ties >= 5 && reg.med >= 1.10 && reg.med <= 1.25 &&
   reg.geo >= 1.20 && reg.geo <= 1.30 && reg.max <= 3.5,
   `n=${reg.n} ties=${reg.ties} median=×${reg.med} geo=×${reg.geo} max=×${reg.max}`);
 check("no regression — catMonument is still exactly two members",

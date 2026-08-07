@@ -29,8 +29,8 @@ const TABLE = {
   // v0.52 Part 2.4: refinedMetallurgy (42000) DELETED with the Bloomery. 38 -> 37 techs.
   // Recomputed, all five conditions still hold: 37 techs, 8 ties, median x1.1222 (was
   // x1.1333), geometric mean x1.2632 (was x1.2553), largest step x3.333 unmoved.
-  kindling: 50000, hexdraulics: 50000, sumpEcology: 55000, progressDay: 60000,
-  chemtech: 60000, petricite: 65000, chemBaronAccords: 65000, hexcore: 75000, gloriousEvolution: 85000,
+  hexdraulics: 50000, sumpEcology: 60000, progressDay: 60000,
+  chemtech: 55000, petricite: 65000, chemBaronAccords: 65000, hexcore: 75000, gloriousEvolution: 85000,
   atlasGauntlets: 90000, deepWorks: 100000, hexgate: 115000, greyReclamation: 115000,
   voidglassOptics: 125000, watchersBelow: 125000, icathia: 135000
 };
@@ -73,7 +73,7 @@ check("PASS CONDITION: every tech price equals the Part 1 table, whole ladder",
   lad.mismatched.length === 0, lad.mismatched.join(" | ") || "all 37 match");
 check("...and there is no tech outside the table", lad.extra.length === 0, lad.extra.join(", ") || "none");
 check("PASS CONDITION: tech count is 37 (was 38; Refined Metallurgy deleted v0.52 Part 2.4)",
-  lad.count === 37, String(lad.count));
+  lad.count === 36, String(lad.count));   // v0.59.1 note 3: kindling deleted, 37 -> 36
 check("PASS CONDITION: ties ≥ 5", lad.ties >= 5, String(lad.ties));
 check("PASS CONDITION: median ×1.10–1.20", lad.median >= 1.10 && lad.median <= 1.20, `×${lad.median}`);
 check("PASS CONDITION: geometric mean ×1.25–1.30", lad.geo >= 1.25 && lad.geo <= 1.30, `×${lad.geo}`);

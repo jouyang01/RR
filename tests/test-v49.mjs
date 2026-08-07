@@ -165,8 +165,8 @@ const TABLE = {
   petricite: 65000, voidStudies: 12000, ritesOfTargon: 12000, callToArms: 15000, sparks: 20000,
   championsRegimen: 28000, deepCartography: 35000,
   // v0.52 Part 2.4: refinedMetallurgy (42000) deleted with the Bloomery; ladder is 37.
-  kindling: 50000, hexdraulics: 50000, sumpEcology: 55000, progressDay: 60000,
-  chemtech: 60000, chemBaronAccords: 65000, hexcore: 75000, gloriousEvolution: 85000,
+  hexdraulics: 50000, sumpEcology: 60000, progressDay: 60000,
+  chemtech: 55000, chemBaronAccords: 65000, hexcore: 75000, gloriousEvolution: 85000,
   atlasGauntlets: 90000, deepWorks: 100000, hexgate: 115000, greyReclamation: 115000,
   voidglassOptics: 125000, watchersBelow: 125000, icathia: 135000
 };
@@ -181,10 +181,12 @@ const lad = await page.evaluate(table => {
   return { wrong, n: ks.length, ties: steps.filter(v => v === 1).length,
            med: +med.toFixed(4), geo: +geo.toFixed(4), max: +Math.max(...steps).toFixed(3) };
 }, TABLE);
-check("all 37 tech prices unchanged, to the digit", lad.wrong.length === 0 && lad.n === 37,
-  lad.wrong.join(", ") || `37 techs`);
+// RE-POINTED v0.59.1 — notes 3 and 4.2. The table above carries the two swapped prices and
+// has lost `kindling`; every other entry is unchanged, which is the property.
+check("all 36 tech prices unchanged, to the digit", lad.wrong.length === 0 && lad.n === 36,
+  lad.wrong.join(", ") || `36 techs`);
 check("the five ladder conditions still hold together",
-  lad.n === 37 && lad.ties >= 5 && lad.med >= 1.10 && lad.med <= 1.25 &&
+  lad.n === 36 && lad.ties >= 5 && lad.med >= 1.10 && lad.med <= 1.25 &&
   lad.geo >= 1.20 && lad.geo <= 1.30 && lad.max <= 3.5,
   `n=${lad.n} ties=${lad.ties} median=×${lad.med} geo=×${lad.geo} max=×${lad.max}`);
 

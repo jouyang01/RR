@@ -279,7 +279,9 @@ check("J1 — the tree still has exactly one root and every edge still climbs in
   j1.roots.length === 1 && j1.roots[0] === "almanac" && j1.backwards.length === 0,
   j1.backwards.join(", ") || "monotonic");
 check("J1 — re-parenting moved NO price: the ladder is the same 37-tech multiset",
-  j1.n === 37 && j1.costs.length === 37 && j1.costs[0] === 30 && j1.costs[36] === 135000,
+  // v0.59.1 note 3: 37 -> 36, so the last index is 35. The ENDPOINTS are the property —
+  // re-parenting must not move the cheapest or the dearest rung — and both are unmoved.
+  j1.n === 36 && j1.costs.length === 36 && j1.costs[0] === 30 && j1.costs[35] === 135000,
   `${j1.n} techs, ${j1.costs[0]}..${j1.costs[36]}`);
 
 // 2 — a tooltip must not advertise an effect on a resource the player has not unlocked

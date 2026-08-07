@@ -162,22 +162,37 @@
   button.owned .b-name { color: var(--teal); }
   button .toggle-state { float: right; font-size: 11px; color: var(--teal); }
 
-  /* v0.59 PART 8 NOTE 1 (Jerry): "the wanderer job buttons are too bulky and the text does not
-     fit." Both halves are the same cause: eight fixed 28px squares plus 6px gaps reserve 272px
-     of a row, so "−20" and "+20" were laid out into 28px of width and clipped, and on a narrow
-     viewport the whole row overflowed its panel. LAYOUT ONLY — no counts, no maxima, no
-     assignJob behaviour is touched.
-     The fix is to stop pretending every chip is the same width. `min-width` with padding lets
-     the two-character chips stay compact and the three-character ones grow to fit their own
-     text; `flex-wrap` on the row means that when the panel is genuinely too narrow the chips
-     drop to a second line instead of spilling outside it. */
-  .job-row { display: flex; align-items: center; gap: 4px; margin-bottom: 7px; flex-wrap: wrap; }
-  .job-row .job-info { flex: 1 1 100%; }
+  /* v0.59 Part 8 note 1 widened eight chips and let the row WRAP, which fixed the clipping by
+     turning one row into two. v0.59.1 NOTE 2 (Jerry) rejects that outright — "it creates a lot
+     of vertical scrolling that we want to avoid" — and points at Kittens, which solves it with
+     TWO controls per row and the bulk steps in a HOVER FLYOUT.
+
+     THE FLYOUT IS `position: absolute`, AND THAT IS THE MECHANISM, NOT A DETAIL: an absolutely
+     positioned element is out of flow, so opening one cannot push the rows beneath it down.
+     Eight jobs occupy eight rows whether every flyout is open or none is. `.job-ctl` is the
+     positioning context and `overflow: visible` on the row is what lets the flyout escape it —
+     both are load-bearing, so do not "tidy" either away.
+
+     `nowrap` on the row is deliberate and is the difference from v0.59 Part 8: with only two
+     controls the row cannot overflow, so wrapping has nothing left to protect against and would
+     only re-introduce the second line this note exists to remove. */
+  .job-row { display: flex; align-items: center; gap: 6px; margin-bottom: 7px;
+             flex-wrap: nowrap; overflow: visible; }
+  .job-row .job-info { flex: 1 1 auto; min-width: 0; }
   .job-row .job-name { color: var(--text-bright); font-weight: 600; font-size: 13px; }
   .job-row .job-desc { font-size: 11px; font-style: italic; }
-  .job-row .job-count { color: var(--gold); min-width: 30px; text-align: center; font-size: 15px; }
-  .job-btn { min-width: 24px; height: 24px; padding: 0 5px; margin: 0; text-align: center;
-             font-size: 12px; font-weight: bold; line-height: 22px; white-space: nowrap; flex: 0 0 auto; }
+  .job-row .job-count { color: var(--gold); font-size: 13px; font-weight: 600; }
+  .job-btn { width: 28px; height: 26px; padding: 0; margin: 0; text-align: center;
+             font-size: 15px; font-weight: bold; line-height: 24px; flex: 0 0 auto; }
+  .job-ctl { position: relative; flex: 0 0 auto; }
+  .job-flyout { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+                z-index: 40; background: var(--panel2); border: 1px solid var(--border-gold);
+                border-radius: 3px; padding: 2px; box-shadow: 0 4px 10px rgba(0,0,0,0.55); }
+  /* Opens on hover of the whole control, so the pointer can travel from the button DOWN into
+     the flyout without crossing a gap that would close it. */
+  .job-ctl:hover .job-flyout { display: block; }
+  .job-step { display: block; width: 100%; min-width: 46px; height: 22px; padding: 0 6px; margin: 1px 0;
+              font-size: 11px; font-weight: bold; line-height: 20px; white-space: nowrap; text-align: center; }
 
   #log { max-height: 230px; overflow-y: auto; font-size: 11px; line-height: 1.4; }
   #log p { margin-bottom: 4px; border-left: 2px solid var(--border); padding-left: 6px; }
@@ -245,7 +260,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.59";
+var VERSION = "v0.59.1";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -378,7 +393,16 @@ var RES = {
   gear:       { name: "Gears",      kind: "craft" },
   stoneSlab:  { name: "Stone Slabs",    kind: "made", hidden: function (s) { return !s.techs.mining; } },
   zaunore:    { name: "Zaun Ore",       kind: "capped", baseCap: 150, hidden: function (s) { return !s.techs.sparks; } },
-  coalgas:    { name: "Coalgas",        kind: "capped", baseCap: 100, hidden: function (s) { return !s.techs.chemtech; } },
+  // v0.59.1 NOTE 4.1 (Jerry): "This is not shown in the materials section." A REAL LOSS OF
+  // YIELD, not a display bug. Sump Ecology unlocks the Sump Crawl, which pays coalgas and
+  // shimmer — but both were revealed by `chemtech` alone, and `withYieldFilter()` DROPS a gain
+  // whose resource is still hidden (that filter exists so early hunts cannot pay in materials
+  // the player has no way to understand). So a player who took Sump Ecology first ran the crawl
+  // and received NOTHING for two of its three rewards, silently.
+  // Note 4.2's cost swap makes chemtech the cheaper research and so usually the earlier one,
+  // but "usually" is not a guarantee: a player may buy them in any order. Revealing on EITHER
+  // tech closes it outright, and the tech that unlocks the faucet now also reveals what it pays.
+  coalgas:    { name: "Coalgas",        kind: "capped", baseCap: 100, hidden: function (s) { return !(s.techs.chemtech || s.techs.sumpEcology); } },
   hexore:     { name: "Hexcrystal Ore", kind: "capped", baseCap: 120, hidden: function (s) { return !s.techs.hexcore; } },
   // v0.53, Jerry directive 3: gated on CARPENTRY, which is the tech that unlocks the
   // recipe (CRAFTS `beam`, show: s.techs.carpentry). It read `woodcraft` — two ranks and
@@ -396,7 +420,7 @@ var RES = {
   // to become visible there too. The visibility gate and the producer are two separate
   // declarations and moving one without the other leaves a building producing an invisible
   // resource — which is also why auditRawGraph reads this predicate rather than the producer.
-  shimmer:    { name: "Shimmer",        kind: "capped", baseCap: 60,  hidden: function (s) { return !s.techs.chemtech; } },
+  shimmer:    { name: "Shimmer",        kind: "capped", baseCap: 60,  hidden: function (s) { return !(s.techs.chemtech || s.techs.sumpEcology); } },   // v0.59.1 note 4.1 — see coalgas
   focusedHex: { name: "Focused Hexcrystal", kind: "made", hidden: function (s) { return !s.techs.deepWorks; } },
   voidessence:{ name: "Void Essence",   kind: "capped", baseCap: 20,  hidden: function (s) { return !s.techs.icathia; } },
   voidglass:  { name: "Voidglass",      kind: "made",  hidden: function (s) { return !s.techs.icathia; } },
@@ -962,7 +986,24 @@ var BUILDINGS = [
   { id: "manufactory", name: "Hexdraulic Manufactory", group: "Industry", tech: "hexdraulics", toggleable: true,
     lore: "Piltover shipped the pressure lines, the gantries and a manual nobody has finished.",
     effect: "Idle until you teach it a trade. Burns Hextech Crystals to keep the pressure up.",
-    cost: { beam: 60, gear: 40, plating: 25, crystals: 60 }, ratio: 1.15,
+    // v0.59.1 NOTE 7 (Jerry): "Hextech Manufactory should cost more crystals and the discoveries
+    // related to it should be more expensive. It should force the player to build more hextech
+    // refineries and allocate tinkerers. 7.1 This will be a primary hextech crystal sink and
+    // should burn crystals accordingly."
+    //
+    // THE MEASUREMENT BACKS IT, which is why the numbers below are large rather than timid.
+    // The v0.59 three-seed ensemble: crystals sit at their ceiling **95.5% of all elapsed
+    // ticks**, finish at **90,279 / 90,279**, and the bot assigned **ZERO tinkerers** for the
+    // entire 2,500 years — it never needed one. A resource that is permanently full with no
+    // sink is not an economy, and the Manufactory was the one continuous crystal consumer in
+    // the game while costing 60 of them and burning 0.02/s.
+    //
+    // COST crystals 60 -> 400 (x6.7) and FUEL 0.02 -> 0.12/s per copy (x6). The fuel is the
+    // half that does the work: a cost is paid once out of a full stockpile and changes nothing,
+    // while a burn rate is what makes a player look at where crystals come from — the Refinery
+    // and the Tinkerer. `ratio` is UNTOUCHED at 1.15, deliberately: steepening the ratio as well
+    // would price the tenth Manufactory out of reach and turn a sink into a wall.
+    cost: { beam: 60, gear: 40, plating: 25, crystals: 400 }, ratio: 1.15,
     convert: { input: { crystals: MANUFACTORY_FUEL }, output: {} } },
   // NOTE the shape above: `output` is an EMPTY OBJECT, not absent. The converter loop iterates
   // outputs, so an empty object is a converter that consumes and produces nothing — inert, by
@@ -1322,7 +1363,12 @@ var TECHS = [
     unlock: function (s) { return ["twitch", "caitlyn", "heimerdinger"].some(function (id) { return s.champs && s.champs[id] && s.champs[id].r; }); },
     gate: function (s) { return "Requires a recruited Piltover/Zaun champion — Twitch, Caitlyn, or Heimerdinger"; },
     lore: "Your Piltovan friend keeps talking about home."},
-  { id: "chemtech", name: "The Chemtech Whisper", cost: { knowledge: 60000, culture: 600 }, req: "sparks",
+  // v0.59.1 NOTE 4.2 (Jerry): "switch the costs of Sump Ecology and The Chemtech Whisper so
+  // that the storage/production of these comes before the Wild Hunts." The Chemtech Whisper is
+  // what REVEALS coalgas and shimmer and unlocks the Vent and the Refinery; Sump Ecology unlocks
+  // the hunt that pays in them. Shipped the wrong way round, the hunt arrived first and its
+  // reward was invisible — see note 4.1 at RES.coalgas. 60,000 <-> 55,000, nothing else moved.
+  { id: "chemtech", name: "The Chemtech Whisper", cost: { knowledge: 55000, culture: 600 }, req: "sparks",
     lore: "The Sump has a second export, and it hisses."},
   // v0.47 Part 1.4(c): Hexcore and Glorious Evolution SWAP prices within the spec's own
   // 21-38 multiset. The Augment Chamber (Glorious Evolution) costs hexgear, which the
@@ -1344,7 +1390,7 @@ var TECHS = [
   // ---- Era 3 interstitials (v0.42 Part 1.3) ----
   { id: "hexdraulics", name: "Hexdraulics", cost: { knowledge: 50000, beam: 40 }, req: "sparks",
     lore: "Water, pressure, and a crystal that will not admit which it is."},
-  { id: "sumpEcology", name: "The Sump Ecology", cost: { knowledge: 55000, plating: 30 }, req: "sparks",
+  { id: "sumpEcology", name: "The Sump Ecology", cost: { knowledge: 60000, plating: 30 }, req: "sparks",   // v0.59.1 note 4.2: swapped with chemtech
     lore: "Things live down there. Some of them are worth catching."},
   { id: "progressDay", name: "Progress Day", cost: { knowledge: 60000, culture: 2000 }, req: "hexdraulics",   // v0.53 J1: Sparks 4 children -> 3
     lore: "Piltover's holiday, exported."},
@@ -1390,8 +1436,19 @@ var TECHS = [
   // to ~x1.13 while the chain still climbs at x1.27 a rank.
   // So: ten techs, each priced EXACTLY on an existing rung, each opening exactly one
   // upgrade, and NONE of them the `req` of anything. No existing price is touched.
-  { id: "kindling", name: "Kindling Theory", cost: { knowledge: 50000 }, req: "smelting",
-    lore: "Heat kept is heat not spent."},
+  // v0.59.1 NOTE 3 (Jerry): "Get rid of Kindling Theory Research. Put the unlock condition of
+  // the Discovery Banked Coals into The Sump Ecology Research."
+  //
+  // KINDLING THEORY IS DELETED. It was a leaf: `req: "smelting"`, the `req` of nothing, and the
+  // gate of exactly one discovery (Banked Coals). A 50,000-knowledge research whose entire
+  // content is "you may now buy one thing" is a toll booth, not a decision — and it sat on the
+  // Era-2 rung while the thing it gated is Era-3 industry. Banked Coals moves onto Sump Ecology,
+  // which is where its subject matter already lives.
+  //
+  // THE ID IS RESERVED UNDER STANDING-RULINGS §30 for as long as the migration below exists.
+  // `fresh.techs.kindling` is deleted on load; the migration retires at v1.0. Do not re-use
+  // `kindling` for anything before then — that is the v0.56 Granary defect, and §30 is new
+  // enough that this is the first chance to not repeat it.
 ];
 
 // ============================================================
@@ -2413,6 +2470,17 @@ function scholarEffect(id, numeral) {
 function scholarDesc(id, numeral, flavour) {
   return "Scholarship " + numeral + " — " + flavour + ". " + scholarEffect(id, numeral).replace(/^Scholarship \S+ — /, "");
 }
+// v0.59.1 NOTES 1 AND 6 — the two mana-production boosts, named so the additive category is
+// readable in one place. Both land in `boosts.mana` beside Hexresonance's 0.25, so the three
+// together are +80% and never ×1.95. THE MAGNITUDES ARE THE ONES THE UPGRADES ALREADY CARRIED:
+// Leyline Calibration kept the 0.30 it had as a job rung (Jerry moved its SCOPE, not its size,
+// and inventing a new number while re-scoping would have made the measurement unreadable), and
+// True Ice Cellars takes 0.20 — the same figure its retired provisions clause used. Both are
+// measured in BUILD REPORT §3 and both are re-rated in the ledger, because a job-scoped +30%
+// and a global +30% are not the same claim about the source.
+var LEYLINE_MANA_BOOST = 0.30;
+var TRUE_ICE_MANA_BOOST = 0.20;
+
 var UPGRADES = [
   { id: "runicAttunement", name: "Runic Attunement", cost: { mana: 120 },
     lore: "The wells were always singing. Somebody finally learned the key.",
@@ -2472,7 +2540,7 @@ var UPGRADES = [
   // on both axes rather than only on the tech gate.
   { id: "leylineCalibration", name: "Leyline Calibration", cost: { beam: 50, mana: 900 }, tech: "sparks", req: "arcaneFocus",
     lore: "The leylines were never crooked. The instruments were.",
-    effect: "Arcanists +30%. With Arcane Focus the mana job line reaches ×1.80 — Kittens' two-rung figure." },
+    effect: "All mana production +" + Math.round(LEYLINE_MANA_BOOST * 100) + "%."},
   { id: "bilgewaterContracts", name: "Bilgewater Contracts", cost: { gold: 250 }, tech: "trade",
     lore: "Signed in three places, one of them a thumbprint.",
     effect: "All gold production +25%."},
@@ -2485,9 +2553,12 @@ var UPGRADES = [
   // only by the Jayce milestone handout, which is directive 2's problem and not a design.
   // Gold 200 -> 300 so the Discovery still costs something real at its own rank; gold is
   // what the Trade rung is denominated in and the player has a route to it.
+  // v0.59.1 NOTE 6 (Jerry): "True Ice Cellars should not affect anything provisions related.
+  // Make it a mana production enhancing discovery." Its cost, tech and flavour are untouched —
+  // True Ice keeping a leyline steady is the same fiction as True Ice keeping a larder cold.
   { id: "trueIceCellars", name: "True Ice Cellars", cost: { gold: 300 }, tech: "trade",
-    lore: "True Ice keeps a cellar honest through a Freljord summer.",
-    effect: "Wanderers eat 20% less."},
+    lore: "True Ice keeps a cellar honest through a Freljord summer — and a leyline, it turns out.",
+    effect: "All mana production +" + Math.round(TRUE_ICE_MANA_BOOST * 100) + "%."},
   { id: "reinforcedStorehouses", name: "Reinforced Storehouses", cost: { gear: 10, timber: 300 }, tech: "smelting",
     lore: "Gear-braced beams and doubled lofts.",
     effect: "Storehouse capacity +75%."},
@@ -2574,10 +2645,14 @@ var UPGRADES = [
   // rather than against its rung: the parchment printer is the cheapest because it replaces
   // hand-crafting the shallowest recipe in the game, and the automatic workshop is the dearest
   // because it replaces four.
-  { id: "pressureRegulators", name: "Pressure Regulators", cost: { crystals: 120, gear: 60 }, tech: "hexdraulics",
+  // v0.59.1 NOTE 7 — all three Manufactory discoveries are dearer, and dearer IN CRYSTALS,
+  // because the note's stated goal is to make the player build refineries and staff tinkerers
+  // rather than merely to slow them down. Pressure Regulators is the one a player will want
+  // first now that the fuel burn is six times what it was, so it carries the largest rise.
+  { id: "pressureRegulators", name: "Pressure Regulators", cost: { crystals: 600, gear: 60 }, tech: "hexdraulics",
     lore: "The lines were never meant to run this hot. They do now, and they sip.",
     effect: "Hexdraulic Manufactories burn " + Math.round((1 - MANUFACTORY_FUEL_CUT) * 100) + "% less Hextech Crystal."},
-  { id: "rollingPress", name: "The Rolling Press", cost: { crystals: 90, plating: 40 }, tech: "hexdraulics",
+  { id: "rollingPress", name: "The Rolling Press", cost: { crystals: 450, plating: 40 }, tech: "hexdraulics",
     lore: "It prints faster than anyone can read, which the scribes find insulting.",
     effect: "Each Manufactory prints " + MANUFACTORY_PARCHMENT + " parchment/second."},
   // CAUGHT BY auditCostGraph(): the first draft priced this in HEXGEAR, which is gated on
@@ -2585,9 +2660,10 @@ var UPGRADES = [
   // it would have sat visible and unbuyable for an entire tech tier. Scaffold replaces it: same
   // Piltovan-construction flavour, available at the gate. The audit is why this is a comment
   // and not a bug report from Jerry.
-  { id: "automatedWorkshop", name: "The Automated Workshop", cost: { crystals: 200, scaffold: 120, beam: 200 }, tech: "hexdraulics",
+  { id: "automatedWorkshop", name: "The Automated Workshop", cost: { crystals: 900, scaffold: 120, beam: 200 }, tech: "hexdraulics",
     lore: "Nobody is quite sure who is operating it. Everyone has decided not to ask.",
-    effect: "Once a year, each Manufactory turns out a Support Beam, a Stone Slab, a Gear and a sheet of Iron Plating."},
+    effect: "When Timber or Ore stands at " + Math.round(AUTOMATION_TRIGGER * 100) + "% of its ceiling, each Manufactory " +
+            "turns the overflow into Support Beams and Stone Slabs instead of letting it spill."},
   { id: "piltovanCranes", name: "Piltovan Cranes", cost: { beam: 120, gear: 40 }, tech: "hexdraulics",
     lore: "Lift it once, properly.",
     effect: "Scaffold craft cost 40 → 28 beams."},
@@ -2668,7 +2744,8 @@ var UPGRADES = [
   { id: "ironShodWheels", name: "Iron-Shod Wheels", cost: { steel: 120, timber: 600 }, tech: "smelting",
     lore: "The road is the same length; the cart argues less.",
     effect: wildsVigorDesc(10, true)},
-  { id: "bankedCoals", name: "Banked Coals", cost: { steel: 80, stoneSlab: 20 }, tech: "kindling",
+  // v0.59.1 NOTE 3 — re-homed from the deleted `kindling` onto `sumpEcology`.
+  { id: "bankedCoals", name: "Banked Coals", cost: { steel: 80, stoneSlab: 20 }, tech: "sumpEcology",
     lore: "A fire you never let die is a fire you never rebuild.",
     effect: "Forge and Refinery output +15%."},
   { id: "pastureRotation", name: "Pasture Rotation", cost: { provisions: 8000, poros: 40 }, tech: "abyss",   // provisions x10, v0.55 Part 3.3
@@ -2703,7 +2780,11 @@ var UPGRADES = [
   { id: "scribesGuild", name: "Scribes' Guild", cost: { culture: 250, parchment: 30 }, tech: "songcraft",   // v0.54 directive 6: parchment 40 -> 30
     lore: "A hall where the ink is always wet.",
     effect: "Parchment craft yield +10%."},
-  { id: "harvestRites", name: "Harvest Rites", cost: { mushrooms: 400, culture: 300, parchment: 10 }, tech: "songcraft",
+  // v0.59.1 NOTE 8 (Jerry): "Masquerade should unlock Harvest Rites discovery, songcraft should
+  // not." Songcraft is the tech that makes CULTURE a resource, so gating the festival on it made
+  // the festival the first thing a player could spend culture on before they had any. Masquerade
+  // (1,500 knowledge, off `trade`) is the festival-and-strangers tech and is where it belongs.
+  { id: "harvestRites", name: "Harvest Rites", cost: { mushrooms: 400, culture: 300, parchment: 10 }, tech: "masquerade",
     lore: "Drums, stew, and a reason.",
     effect: "Unlocks Hold a Festival."},
   // v0.54, DEV DIRECTIVE 7. Illuminators multiplies the TOME craft yield, and it sat on
@@ -3301,11 +3382,34 @@ var DRAKE_PER_KILL = { infernal: 0.05, ocean: 0.06, mountain: 0.06, cloud: 0.10,
 // v0.55 Part 6: the caps were five magic numbers spread across five call sites, which is why
 // nothing could enumerate them. They are a table now, and every call site reads it.
 // v0.58.1 NOTE 48 — the Manufactory's constants, declared before BUILDINGS reads them.
-var MANUFACTORY_FUEL = 0.02;              // crystals/s per copy, before the efficiency discovery
+var MANUFACTORY_FUEL = 0.12;              // v0.59.1 note 7.1: 0.02 -> 0.12 crystals/s per copy, before the efficiency discovery
 var MANUFACTORY_FUEL_CUT = 0.5;           // 48.2 A — Pressure Regulators halve it
 var MANUFACTORY_PARCHMENT = 0.005;        // 48.2 B — Jerry's figure, verbatim
 // 48.2 C — the yearly automatic craft. One of each, once a game-year, per Manufactory.
-var MANUFACTORY_AUTOCRAFT = ["beam", "stoneSlab", "gear", "plating"];
+// v0.59.1 NOTE 7.2 (Jerry): "Automated Workshop discovery should work just like the Kitten's
+// Workshop Automation upgrade."
+//
+// KITTENS' SHAPE, and it is a different KIND of effect from what RR shipped. Workshop Automation
+// does not grant anything on a timer. It watches the two raw stockpiles, and when one is nearly
+// full it converts the OVERFLOW into the crafted tier — wood into beams, minerals into slabs —
+// consuming the input at the ordinary recipe price. It is a spill-guard, not a faucet: it can
+// only ever act on units that were about to be thrown away at the ceiling, so it adds nothing
+// to a settlement whose storage is not full and everything to one whose is.
+//
+// v0.58.1 note 48.2 C had shipped the opposite: a YEARLY FLAT GRANT of one of each of four
+// goods per Manufactory, paid out of nothing. That is a faucet with no input, which is why it
+// was rated EASIER in the ledger. This replaces it outright.
+//
+// WHAT IS PARITY AND WHAT IS NOT, stated rather than blurred. The SHAPE is the source's and the
+// 95% trigger is the figure the source is documented as using. The SHARE — how much of the
+// standing pool one trigger converts — I could not retrieve from source this round, so 5% of the
+// ceiling per game-year per Manufactory is an RR-ORIGINAL magnitude and is ledgered UNVERIFIED
+// rather than dressed up as parity. It is deliberately small: the point is that a full barn
+// stops wasting, not that automation out-produces a crafter.
+var AUTOMATION_TRIGGER = 0.95;            // fires at 95% of the ceiling — the source's threshold
+var AUTOMATION_SHARE = 0.05;              // RR-ORIGINAL magnitude: 5% of the ceiling per copy, per year
+// input -> output, at the ordinary craft price, exactly as the recipes charge it.
+var AUTOMATION_PAIRS = [{ from: "timber", to: "beam" }, { from: "ore", to: "stoneSlab" }];
 var DRAKE_CAP = { infernal: 0.5, ocean: 0.6, mountain: 0.6, cloud: 1.0, hextech: 0.6 };
 // ============================================================================
 // v0.55 PART 6 (directive 1) — DRAKES DIMINISH FROM THE FIRST KILL.
@@ -3559,23 +3663,6 @@ var EXPEDITIONS = [
       gain("ore", o); gain("gold", g);
       addLog("The krugs crumble, then crumble again. +" + o + " ore, +" + g + " gold.", "event");
     } },
-  { id: "sumpCrawl", name: "The Sump Crawl", tech: "sumpEcology", renown: 4,
-    desc: "Down past the vents, where the runoff pools and something has learned to like it.",
-    yield: "40–70 Zaun Ore + 20–35 Coalgas · 25% chance of Shimmer (scales with camp yields)",
-    cost: { vigor: 140 },
-    run: function () {
-      var m = campYieldMult();
-      var z = Math.round((40 + Math.floor(rerollAmt("hunt") * 31)) * m);
-      var c = Math.round((20 + Math.floor(rerollAmt("hunt") * 16)) * m);
-      gain("zaunore", z); gain("coalgas", c);
-      var msg = "The crawl team comes back up filthy and pleased. +" + z + " Zaun Ore, +" + c + " Coalgas";
-      if (rerollHit("hunt") < 0.25) {
-        var sh = Math.round((3 + Math.floor(rerollAmt("hunt") * 5)) * m);
-        gain("shimmer", sh);
-        msg += ". Somebody pocketed a vial nobody is asking about (+" + sh + " shimmer)";
-      }
-      addLog(msg + ".", "event");
-    } },
   { id: "blueSentinel", name: "Blue Sentinel", tech: "logistics", cooldown: 600, renown: 5,
     desc: "The stone golem hums with old magic.",
     // v0.58.1 NOTE 9 (Jerry): "Blue Sentinel and Red Brambleback should give more gold
@@ -3717,7 +3804,30 @@ var EXPEDITIONS = [
       } else {
         addLog("Baron Nashor barely notices your assault. The survivors do not speak of the acid.", "bad");
       }
-    } }
+    } },
+  // v0.59.1 NOTE 4.3 (Jerry): "The Sump Crawl should go after the Baron Nashor hunt in the UI
+  // because it is unlocked after." It sat fifth, between Krugs and the Blue Sentinel, i.e. among
+  // the four Era-1 resource camps — which reads as "this is available now" to a player who has
+  // just found the Wilds tab. It is gated on Sump Ecology, 60,000 knowledge, deep in Era 3, and
+  // is the LAST expedition a player unlocks. `renderWilds()` iterates EXPEDITIONS in array
+  // order, so array order IS UI order and moving the entry is the whole change.
+  { id: "sumpCrawl", name: "The Sump Crawl", tech: "sumpEcology", renown: 4,
+    desc: "Down past the vents, where the runoff pools and something has learned to like it.",
+    yield: "40–70 Zaun Ore + 20–35 Coalgas · 25% chance of Shimmer (scales with camp yields)",
+    cost: { vigor: 140 },
+    run: function () {
+      var m = campYieldMult();
+      var z = Math.round((40 + Math.floor(rerollAmt("hunt") * 31)) * m);
+      var c = Math.round((20 + Math.floor(rerollAmt("hunt") * 16)) * m);
+      gain("zaunore", z); gain("coalgas", c);
+      var msg = "The crawl team comes back up filthy and pleased. +" + z + " Zaun Ore, +" + c + " Coalgas";
+      if (rerollHit("hunt") < 0.25) {
+        var sh = Math.round((3 + Math.floor(rerollAmt("hunt") * 5)) * m);
+        gain("shimmer", sh);
+        msg += ". Somebody pocketed a vial nobody is asking about (+" + sh + " shimmer)";
+      }
+      addLog(msg + ".", "event");
+    } },
 ];
 
 // ============================================================
@@ -4323,7 +4433,17 @@ function gain(r, amt) {
 }
 function canAfford(cost) { for (var r in cost) if (S.res[r] < cost[r]) return false; return true; }
 function pay(cost) { for (var r in cost) S.res[r] -= cost[r]; }
+// v0.59.1 NOTE 5 (Jerry): "When doing a bulk Hunt, the chronicle log should show the total
+// yield, not an entry for each hunt." A x20 Krug run wrote twenty-one lines and pushed every
+// other thing that happened out of a sixty-line chronicle — the log's whole job is to tell you
+// what you could not watch, and a batch is exactly the case where it stopped doing that.
+//
+// MUTING IS A COUNTER, NOT A BOOLEAN, because runExpeditionBulk() and craftItem() can nest
+// (the Arcanist's Circle calls transmuteMana inside a yearly hook) and a boolean would have the
+// inner scope un-mute the outer one on the way out. Same reason `undoBulkDepth` is a counter.
+var logMuted = 0;
 function addLog(text, cls) {
+  if (logMuted > 0) return;
   S.log.unshift({ text: text, cls: cls || "" });
   if (S.log.length > 60) S.log.pop();
   renderLog();
@@ -5045,6 +5165,15 @@ function computeRates(bdRes) {
   if (S.upgrades.mintedCoin) boosts.gold += 0.20;               // v0.45 Part 6 — Coinage
   if (S.techs.cultivation) boosts.provisions += 0.10;       // v0.52 Part 2.1, out of resRatio
   if (S.upgrades.hexresonance) boosts.mana += 0.25;         // v0.50 Part 1.3, out of resRatio
+  // v0.59.1 NOTE 1 (Jerry): "the mana discovery should affect all mana production, not just
+  // arcanists." `leylineCalibration` moves off the Arcanist job line and lands here, ADDITIVE
+  // with Hexresonance because they are the same category — Kittens' Law, and the reason this
+  // is one `boosts.mana` accumulator rather than two multipliers. Both held is +55%, not ×1.56.
+  // v0.59.1 NOTE 6 (Jerry): "True Ice Cellars should not affect anything provisions related.
+  // Make it a mana production enhancing discovery." It joins the same accumulator, for the same
+  // reason — a third multiplicative category for one member is exactly what §19 exists to stop.
+  if (S.upgrades.leylineCalibration) boosts.mana += LEYLINE_MANA_BOOST;
+  if (S.upgrades.trueIceCellars)     boosts.mana += TRUE_ICE_MANA_BOOST;
   if (S.upgrades.resonanceCoils) boosts.crystals += 0.25;   // v0.54 directive 16, was hexCapacitors at 0.50
   if (S.upgrades.tributeReliquaries) boosts.crystals += 0.25;   // v0.45 Part 6 — The Baron's Tribute
   if (S.wtechs && S.wtechs.solariHymn) boosts.devotion += 0.25;
@@ -5102,19 +5231,19 @@ function computeRates(bdRes) {
     farmer: hoeMult() * villageMult,
     woodcutter: axeMult() * villageMult,
     miner: villageMult,
-    // v0.59 PART 8 NOTE 6 (Jerry): "one more mana-production Discovery", RUNG-MATCHED AGAINST
-    // THE SOURCE rather than by feel, which is what the spec asks for.
+    // v0.59 Part 8 note 6 shipped `leylineCalibration` HERE, as the second rung of the Arcanist
+    // job line, matching Kittens' two-rung `catnipJobRatio` (mineralHoes 0.50 + ironHoes 0.30).
     //
-    // THE ANCHOR. Kittens' catnip JOB line has TWO rungs, not one: `catnipJobRatio` is fed by
-    // mineralHoes 0.50 and ironHoes 0.30 (js/workshop.js), additive, x1.80 at both. RR's mana
-    // job — the Arcanist — had exactly ONE rung, `arcaneFocus` at +50%, so the line was half a
-    // Kittens line. The second rung completes the shape at the SOURCE'S OWN SECOND FIGURE,
-    // +30%, and the line lands at x1.80 fully stacked — Kittens' figure, taken, not tuned.
+    // v0.59.1 NOTE 1 (Jerry) SUPERSEDES THAT: "the mana discovery should affect all mana
+    // production, not just arcanists." So it leaves this line and becomes a global mana boost
+    // beside `hexresonance` — see computeRates(). What stays here is `arcaneFocus`, which is
+    // genuinely a job upgrade (it also adds +4 to the manual channel), so the Arcanist line
+    // returns to the single rung it had before v0.59.
     //
-    // ADDITIVE WITHIN THE CATEGORY (Kittens' Law): 1 + 0.50 + 0.30, never 1.5 x 1.3. That is
-    // also why this is the right place for the note rather than a fourth global +25% beside
-    // hexresonance, which would have been a new multiplicative category for one member.
-    arcanist: 1 + (S.upgrades.arcaneFocus ? 0.50 : 0) + (S.upgrades.leylineCalibration ? 0.30 : 0),
+    // THE PARITY CLAIM CHANGES WITH IT AND THE LEDGER SAYS SO. This is no longer Kittens'
+    // catnipJobRatio second rung; it is a global `<res>Ratio`-shaped boost, which the source
+    // also has, but the x1.80 two-rung figure no longer describes anything in RR.
+    arcanist: 1 + (S.upgrades.arcaneFocus ? 0.50 : 0),
     tinkerer: S.upgrades.facetedCuts ? 1.25 : 1,   // v0.45 Part 6 — Lapidary
     loremaster: 1
   };
@@ -5338,7 +5467,12 @@ function computeRates(bdRes) {
   }
 
   // Consumption (never multiplied by production bonuses)
-  var eat = S.pop * CONSUMPTION * (S.upgrades.trueIceCellars ? 0.8 : 1);
+  // v0.59.1 NOTE 6 (Jerry): "True Ice Cellars should not affect anything provisions related."
+  // The -20% consumption term is GONE. `CONSUMPTION` is a parity constant (STANDING-RULINGS
+  // Appendix: catnipPerKitten -0.85 x 5 against catnip 1 x 5, ratio 1.17647 exactly), and a
+  // discovery that quietly cut it by a fifth was the one thing standing between that constant
+  // and the number a player actually experiences. It is now a mana discovery — see boosts.mana.
+  var eat = S.pop * CONSUMPTION;
   eat *= 1 + Math.max(0, morale() - 100) * 0.002;
   // v0.55 Part 3.4: ONE category, summed over every carrier, bounded once. Kittens' pasture
   // and unicornPasture both write catnipDemandRatio and it is additive between them.
@@ -6103,14 +6237,34 @@ function manufactoryYear() {
   if (!S.upgrades.automatedWorkshop) return;
   var n = count("manufactory");
   if (!n) return;
-  var made = [];
-  MANUFACTORY_AUTOCRAFT.forEach(function (r) {
-    if (!RES[r]) return;
-    gain(r, n);
-    made.push("+" + n + " " + RES[r].name.toLowerCase());
+  var caps = computeCaps(), made = [];
+  AUTOMATION_PAIRS.forEach(function (pair) {
+    var cap = caps[pair.from];
+    // ONLY AT THE CEILING. This is the whole of the source's behaviour and the reason the
+    // effect is bounded: below 95% it does nothing at all, so it can never compete with a
+    // player who is actually spending their timber.
+    if (!(cap > 0) || (S.res[pair.from] || 0) < cap * AUTOMATION_TRIGGER) return;
+    var cr = CRAFTS.find(function (c) { return c.out === pair.to; });
+    if (!cr) return;
+    var price = craftCostOf(cr.id)[pair.from];
+    if (!(price > 0)) return;
+    // The budget is a share of the CEILING, not of the stock, so it does not compound with
+    // itself as the ceiling and the stock converge.
+    var budget = Math.min(S.res[pair.from], cap * AUTOMATION_SHARE * n);
+    var times = Math.floor(budget / price);
+    if (times < 1) return;
+    var before = S.res[pair.to] || 0;
+    // Routed through craftItem() rather than reimplemented, so automation pays the same price,
+    // takes the same yield multipliers and respects the same output ceiling a hand-craft does.
+    // Muted, because craftItem writes its own chronicle line and this function writes one for
+    // the whole year (v0.59.1 note 5's rule, applied to the same problem in a second place).
+    logMuted++;
+    try { craftItem(cr.id, times); } finally { logMuted--; }
+    var gained = (S.res[pair.to] || 0) - before;
+    if (gained > 0) made.push("+" + fmt(gained) + " " + RES[pair.to].name.toLowerCase());
   });
-  if (made.length) addLog("The Manufactory floor runs itself through the night shift and the year turns over with the crates already stacked. (" +
-    made.join(", ") + ")", "event");
+  if (made.length) addLog("The Manufactory floor runs itself through the night shift. The overflow " +
+    "never reached the yard — it was already stacked and counted. (" + made.join(", ") + ")", "event");
   uiDirty = true;
 }
 function arcanistsCircleYear() {
@@ -6614,15 +6768,47 @@ function runExpeditionBulk(id, times) {
   // v0.59 Part 8 note 2: one snapshot for the batch, and it keeps the "hunt" kind so the
   // re-roll penalty still bites if the batch is undone.
   snapshotUndo(e.name + " ×" + n, "hunt");
-  undoBulkDepth++;
+  // v0.59.1 note 5: the deltas are captured across the WHOLE batch and reported once. Reading
+  // them off S.res rather than summing the run() bodies means a camp that pays a rare bonus
+  // (the Scuttler roll, a stray poro) is counted without every run() needing to report itself.
+  var before = {}; for (var rb in S.res) before[rb] = S.res[rb];
+  // MUTE ONLY WHEN THE BATCH IS ACTUALLY A BATCH. A x1 through the bulk chips is a single hunt
+  // and should read exactly like clicking the camp — including the camp's own flavour line,
+  // which a summary cannot reproduce. Jerry's note is about a run of twenty burying the
+  // chronicle; it is not about losing "The krugs crumble, then crumble again."
+  var quiet = n > 1;
+  undoBulkDepth++; if (quiet) logMuted++;
   try {
     for (var i = 0; i < n; i++) {
       if (!canAfford(expCost(e))) break;
       runExpedition(id);
       done++;
     }
-  } finally { undoBulkDepth--; }
-  if (done > 1) addLog("The war-band goes out " + done + " times over. " + e.name + " ×" + done + ".", "event");
+  } finally { undoBulkDepth--; if (quiet) logMuted--; }
+  if (done > 1) {
+    // Vigor is excluded from the GAINS and stated separately as the price, the same split
+    // v0.58 note 6 made for the undo toast: the cost is on the button the player just pressed.
+    var gains = [], spent = [];
+    for (var rr in S.res) {
+      var d = (S.res[rr] || 0) - (before[rr] || 0);
+      if (Math.abs(d) < 1e-9 || !RES[rr]) continue;
+      if (d > 0) gains.push("+" + fmt(d) + " " + RES[rr].name.toLowerCase());
+      else spent.push("−" + fmt(-d) + " " + RES[rr].name.toLowerCase());
+    }
+    addLog("The war-band goes out " + done + " times over. " + e.name + " ×" + done +
+      (gains.length ? " — " + gains.join(", ") : "") +
+      (spent.length ? " for " + spent.join(", ") : "") +
+      (done < n ? " (stopped early: ran out of Vigor)" : "") + ".", "event");
+  } else if (done === 1 && quiet) {
+    // Reachable only when a x2-or-more batch stopped after one hunt for want of Vigor: the run
+    // WAS muted, so its line is replayed from the deltas rather than lost.
+    var one = [];
+    for (var r1 in S.res) {
+      var d1 = (S.res[r1] || 0) - (before[r1] || 0);
+      if (d1 > 1e-9 && RES[r1]) one.push("+" + fmt(d1) + " " + RES[r1].name.toLowerCase());
+    }
+    addLog(e.name + (one.length ? " — " + one.join(", ") : "") + " (stopped early: ran out of Vigor).", "event");
+  }
 }
 function runExpedition(id) {
   var e = EXPEDITIONS.find(function (x) { return x.id === id; });
@@ -6885,6 +7071,14 @@ function loadFromString(str) {
     delete fresh.buildings.bloomery;
   }
   if (fresh.techs) delete fresh.techs.refinedMetallurgy;
+  // v0.59.1 NOTE 3 — Kindling Theory is deleted. A save that holds it drops the key; the
+  // discovery it gated (Banked Coals) is KEPT, because the player paid for it and it now hangs
+  // off Sump Ecology instead. Nothing is refunded and nothing is lost.
+  //
+  // STANDING-RULINGS §30, applied for the first time by the round after the one that wrote it:
+  // `kindling` is a RESERVED ID for as long as this line exists, and THIS MIGRATION RETIRES AT
+  // v1.0. Do not ship a new tech, building, upgrade or resource on that id before then.
+  if (fresh.techs) delete fresh.techs.kindling;
   // v0.37 → v0.38: Worship moves out of RES and becomes a plain state number
   if (data.res && data.res.worship && !fresh.worship) fresh.worship = data.res.worship;
   // v0.31 → v0.32: civilisations you have already met stay met
@@ -7922,7 +8116,7 @@ function renderVillage(el) {
   html += '<div style="font-size:13px;margin-bottom:8px">Population: <b style="color:var(--gold-bright)">' + S.pop + " / " + maxPop() + '</b> · Idle: <b style="color:var(--gold-bright)">' + idle + "</b></div>";
   html += '<div style="font-size:11px;font-style:italic;margin-bottom:10px">' +
     (S.pop === 0 ? "Build shelters and keep provisions stocked — wanderers will come."
-      : "Each wanderer eats " + (CONSUMPTION * (S.upgrades.trueIceCellars ? 0.8 : 1)).toFixed(3) + " provisions/s, forever. Assign them work below; they get better at it the longer they do it.") + "</div>";
+      : "Each wanderer eats " + CONSUMPTION.toFixed(3) + " provisions/s, forever. Assign them work below; they get better at it the longer they do it.") + "</div>";
   if (S.techs.almanac && S.pop > 0) {
     var provBd = computeRates("provisions");
     var farmAmt = 0;
@@ -7941,17 +8135,39 @@ function renderVillage(el) {
   JOBS.forEach(function (j) {
     if (j.tech && !S.techs[j.tech] && !(S.jobs[j.id] > 0)) return;
     if (j.unlock && !j.unlock(S) && !(S.jobs[j.id] > 0)) return;
-    html += '<div class="job-row"><div class="job-info"><div class="job-name">' + j.name + '</div><div class="job-desc">' + j.desc + "</div></div>" +
-      // v0.58.1 NOTE 10 — the bulk row. `1e9` stands in for "all": assignJob clamps it.
-      '<button class="job-btn" data-job="' + j.id + '" data-d="-1000000000"' + ((S.jobs[j.id] || 0) > 0 ? "" : " disabled") + ' title="all">≪</button>' +
-      '<button class="job-btn" data-job="' + j.id + '" data-d="-20"' + ((S.jobs[j.id] || 0) > 0 ? "" : " disabled") + '>−20</button>' +
-      '<button class="job-btn" data-job="' + j.id + '" data-d="-5"' + ((S.jobs[j.id] || 0) > 0 ? "" : " disabled") + '>−5</button>' +
-      '<button class="job-btn" data-job="' + j.id + '" data-d="-1"' + ((S.jobs[j.id] || 0) > 0 ? "" : " disabled") + '>−</button>' +
-      '<div class="job-count">' + (S.jobs[j.id] || 0) + "</div>" +
-      '<button class="job-btn" data-job="' + j.id + '" data-d="1"' + (idle > 0 && !(j.max && (S.jobs[j.id] || 0) >= j.max()) ? "" : " disabled") + ">+</button>" +
-      '<button class="job-btn" data-job="' + j.id + '" data-d="5"' + (idle > 0 && !(j.max && (S.jobs[j.id] || 0) >= j.max()) ? "" : " disabled") + '>+5</button>' +
-      '<button class="job-btn" data-job="' + j.id + '" data-d="20"' + (idle > 0 && !(j.max && (S.jobs[j.id] || 0) >= j.max()) ? "" : " disabled") + '>+20</button>' +
-      '<button class="job-btn" data-job="' + j.id + '" data-d="1000000000"' + (idle > 0 && !(j.max && (S.jobs[j.id] || 0) >= j.max()) ? "" : " disabled") + ' title="all">≫</button></div>';
+    // ====================================================================================
+    // v0.59.1 NOTE 2 (Jerry): "The new buttons on the wanderer page are terrible - it creates a
+    // lot of vertical scrolling that we want to avoid. Model it after this screenshot from
+    // kittens. Essentially there is a mouseover on the + and - buttons that states +5/+25/+all."
+    //
+    // v0.59 Part 8 note 1 tried to fix the CLIPPING by letting eight chips wrap. That traded a
+    // clipped row for a two-line row and made the problem it was fixing worse: eight jobs became
+    // sixteen lines. The source solves it a different way and the screenshot is unambiguous —
+    // ONE row per job, exactly TWO controls, and the bulk steps live in a FLYOUT that opens on
+    // hover BENEATH the button it belongs to.
+    //
+    // THE FLYOUT IS ABSOLUTELY POSITIONED, and that is the entire point rather than a detail: an
+    // overlay does not participate in layout, so opening one cannot push the rows below it down.
+    // Eight jobs cost eight rows whether every flyout is open or none is.
+    //
+    // THE STEPS ARE KITTENS' OWN — 5 / 25 / all, from the screenshot, not RR's old 5 / 20 / all.
+    // `1e9` still stands in for "all"; assignJob() clamps it.
+    var jc = (S.jobs[j.id] || 0);
+    var canAdd = idle > 0 && !(j.max && jc >= j.max());
+    var step = function (d, label) {
+      return '<button class="job-step" data-job="' + j.id + '" data-d="' + d + '"' +
+        ((d > 0 ? canAdd : jc > 0) ? "" : " disabled") + '>' + label + "</button>";
+    };
+    html += '<div class="job-row"><div class="job-info"><div class="job-name">' + j.name +
+      ' <span class="job-count">(' + jc + ')</span></div><div class="job-desc">' + j.desc + "</div></div>" +
+      '<div class="job-ctl">' +
+        '<button class="job-btn" data-job="' + j.id + '" data-d="-1"' + (jc > 0 ? "" : " disabled") + '>−</button>' +
+        '<div class="job-flyout">' + step(-5, "−5") + step(-25, "−25") + step(-1000000000, "−all") + "</div>" +
+      "</div>" +
+      '<div class="job-ctl">' +
+        '<button class="job-btn" data-job="' + j.id + '" data-d="1"' + (canAdd ? "" : " disabled") + ">+</button>" +
+        '<div class="job-flyout">' + step(5, "+5") + step(25, "+25") + step(1000000000, "+all") + "</div>" +
+      "</div></div>";
   });
   html += "</div>";
 
@@ -7974,8 +8190,14 @@ function renderVillage(el) {
 
   html += renderCensus();
   el.innerHTML = html;
+  // v0.59.1 note 2: `[data-job]` covers the two `job-btn`s AND the six `job-step`s in the
+  // flyouts, so one selector still wires the whole row. `stopPropagation` keeps a flyout click
+  // from also reaching the button underneath it.
   el.querySelectorAll("[data-job]").forEach(function (btn) {
-    btn.onclick = function () { assignJob(btn.getAttribute("data-job"), parseInt(btn.getAttribute("data-d"), 10)); };
+    btn.onclick = function (ev) {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      assignJob(btn.getAttribute("data-job"), parseInt(btn.getAttribute("data-d"), 10));
+    };
   });
   var fb = document.getElementById("btn-festival");
   if (fb) {

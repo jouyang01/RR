@@ -29,6 +29,8 @@ const LEDGER = readFileSync(new URL("../docs/PARITY-LEDGER.md", import.meta.url)
 const RULINGS = readFileSync(new URL("../STANDING-RULINGS.md", import.meta.url), "utf8");
 // The three luxuries are furs, plumes and mushrooms; note 8 must not have changed that.
 const LUXURY_KINDS_EXPECTED = 3;
+// v0.59.1 note 1 — Leyline Calibration's magnitude, unchanged by the re-scope (BUILD REPORT §3).
+const LEYLINE_EXPECTED = 0.30;
 
 // ============================================================================
 // PART 1 — the Granary is deleted on every load, and the id that ate it
@@ -439,6 +441,14 @@ const feel = await page.evaluate(() => {
   const m1 = computeRates().mana; S.upgrades.leylineCalibration = 1;
   const m2 = computeRates().mana;
   o.arcanist = { focus: +(m1 / m0).toFixed(4), both: +(m2 / m0).toFixed(4) };
+  // v0.59.1 note 1: measured with NO arcanists, so only a global boost can move it.
+  fresh(); S.buildings = { manaWell: 20 }; S.pop = 0; S.jobs = {}; S.wanderers = []; S.upgrades = {};
+  const wells0 = computeRates().mana;
+  S.upgrades.leylineCalibration = 1;
+  const wells1 = computeRates().mana;
+  S.upgrades.trueIceCellars = 1; S.upgrades.hexresonance = 1;
+  const wells3 = computeRates().mana;
+  o.manaGlobal = { wellsOnly: +(wells1 / wells0).toFixed(4), allThree: +(wells3 / wells0).toFixed(4) };
   o.newDiscovery = (() => { const u = UPGRADES.find(x => x.id === "leylineCalibration"); return { tech: u.tech, cost: u.cost, req: u.req }; })();
   o.costAudit = auditCostGraph();
   // note 8 — festival luxuries
@@ -466,9 +476,15 @@ const feel = await page.evaluate(() => {
   return o;
 });
 // PASS CONDITION 15 (the mechanisms; the ledger rows are asserted below)
-check("8.1 — the job row wraps and the chips size to their own text (layout only)",
-  /\.job-row \{ display: flex; align-items: center; gap: 4px; margin-bottom: 7px; flex-wrap: wrap; \}/.test(RAW) &&
-  /\.job-btn \{ min-width: 24px/.test(RAW) && /white-space: nowrap/.test(RAW));
+// RE-POINTED v0.59.1, superseded by NOTE 2 (Jerry): "The new buttons on the wanderer page are
+// terrible - it creates a lot of vertical scrolling that we want to avoid." v0.59 Part 8 note 1
+// fixed the CLIPPING by letting eight chips wrap — which traded a clipped row for a two-line row
+// and made the thing it was fixing worse. The row does not wrap any more; it carries two
+// controls and the bulk steps live in an absolutely-positioned flyout.
+check("8.1/2 — the job row does NOT wrap, and the flyout is out of flow so it cannot push rows down",
+  /\.job-row \{ display: flex; align-items: center; gap: 6px; margin-bottom: 7px;\n\s*flex-wrap: nowrap; overflow: visible; \}/.test(RAW) &&
+  /\.job-flyout \{ display: none; position: absolute;/.test(RAW) &&
+  /\.job-ctl \{ position: relative;/.test(RAW));
 check("8.2 — crafting is wired into the EXISTING undo window and the EXISTING re-roll guard",
   /snapshotUndo\("Crafted " \+ c\.name, "craft"\)/.test(CODE) && /undoBulkDepth/.test(CODE));
 check("8.2 — ...and the v0.55 open item is closed in the same round: trades snapshot too",
@@ -495,9 +511,21 @@ check("13 — Swain's passive and his lead are DISTINCT: mana production vs know
 check("13 — ...and the passive actually lands on mana production",
   feel.swainMana > feel.noSwainMana, `${feel.noSwainMana}/s → ${feel.swainMana}/s with Swain recruited`);
 // PASS CONDITION 14
-check("14 — the new mana Discovery completes Kittens' TWO-rung job line at ×1.80",
-  Math.abs(feel.arcanist.focus - 1.50) < 1e-4 && Math.abs(feel.arcanist.both - 1.80) < 1e-4,
-  `×${feel.arcanist.focus} with Arcane Focus alone, ×${feel.arcanist.both} with both`);
+// RE-POINTED v0.59.1, superseded by NOTE 1 (Jerry): "The mana discovery should affect all mana
+// production, not just arcanists." v0.59 Part 8 note 6 shipped `leylineCalibration` as the
+// second rung of the Arcanist JOB line, matching Kittens' two-rung catnipJobRatio at ×1.80.
+// Jerry's note moves its SCOPE — it is a global mana boost now, additive with Hexresonance —
+// so the ×1.80 two-rung figure no longer describes anything in RR and the parity claim is
+// re-rated in the ledger rather than quietly kept. What replaces it is the property the note
+// actually asks for, measured where it could not have been true before: the discovery reaches
+// mana production with NO ARCANIST ASSIGNED AT ALL.
+check("14/1 — the mana Discovery reaches ALL mana production, not just Arcanists",
+  Math.abs(feel.manaGlobal.wellsOnly - (1 + LEYLINE_EXPECTED)) < 1e-4,
+  `×${feel.manaGlobal.wellsOnly} on Mana Wells with zero arcanists`);
+check("14/1 — ...and it is ADDITIVE with the other two mana boosts, never multiplicative",
+  Math.abs(feel.manaGlobal.allThree - 1.75) < 1e-4,
+  `×${feel.manaGlobal.allThree} with Leyline + True Ice + Hexresonance ` +
+  `(additive 1+0.30+0.20+0.25 = 1.75; multiplicative would be 1.95)`);
 check("14 — ...rung-matched at the Sparks band, and the cost graph audit is clean",
   feel.newDiscovery.tech === "sparks" && feel.newDiscovery.req === "arcaneFocus" &&
   feel.costAudit.length === 0,

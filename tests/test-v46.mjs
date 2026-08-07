@@ -220,7 +220,10 @@ const p5 = await page.evaluate(() => {
     orphanReqs: UPGRADES.filter(u => u.req && !UPGRADES.some(x => x.id === u.req)).map(u => u.id)
   };
 });
-check("PASS CONDITION: tech count is 37 (38 before v0.52 Part 2.4)", p5.count === 37, String(p5.count));
+// RE-POINTED v0.59.1, superseded by NOTE 3: Kindling Theory is DELETED, 37 -> 36. This
+// literal has now been re-pointed three times (38 -> 37 -> 36) and each time for a real,
+// deliberate deletion — which is the assertion working, not failing.
+check("PASS CONDITION: tech count is 36 (37 before v0.59.1 note 3)", p5.count === 36, String(p5.count));
 check("PASS CONDITION: five or more exact ties", p5.ties >= 5, String(p5.ties));
 check("PASS CONDITION: median ×1.10–1.20", p5.median >= 1.10 && p5.median <= 1.20, `×${p5.median}`);
 check("PASS CONDITION: geometric mean ×1.25–1.30", p5.geo >= 1.25 && p5.geo <= 1.30, `×${p5.geo}`);

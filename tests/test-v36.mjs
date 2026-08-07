@@ -95,7 +95,7 @@ check("Songcraft sits immediately after Expedition Logistics (v0.37 A1 supersede
 // retired; what is asserted is the new table.
 check("Era 1→3 costs sit on the v0.47 Kittens-parity ladder",
   i3.costs.ritesOfTargon === 12000 && i3.costs.callToArms === 15000 && i3.costs.sparks === 20000 &&
-  i3.costs.chemtech === 60000 && i3.costs.hexcore === 75000 && i3.costs.deepWorks === 100000 && i3.costs.icathia === 135000,
+  i3.costs.chemtech === 55000 && i3.costs.hexcore === 75000 && i3.costs.deepWorks === 100000 && i3.costs.icathia === 135000,
   JSON.stringify(i3.costs));
 // v0.44 Part 2.5 supersedes the ×1.5-2.5 band and the boundary exemption both. The
 // ladder is now measured against Kittens', whose median step is ×1.12: the invariant
