@@ -285,21 +285,48 @@ check("Icathia is now within one order of magnitude of Kittens' last tech",
 
 // ==================== Part 2.5.2 — Scholarship off the knowledge cap ====================
 const sch = await page.evaluate(() => {
-  S.buildings = { archive: 40, bardsHearth: 5 }; S.upgrades = {}; S.techs = {};
+  // RE-POINTED v0.59, superseded by spec Part 5.4. The fixture gains OBSERVATORIES, ACADEMIES
+  // and a HEXCORE LABORATORY, and that is not decoration — without them the five upgrades have
+  // nothing to amplify and this block would keep passing for the wrong reason after the
+  // mechanism under it changed completely. A fixture that makes the effect unobservable is not
+  // a stronger assertion, it is a silent one.
+  S.buildings = { archive: 40, bardsHearth: 5, observatory: 10, academy: 15, hexLab: 5 };
+  S.upgrades = {}; S.techs = {};
   S.jobs = {}; S.pop = 0; S.wanderers = []; S.policies = {}; S.champs = {}; S.wtechs = {}; S.drakes = {};
   S.leader = null; S.res.tome = 0; S.res.morellonomicon = 0;
   const k0 = computeCaps().knowledge, c0 = computeCaps().culture, d0 = computeCaps().devotion;
   S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1, annotatedIndex: 1, livingLibrary: 1 };
   const k1 = computeCaps().knowledge, c1 = computeCaps().culture, d1 = computeCaps().devotion;
+  // The distinguishing measurement: a WHOLE-CAP multiplier would raise knowledge even with no
+  // Archive, Academy or Hexcore Laboratory standing. A PER-BUILDING amplifier cannot.
+  const keep = S.buildings;
+  S.buildings = { bardsHearth: 5, observatory: 10 };
+  const kNoSlices0 = (S.upgrades = {}, computeCaps().knowledge);
+  S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1, annotatedIndex: 1, livingLibrary: 1 };
+  const kNoSlices1 = computeCaps().knowledge;
+  S.buildings = keep;
   S.upgrades = {};
   // the description prose is generated from the same table the maths reads
   const prose = UPGRADES.find(u => u.id === "greatIndex").desc;
   S.buildings = {};
   return { kX: +(k1 / k0).toFixed(4), cX: +(c1 / c0).toFixed(4), dX: d0 > 0 ? +(d1 / d0).toFixed(4) : null,
-           prose, mentionsKnowledge: /Knowledge/i.test(prose), capNames: Object.keys(SCHOLAR_CAPS) };
+           kNoSlices: +(kNoSlices1 / kNoSlices0).toFixed(4),
+           prose, mentionsKnowledge: /Knowledge/i.test(prose),
+           knowledgeFamily: capFamilyOf("knowledge"),
+           scholarCapsExists: (typeof SCHOLAR_CAPS !== "undefined") };
 });
-check("Scholarship no longer touches the knowledge cap at all",
-  Math.abs(sch.kX - 1) < 1e-9, `×${sch.kX}`);
+// RE-POINTED v0.59, superseded by spec Part 5.4 (Jerry's directive 8). v0.44 Part 2.5.2's
+// property was "Scholarship must not multiply the KNOWLEDGE CEILING", and that is EXACTLY as
+// true after Part 5.4 as before — knowledge is still in CAP_MULT_EXEMPT and no whole-cap
+// knowledge multiplier ships anywhere. What changed is that the five upgrades now raise the
+// knowledge ceiling PER BUILDING (Kittens' Reflectors and Astrolabe shapes), which the old
+// wording could not distinguish from the thing it was written to forbid. So the assertion is
+// split into the two halves that actually differ.
+check("5.4 — knowledge takes NO whole-cap multiplier: with no knowledge buildings, nothing moves",
+  Math.abs(sch.kNoSlices - 1) < 1e-9 && sch.knowledgeFamily === "exempt",
+  `×${sch.kNoSlices} on a settlement with no Archive/Academy/Hexcore Lab, family ${sch.knowledgeFamily}`);
+check("5.4 — ...and WITH them, the five upgrades amplify the building slices (Reflectors + Astrolabe)",
+  sch.kX > 1.05, `×${sch.kX} across 40 archives, 15 academies, 10 observatories, 5 hexLabs`);
 // RE-POINTED v0.58, superseded by SPEC PART 3. The line is an additive accumulator now:
 // ×2.60 at all five rungs, down from the chain's ×3.9926. The invariant this assertion guards
 // — the Scholarship line REACHES culture and does not reach knowledge — is untouched.
@@ -316,10 +343,16 @@ check("it no longer raises Culture at all — §29 moves culture to CAP_MULT_EXE
 // Superseded by: v0.57 Part 1.
 // RE-POINTED v0.58.1 — §29. Membership is renown alone; the INVARIANT (exactly one family per
 // capped resource, capFamilyOf total and single-valued) is untouched and asserted in test-v58.
-check("SCHOLAR_CAPS is renown alone after v0.58.1 §29",
-  JSON.stringify(sch.capNames) === JSON.stringify(["renown"]), JSON.stringify(sch.capNames));
-check("and the prose no longer promises Knowledge storage — generated, not restated",
-  !sch.mentionsKnowledge, sch.prose);
+// RE-POINTED v0.59, superseded by spec Part 5.3: the family is deleted, not re-membered.
+check("5.3 — SCHOLAR_CAPS is GONE entirely, not emptied",
+  sch.scholarCapsExists === false, `typeof SCHOLAR_CAPS !== "undefined": ${sch.scholarCapsExists}`);
+// RE-POINTED v0.59, superseded by spec Part 5.4. This forbade the word "Knowledge" in the
+// prose because at v0.44 the line had just been taken OFF knowledge and the tooltip had not
+// followed. The line is now ABOUT knowledge, so the prose must say so — the invariant the
+// assertion actually protects is that the prose is GENERATED from the same table the maths
+// reads, which is asserted here and again in test-v43.
+check("5.4 — the prose names knowledge because the effect is knowledge, and it is GENERATED",
+  sch.mentionsKnowledge && /Archive/.test(sch.prose) && /Observatory/.test(sch.prose), sch.prose);
 
 // ==================== gameplay note 1 — the wanderer cap starts at 0 ====================
 const cap0 = await page.evaluate(() => {

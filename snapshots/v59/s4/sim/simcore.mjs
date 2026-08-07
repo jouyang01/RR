@@ -39,9 +39,6 @@ export async function runSim(page, years, seed = 1) {
     const yearNow = () => S.tick / TICKS_PER_YEAR;
 
     const milestones = {};
-    // v0.59 Part 4 — see manageTargon(). Declared beside the milestones because they are the
-    // same kind of thing: a value captured once, the first time a gate opens.
-    let convergenceAtUnlock = null, convergenceWorshipAtUnlock = null;
     const snaps = {};
     // v0.46 Part 8 instrumentation
     let tradeCount = 0;                 // trades executed, for trades-per-game-year
@@ -332,17 +329,9 @@ export async function runSim(page, years, seed = 1) {
         // the material line -- surviving on culture, devotion and, from v0.57 Part 1, renown --
         // and nobody has ever censused how many of ITS rungs a run reaches. The v0.58 sizing
         // depends on that number, so it is measured here rather than assumed.
-        // v0.59 PARTS 5.3 / 5.4 — RE-POINTED, and the census had to change or it would have gone
-        // on measuring a mechanism the game no longer has. SCHOLAR_LINE and SCHOLAR_CAPS are
-        // both deleted: the five upgrades are knowledge amplifiers now (three `archiveRatio`
-        // rungs summing 0.06, scaled by Observatory count, plus two Astrolabe-shaped per-copy
-        // x1.5s on the Academy and the Hexcore Laboratory), and renown takes no storage line at
-        // all. So the census measures THE NEW THING: what the five rungs deliver to the
-        // KNOWLEDGE ceiling, and what renown's ceiling actually is, both stripped-vs-held so the
-        // delivered figure is a measurement rather than a restatement of the table.
         scholarship: (() => {
           const owned = S.upgrades;
-          const LINE = ["cataloguing", "crossReferencing", "greatIndex", "annotatedIndex", "livingLibrary"];
+          const LINE = SCHOLAR_LINE.map(u => u[0]);
           const withAll = computeCaps();
           const stripped = {}; for (const k in owned) if (LINE.indexOf(k) < 0) stripped[k] = owned[k];
           S.upgrades = stripped; const without = computeCaps(); S.upgrades = owned;
@@ -355,18 +344,13 @@ export async function runSim(page, years, seed = 1) {
                       // mode a census exists to prevent. The two shapes are BOTH reported: what
                       // the line delivers now, and what the retired multiplicative chain would
                       // have delivered from the same members, so the cut stays auditable.
-                      // v0.59: the Reflectors half is a RATIO SCALED BY A BUILDING COUNT, so
-                      // sigma alone says nothing -- 0.06 delivers x1.00 at zero Observatories
-                      // and x1.60 at ten. Both are reported, plus the count that scales it.
-                      sigmaHeld: +ARCHIVE_RATIO_LINE.reduce((a, u) => a + (owned[u[0]] ? u[1] : 0), 0).toFixed(4),
-                      sigmaFull: +ARCHIVE_RATIO_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
-                      observatories: count("observatory"),
-                      archiveSliceMult: +(1 + count("observatory") * archiveRatioTotal()).toFixed(4),
-                      astrolabeHeld: Object.keys(ASTROLABE_LINE).filter(u => owned[u]),
-                      astrolabeMult: ASTROLABE_MULT };
-          // The delivered figure is now measured on KNOWLEDGE -- the resource the line actually
-          // raises after Part 5.4 -- rather than on a family object that no longer exists.
-          ["knowledge"].forEach(rr => {
+                      sigmaHeld: +SCHOLAR_LINE.reduce((a, u) => a + (owned[u[0]] ? u[1] : 0), 0).toFixed(4),
+                      sigmaFull: +SCHOLAR_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
+                      product: +(1 + SCHOLAR_LINE.reduce((a, u) => a + (owned[u[0]] ? u[1] : 0), 0)).toFixed(4),
+                      fullProduct: +(1 + SCHOLAR_LINE.reduce((a, u) => a + u[1], 0)).toFixed(4),
+                      retiredChainWouldGive: +SCHOLAR_LINE.reduce((a, u) => a * (1 + u[1]), 1).toFixed(4),
+                      additiveWouldGive: +(1 + SCHOLAR_LINE.reduce((a, u) => a + u[1], 0)).toFixed(4) };
+          Object.keys(SCHOLAR_CAPS).forEach(rr => {
             if (without[rr] > 0) o.delivered[rr] = +(withAll[rr] / without[rr]).toFixed(4);
           });
           // v0.58 Part 3 / Part 7.1. The restructure is a 35% ceiling cut on three resources and
@@ -390,13 +374,7 @@ export async function runSim(page, years, seed = 1) {
             o.caps[rr] = Math.round(withAll[rr] || 0);
             o.heldRes[rr] = Math.round(S.res[rr] || 0);
           });
-          // v0.59 Part 5.3: there is no Scholarship family left to enumerate. What matters now
-          // is that every capped resource has EXACTLY ONE family, and that renown's is the
-          // "none"-tier masonry seat rather than a fourth thing -- so report the families
-          // themselves and let a future round see a membership change here.
-          o.family = [];
-          o.capFamilies = {};
-          for (const rr in RES) if (RES[rr].baseCap !== undefined) o.capFamilies[rr] = capFamilyOf(rr);
+          o.family = Object.keys(SCHOLAR_CAPS);
           o.largestRenownPurchase = (() => {
             let mx = 0;
             (CHAMPS || []).forEach(c => {
@@ -1367,27 +1345,6 @@ export async function runSim(page, years, seed = 1) {
       for (const w of WTECHS) {
         if (S.wtechs[w.id]) continue;
         if ((S.worship || 0) < w.threshold) continue;
-        // v0.59 PART 4 — THE CONVERGENCE MEASUREMENT MOVES ONTO THE UNLOCK.
-        //
-        // v0.58 measured Convergence's delivered bonus at SPARKS, an era boundary Kittens does
-        // not share, and it read 0 on all three seeds — because at Sparks the player has not
-        // researched Convergence yet, so worshipBonus() correctly returns 0 (index.html:1827).
-        // The condition was measuring the absence of a tech, not the shape of a curve.
-        //
-        // Kittens' anchor is an UNLOCK: Solar Revolution gates at 1,000 worship, where the same
-        // formula 0.01 x unlimitedDR(worship, 1000) pays exactly 1.00%. So the two figures worth
-        // recording are the YEAR Convergence first becomes affordable and the bonus it delivers
-        // AT THAT MOMENT. Captured here, at the gate, before the purchase.
-        if (w.id === "convergence" && canAfford(faithCost(w.cost))) {
-          mark("convergenceAffordable");
-          if (convergenceAtUnlock === null) {
-            const savedW = S.wtechs.convergence;
-            S.wtechs.convergence = true;             // what it WILL pay the instant it is bought
-            convergenceAtUnlock = +(worshipBonus() * 100).toFixed(3);
-            convergenceWorshipAtUnlock = Math.round(S.worship || 0);
-            S.wtechs.convergence = savedW;
-          }
-        }
         if (canAfford(faithCost(w.cost))) buyWtech(w.id);
       }
     }
@@ -1613,8 +1570,6 @@ export async function runSim(page, years, seed = 1) {
     return {
       years, seed,
       milestones,
-      // v0.59 Part 4: the two Convergence figures, captured at the unlock rather than at Sparks.
-      convergenceAtUnlock, convergenceWorshipAtUnlock,
       snaps,
       samples,
       campRuns,

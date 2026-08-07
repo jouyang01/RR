@@ -237,11 +237,23 @@ check("the recruit card no longer lists the class or the rung", ui.showsRecruitI
 
 // ==================== Part 0 + Jerry's directive 4 ====================
 const drift = await page.evaluate(() => {
-  const descs = SCHOLAR_LINE.map(([id, mult]) => ({ id, mult, desc: UPGRADES.find(u => u.id === id).desc }));
+  // RE-POINTED v0.59, superseded by spec Part 5.4. SCHOLAR_LINE is deleted; the three
+  // Reflectors rungs live in ARCHIVE_RATIO_LINE and the two Astrolabe rungs in ASTROLABE_LINE.
+  // THE INVARIANT IS UNCHANGED AND IS THE WHOLE POINT OF THIS BLOCK: a rung's description
+  // states the number the code applies. Only the table it is read from moved.
+  const descs = ARCHIVE_RATIO_LINE.map(([id, mult]) => ({ id, mult, desc: UPGRADES.find(u => u.id === id).desc }));
   // RE-POINTED v0.58, superseded by SPEC PART 3. SCHOLAR_LINE holds INCREMENTS now, so the
   // prose states "+25%" where it used to state "×1.25". The invariant is unchanged and is the
   // whole point of this block: the description must state the number the code applies.
-  const mismatched = descs.filter(d => d.desc.indexOf("+" + Math.round(d.mult * 100) + "%") === -1).map(d => d.id);
+  // v0.59: the ratio is 0.02, which prints as "2%" — Math.round(0.02*1000)/10 in the generator.
+  const mismatched = descs.filter(d => d.desc.indexOf("a further " + (Math.round(d.mult * 1000) / 10) + "%") === -1).map(d => d.id);
+  // ...and the two Astrolabe rungs name their building and their +50%.
+  const astro = Object.entries(ASTROLABE_LINE).filter(([id, bld]) => {
+    const dsc = UPGRADES.find(u => u.id === id).desc;
+    const b = BUILDINGS.find(x => x.id === bld);
+    return dsc.indexOf("+" + Math.round((ASTROLABE_MULT - 1) * 100) + "%") === -1 ||
+           dsc.indexOf(b.name.replace(/y$/, "ie")) === -1;
+  }).map(([id]) => id);
   // RE-POINTED v0.58.1 — §29 moves CULTURE out of SCHOLAR_CAPS, so the "applied" half of this
   // drift check must measure the line where it still lands: RENOWN. The invariant is unchanged
   // and is the whole point of the block — a rung's description states the number the code
@@ -252,48 +264,70 @@ const drift = await page.evaluate(() => {
   // prose and the maths, which is what makes this invariant hold through the move.
   S.buildings = { hallOfHeroes: 20, trainingGround: 10 }; S.techs = { trade: 1, drakeLore: 1, voidStudies: 1 }; S.upgrades = {}; S.res.tome = 0;
   S.jobs = {}; S.pop = 0; S.wanderers = []; S.policies = {}; S.champs = {}; S.wtechs = {}; S.drakes = {}; S.leader = null;
-  const base = computeCaps().renown;
-  const applied = SCHOLAR_LINE.map(([id, mult]) => {
+  // v0.59 Part 5.3: renown no longer takes the line at all, so the "applied" half is measured
+  // where the effect now lands — the Archive's knowledge slice, scaled by Observatory count.
+  // TEN observatories, so a 0.02 rung delivers a visible ×1.20 rather than a ×1.00 no-op.
+  //
+  // MEASURED AS AN ABSOLUTE DELTA, NOT A RATIO, and the distinction is the assertion. The rung
+  // amplifies the ARCHIVE'S OWN SLICE, so the ratio against the whole knowledge ceiling is
+  // diluted by every other knowledge building standing (20 archives = 5,000 of a 15,000 total,
+  // so a x1.20 on the slice reads x1.067 on the total). A ratio test here would have to encode
+  // the fixture's composition to be right, and would silently pass on a wrong mechanism if the
+  // composition ever changed. The delta cannot: 5,000 x 10 observatories x 0.02 = exactly 1,000.
+  S.buildings = { archive: 20, observatory: 10 };
+  const ARCH = 20 * BUILDINGS.find(b => b.id === "archive").caps.knowledge;
+  const base = computeCaps().knowledge;
+  const applied = ARCHIVE_RATIO_LINE.map(([id, mult]) => {
     S.upgrades = {}; S.upgrades[id] = true;
-    return { id, mult, actual: +(computeCaps().renown / base).toFixed(4) };
+    return { id, mult, expect: Math.round(ARCH * 10 * mult),
+             actual: Math.round(computeCaps().knowledge - base) };
   });
   S.upgrades = {}; S.buildings = {};
-  // v0.58 Part 3: one rung held delivers 1 + its increment, not the increment itself.
-  const wrong = applied.filter(a => Math.abs(a.actual - (1 + a.mult)) > 1e-6).map(a => a.id);
+  const wrong = applied.filter(a => Math.abs(a.actual - a.expect) > 1).map(a => `${a.id} ${a.actual}!=${a.expect}`);
   // duplicate passives
   const keys = CHAMPS.map(c => c.passive.key + ":" + c.passive.base);
-  return { mismatched, wrong, dupes: keys.filter((x, i) => keys.indexOf(x) !== i),
+  return { mismatched, astro, wrong, dupes: keys.filter((x, i) => keys.indexOf(x) !== i),
            swain: CHAMPS.find(c => c.id === "swain").passive,
+           swainLead: CHAMPS.find(c => c.id === "swain").lead,
            jarvan: CHAMPS.find(c => c.id === "jarvan").passive,
            generated: /scholarDesc\(/.test(UPGRADES.find(u => u.id === "greatIndex").desc) === false &&
                       typeof scholarDesc === "function" };
 });
 check("every Scholarship description states the multiplier the code actually applies",
-  drift.mismatched.length === 0 && drift.wrong.length === 0,
-  `desc mismatch: ${drift.mismatched.join(",") || "none"}; applied mismatch: ${drift.wrong.join(",") || "none"}`);
+  drift.mismatched.length === 0 && drift.astro.length === 0 && drift.wrong.length === 0,
+  `desc mismatch: ${drift.mismatched.join(",") || "none"}; astrolabe prose: ${drift.astro.join(",") || "none"}; applied mismatch: ${drift.wrong.join(",") || "none"}`);
 check("...because the descriptions are GENERATED from the constants, not restated", drift.generated);
 check("no two champions share a passive any more (Jarvan and Swain both ran village +8%)",
   drift.dupes.length === 0, drift.dupes.join(", "));
-// RE-POINTED v0.58.1 — note 19 gives Jarvan the `xp` passive (his village passive became his
-// LEAD) and note 20 moves Swain's lead from a toggleable discount to knowledge production.
-// Swain's PASSIVE is untouched at knowledge +12%, which is what this assertion is about.
-check("Swain's passive still matches his Raven Ledger identity (v0.58.1 notes 19 + 20)",
-  drift.swain.key === "knowledge" && drift.jarvan.key === "xp",
-  `Swain ${drift.swain.key} +${drift.swain.base}%, Jarvan ${drift.jarvan.key} +${drift.jarvan.base}%`);
+// RE-POINTED v0.59, superseded by spec Part 8 note 5 (Jerry): "Swain's lead duplicates his
+// passive; his passive becomes a mana-production percentage." Note 20 had moved his LEAD onto
+// knowledge production to close a toggling exploit, which left the lead and the passive doing
+// the same thing to the same resource — the Twitch defect of v0.54 in a new costume. The
+// property this block is actually for is the one three lines above: NO TWO CHAMPIONS SHARE A
+// PASSIVE. v0.59 extends it to the stronger form — no champion's passive duplicates their own
+// lead either — which is what the note bought.
+check("Swain's passive and his LEAD are distinct subjects (v0.59 Part 8 note 5)",
+  drift.swain.key === "mana" && drift.jarvan.key === "xp" &&
+  /knowledge production/.test(drift.swainLead) && !/knowledge/i.test(drift.swain.desc),
+  `Swain passive ${drift.swain.key} +${drift.swain.base}%, lead "${drift.swainLead}", Jarvan ${drift.jarvan.key} +${drift.jarvan.base}%`);
 
 // and Swain's new passive must actually reach production
+// RE-POINTED v0.59 Part 8 note 5: the passive is measured where it now lands — MANA production,
+// through the Arcanist job — rather than on knowledge, which is his lead's subject.
 const swainWorks = await page.evaluate(() => {
-  S.buildings = {}; S.jobs = { loremaster: 10 }; S.pop = 10; S.wanderers = []; S.upgrades = {};
+  S.buildings = {}; S.jobs = { arcanist: 10 }; S.pop = 10; S.upgrades = {};
+  S.wanderers = Array.from({ length: 10 }, (_, i) => ({ nm: "a" + i, j: "arcanist", jx: {}, xp: 0, t: "trailblazer" }));
   S.policies = {}; S.wtechs = {}; S.drakes = {}; S.leader = null; S.techs = { almanac: 1 };
   if (typeof invalidateCensus === "function") invalidateCensus();
   S.champs = {};
-  const before = computeRates().knowledge;
+  const before = computeRates().mana;
   S.champs = { swain: { r: true, lvl: 0, xp: 0 } };
-  const after = computeRates().knowledge;
-  S.champs = {}; S.jobs = {}; S.pop = 0;
-  return after > before;
+  const after = computeRates().mana;
+  S.champs = {}; S.jobs = {}; S.pop = 0; S.wanderers = [];
+  return { before: +before.toFixed(4), after: +after.toFixed(4), works: after > before };
 });
-check("...and it actually reaches knowledge production", swainWorks);
+check("...and it actually reaches MANA production", swainWorks.works,
+  `${swainWorks.before}/s → ${swainWorks.after}/s`);
 
 // ==================== regressions ====================
 await reset();

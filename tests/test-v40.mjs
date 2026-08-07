@@ -382,7 +382,13 @@ const sinks = await page.evaluate(() => {
   o.unlocked = festivalUnlocked();
   const c = festivalCost();
   o.cost = c;
-  o.scalesWithComfort = c.mushrooms === Math.round(4 * luxuryComfort());
+  // RE-POINTED v0.59, superseded by spec Part 8 note 8 (Jerry): "Festival costs fewer
+  // mushrooms; raptor plumes at half the mushroom cost." The 4 becomes FESTIVAL_MUSHROOMS = 2
+  // and the plume term is DERIVED as half of it. The property v0.41 §2.5 wrote this for — the
+  // luxury cost SCALES WITH COMFORT rather than being a flat toll — is untouched, and reading
+  // the constant instead of a literal is what stops this assertion needing a re-point next time.
+  o.scalesWithComfort = c.mushrooms === Math.round(FESTIVAL_MUSHROOMS * luxuryComfort()) &&
+                        c.plumes === Math.round(FESTIVAL_MUSHROOMS * FESTIVAL_PLUME_SHARE * luxuryComfort());
   // a festival pays full comfort even with an empty larder, and cannot breach the ceiling
   ["mushrooms", "furs", "plumes"].forEach(r => S.res[r] = 0);
   const starved = morale();
@@ -413,7 +419,7 @@ check("Parchment is back to 175 furs alone; the plume sink moved to the Noxus ro
   sinks.noxusPlumes === 120, `${sinks.fursIntact} furs, Noxus charges ${sinks.noxusPlumes} plumes`);
 check("the Festival exists and unlocks from the Harvest Rites research (v0.41 §2.5)",
   sinks.festivalExists && sinks.unlocked);
-check("its Mushroom cost scales with the settlement, like comfort does",
+check("its Mushroom cost scales with the settlement, like comfort does — and plumes are half of it",
   sinks.scalesWithComfort, JSON.stringify(sinks.cost));
 // RE-POINTED v0.58 (three assertions), superseded by JERRY'S DEV NOTE 12. The Festival no
 // longer fakes a full larder for ten real minutes; it is a flat +30% on the finished morale

@@ -147,9 +147,16 @@ check("10 — ...and the buttons exist for both directions",
   /data-d="-1000000000"/.test(CODE) && /data-d="1000000000"/.test(CODE) &&
   /data-d="-20"/.test(CODE) && /data-d="20"/.test(CODE) &&
   /data-d="-5"/.test(CODE) && /data-d="5"/.test(CODE));
-check("12 — bulk hunting exists, and ONLY on camps with no cooldown and no charge timer",
-  bulk.hasHuntBulk && /if \(!e\.cooldown && !isChargeCamp\(e\)\) \{/.test(CODE) &&
-  /if \(!e \|\| e\.cooldown \|\| isChargeCamp\(e\)\) return;/.test(CODE));
+// RE-POINTED v0.59, superseded by spec Part 8 note 4 (Jerry): "bulk hunting on charge camps but
+// not cooldown camps." Note 12's charge-camp exclusion rested on "a bulk run would spend the
+// banked x3 on the first clear and waste it" — and Part 2.1 removes the premise by making every
+// hunt pay and the charge a multiplier rather than a gate. THE COOLDOWN HALF IS UNTOUCHED and is
+// the half that was never negotiable: a cooldown camp runs once, so a x20 there would either be
+// a lie or a way to skip a cooldown.
+check("12/8.4 — bulk hunting exists, and is refused on COOLDOWN camps and allowed on charge camps",
+  bulk.hasHuntBulk && /if \(!e\.cooldown\) \{/.test(CODE) &&
+  /if \(!e \|\| e\.cooldown\) return;/.test(CODE) &&
+  !/e\.cooldown \|\| isChargeCamp\(e\)\) return;/.test(CODE));
 check("12 — ...and it LOOPS the real runExpedition rather than reimplementing it",
   /runExpedition\(id\);\s*\n\s*done\+\+;/.test(CODE));
 check("14 — bulk trading exists with the same x/y/all shape, looping the real tradeCaravan",
@@ -220,15 +227,21 @@ const caps = await page.evaluate(() => {
   // §22's invariant must survive the membership change
   bare();
   const capped = Object.keys(RES).filter(r => RES[r].baseCap !== undefined);
-  o.multiFamily = capped.filter(r => [CAP_MULT_EXEMPT[r], SCHOLAR_CAPS[r], CAP_SCOPE[r]].filter(Boolean).length !== 1);
+  // RE-POINTED v0.59, superseded by spec Part 5.3: SCHOLAR_CAPS is deleted, so the invariant
+  // is over TWO families, not three. The property asserted is unchanged — exactly one each.
+  o.multiFamily = capped.filter(r => [CAP_MULT_EXEMPT[r], CAP_SCOPE[r]].filter(Boolean).length !== 1);
   o.unfamilied = capped.filter(r => capFamilyOf(r) === null);
   o.families = { culture: capFamilyOf("culture"), devotion: capFamilyOf("devotion"), renown: capFamilyOf("renown") };
-  o.scholarKeys = Object.keys(SCHOLAR_CAPS);
-  // the Scholarship line is STILL additive and still delivers ×2.60 — to renown
+  o.scholarCapsExists = (typeof SCHOLAR_CAPS !== "undefined");
+  // RE-POINTED v0.59, superseded by spec Part 5.3. This asserted the line delivered ×2.60 to
+  // renown; the line no longer reaches renown at all. The property that REPLACES it is the one
+  // the directive actually bought: the five upgrades are inert on renown, whose ceiling is now
+  // flat and additive from the Halls.
   S.buildings = { hallOfHeroes: 20 }; S.techs = { trade: 1, drakeLore: 1, voidStudies: 1 };
   const r0 = computeCaps().renown;
   S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1, annotatedIndex: 1, livingLibrary: 1 };
   o.scholarOnRenown = +(computeCaps().renown / r0).toFixed(3);
+  o.renownFlat = Math.round(r0);
   bare();
   return o;
 });
@@ -247,12 +260,13 @@ check("16 — ...and neither the Altar nor the Vigil multiplies the finished cap
 check("§29 — §22's INVARIANT survives: exactly one family per capped resource, none without",
   caps.multiFamily.length === 0 && caps.unfamilied.length === 0 &&
   caps.families.culture === "exempt" && caps.families.devotion === "exempt" &&
-  caps.families.renown === "scholar",
+  // RE-POINTED v0.59 Part 5.3: renown's family is `masonry` at the "none" tier now, not
+  // `scholar`. The INVARIANT is what this assertion is for and it is untouched.
+  caps.families.renown === "masonry",
   JSON.stringify(caps.families));
-check("§29 — SCHOLAR_CAPS is renown alone, and the line still delivers ×2.60 to it",
-  JSON.stringify(caps.scholarKeys) === JSON.stringify(["renown"]) &&
-  Math.abs(caps.scholarOnRenown - 2.60) < 0.01,
-  `${JSON.stringify(caps.scholarKeys)} at ×${caps.scholarOnRenown}`);
+check("§29/v0.59 5.3 — SCHOLAR_CAPS is GONE, and the line delivers ×1.00 to renown",
+  caps.scholarCapsExists === false && Math.abs(caps.scholarOnRenown - 1.00) < 0.001,
+  `SCHOLAR_CAPS defined: ${caps.scholarCapsExists}, renown ×${caps.scholarOnRenown} (flat ${caps.renownFlat})`);
 check("§29 — the ruling is RECORDED in STANDING-RULINGS, amending §22 and §23a BY NAME",
   /## 29\. Culture and Devotion take NO whole-cap multiplier — ruled by Jerry, v0\.58\.1/.test(RULINGS) &&
   /WHAT THIS AMENDS/.test(RULINGS) && /\*\*§22\*\*/.test(RULINGS) && /\*\*§23a\*\*/.test(RULINGS));
@@ -370,7 +384,15 @@ const ren = await page.evaluate(() => {
            tg: BUILDINGS.find(b => b.id === "trainingGround").caps,
            hall: BUILDINGS.find(b => b.id === "hallOfHeroes").caps.renown,
            hallPct: BUILDINGS.find(b => b.id === "hallOfHeroes").renownCapPct,
-           rate: RENOWN_DEED_RATE };
+           rate: RENOWN_DEED_RATE,
+           // v0.59 Part 5.3 / 2.5: the Halls the tenth champion actually needs, computed the
+           // same way computeCaps() does rather than from a formula restated here.
+           hallsForTenth: (() => {
+             const tenth = Math.round(RECRUIT_BASE * Math.pow(RECRUIT_RATIO, 9));
+             const keep = S.buildings; let h = 0;
+             while (h < 200) { S.buildings = { hallOfHeroes: h }; if (computeCaps().renown >= tenth) break; h++; }
+             S.buildings = keep; return h;
+           })() };
 });
 check("30 — the Training Ground no longer holds Renown", ren.tg.renown === undefined, JSON.stringify(ren.tg));
 check("31 — champions cost more: the base rises 250 → 400, the ratio is untouched",
@@ -380,10 +402,26 @@ check("31.1 — the Hall of Heroes gives FLAT max renown and no percentage",
 // THE HARD CONSTRAINT. Note 31.2 is not a hope; it is a condition on the round.
 check("31.2 — HARD: 20 Halls clear the largest SINGLE purchase without any Scholarship",
   ren.flat20 >= ren.tenth, `${ren.flat20} ceiling vs ${ren.tenth} tenth champion`);
-check("31.2 — HARD: ...and with the Scholarship line they clear the CUMULATIVE ladder too",
-  ren.full20 >= ren.cum, `${ren.full20} ceiling vs ${ren.cum} cumulative`);
-check("31.3 — deed income is cut to a third, from one named constant",
-  ren.rate === 0.34 && /Math\.max\(1, Math\.round\(\(e\.renown \|\| 2\) \* RENOWN_DEED_RATE/.test(CODE));
+// RE-POINTED v0.59, superseded by spec Part 5.3. The Scholarship line's ×2.60 is what carried
+// the ceiling over the CUMULATIVE 45,332, and directive 7 deletes the line. Note 31.2's actual
+// constraint — the one stated in its own words, "the ladder must remain finishable" — is about
+// the largest SINGLE purchase, because renown is spent as it is earned and never has to be held
+// all at once. That half is asserted immediately above and still holds at 18,210 vs 15,377.
+// What replaces the cumulative claim is the number the round is actually judged on: how many
+// Halls the tenth champion needs, reported rather than hoped for.
+check("31.2/5.3 — HARD: the Halls needed for the tenth champion are countable and finite",
+  ren.hallsForTenth > 0 && ren.hallsForTenth <= 40,
+  `${ren.hallsForTenth} Halls of Heroes clear the tenth champion's ${ren.tenth} renown`);
+// RE-POINTED v0.59, superseded by spec Part 2.1 (Jerry's directive 3). Note 31.3 cut the deed
+// rate to 0.34, and at 0.34 the `Math.max(1, ...)` floor collapsed the whole low ladder to a
+// flat 1 — Wolves, Gromp, Raptors and Krugs, authored at 2/2/3/3, ALL PAID 1. Directive 3's
+// "the charges should multiply the renown given" cannot mean anything against a constant, so
+// the rate rises to 1.00 and the authored fields pay themselves. The property note 31.3 was
+// protecting — ONE NAMED CONSTANT, never a literal at the call site — is untouched.
+check("31.3/2.1 — the deed rate is ONE named constant, and at 1.00 the camp ladder is alive",
+  ren.rate === 1.00 && /RENOWN_DEED_RATE/.test(CODE) &&
+  !/\* 0\.34/.test(CODE) && /renownForExpedition/.test(CODE),
+  `RENOWN_DEED_RATE = ${ren.rate}`);
 
 // ============================================================================
 // NOTE 32 — the Jack in the Box asymptote

@@ -224,17 +224,31 @@ const renown = await page.evaluate(() => {
   gainRenown = real;
   // the old system allowed 2 clears per cooldown window, each paying renown
   const oldRate = 2 * (3600 / 90 * 2 + 3600 / 120 * 2 + 3600 / 150 * 3 + 3600 / 180 * 3);
-  return { hunts, awarded, oldRate };
+  // v0.59 Part 2.1: the exact figure a run of `hunts` clears MUST pay if every hunt pays its
+  // camp's authored field once. Charges are exhausted in the first few seconds of this loop, so
+  // the surplus above this floor is bounded by what the banked charges are worth.
+  const perRound = ["wolves", "gromp", "raptors", "krugs"]
+    .reduce((a2, id) => a2 + renownForExpedition(EXPEDITIONS.find(e => e.id === id)), 0);
+  const rounds = hunts / 4;
+  const chargeSurplusMax = 4 * CAMP_MAX_CHARGES * (CHARGE_BONUS - 1) * perRound;
+  return { hunts, awarded, oldRate, perRound, rounds, floor: perRound * rounds, chargeSurplusMax };
 });
-check("Renown is rate-limited to the charge, not to the hunt", renown.awarded < renown.hunts / 10,
-  `${renown.hunts} hunts/game-hour but only ${renown.awarded} renown`);
-// RE-POINTED v0.58.1, superseded by NOTE 31.3: "Renown passive gain should be very slow." Deed
-// income is cut to RENOWN_DEED_RATE = 0.34. This assertion existed to prove v0.38's cooldown
-// removal did not INFLATE renown; it now measures a deliberate deflation against that rate, so
-// it still catches an unintended change while permitting the intended one.
-check("Renown income tracks note 31.3's deed rate, not the cooldown change",
-  Math.abs(renown.awarded - renown.oldRate * 0.34) < Math.max(2, renown.oldRate * 0.08),
-  `${renown.awarded}/hour now vs ${renown.oldRate}/hour before, at ×0.34`);
+// RE-POINTED v0.59, superseded by spec Part 2.1 (Jerry's directive 3). "Renown is rate-limited
+// to the CHARGE, not to the hunt" was v0.38's design and Jerry's note reverses it by name: a
+// charge camp paid renown ONLY when a charge was consumed, so a Wolves hunt with zero charges
+// paid nothing. Every hunt pays now, and the charge MULTIPLIES instead of gating.
+//
+// So the rate guard this pair provided cannot survive in its old form — renown is vigor-limited
+// now, deliberately. WHAT REPLACES IT IS TIGHTER, not looser: the payout must equal the camps'
+// AUTHORED fields exactly, once per hunt, with the only permitted surplus being the banked
+// charges' x3. That still catches any unintended inflation (a double-pay, a mis-scoped
+// multiplier, a rate constant moving) while permitting precisely the change Jerry asked for.
+check("2.1 — every hunt pays its camp's authored renown: the floor is exact",
+  renown.awarded >= renown.floor,
+  `${renown.awarded} paid vs floor ${renown.floor} (${renown.perRound}/round × ${renown.rounds} rounds)`);
+check("2.1 — ...and the only surplus above that floor is the banked charges' ×3",
+  renown.awarded - renown.floor <= renown.chargeSurplusMax,
+  `surplus ${renown.awarded - renown.floor} vs max ${renown.chargeSurplusMax} from ${CAMP_MAX_CHARGES} charges × 4 camps`);
 
 // ===================== ITEM 5 — luxury supply and demand =====================
 const i5 = await page.evaluate(() => {

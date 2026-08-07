@@ -75,7 +75,8 @@ const store = await page.evaluate(() => {
     family: Object.fromEntries(capped.map(r => [r, capFamilyOf(r)])),
     uncovered: capped.filter(r => capFamilyOf(r) === null),
     multiFamily: capped.filter(r =>
-      [CAP_MULT_EXEMPT[r], SCHOLAR_CAPS[r], CAP_SCOPE[r]].filter(Boolean).length !== 1),
+      // RE-POINTED v0.59 Part 5.3: two families, same invariant
+      [CAP_MULT_EXEMPT[r], CAP_SCOPE[r]].filter(Boolean).length !== 1),
     stray: Object.keys(CAP_SCOPE).filter(r => RES[r] === undefined || RES[r].baseCap === undefined),
     barnSum: +BARN_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
     wareSum: +WAREHOUSE_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),

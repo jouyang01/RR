@@ -237,32 +237,7 @@ const m = r.milestones;
 // it is anchoring to and show the arithmetic, as the floor does here. Recorded for the analyzer.
 var CONVERGENCE_BAND = [1, 1000];
 var CONVERGENCE_ANCHOR = "Kittens gates Solar Revolution at 1,000 worship; this same formula pays exactly 1.00% there";
-// ============================================================================
-// v0.59 PART 4 — THE MEASUREMENT POINT MOVES OFF SPARKS AND ONTO THE UNLOCK.
-//
-// v0.58's condition read Convergence's delivered bonus AT SPARKS and got 0 on all three seeds.
-// That is not a balance finding. `worshipBonus()` returns 0 unless `S.wtechs.convergence` is
-// set (index.html:1827), and at Sparks the bot has not researched Convergence — so the
-// condition was measuring the ABSENCE OF A TECH and reporting it as a curve that had collapsed.
-// Note 6.1 had just deliberately pushed the religion buildings later, which made the gap wider
-// and the reading more confidently wrong.
-//
-// THE SOURCE SETTLES WHERE TO MEASURE. Kittens' anchor is an UNLOCK, not an era: Solar
-// Revolution gates at 1,000 worship, and 0.01 x unlimitedDR(1000, 1000) = exactly 0.0100. The
-// source's equivalent bonus DOES NOT EXIST until 1,000 worship is banked, and nothing in
-// Kittens promises a particular bonus at a particular era. An era boundary the source does not
-// share was never a parity statement; a bonus measured at its own unlock is.
-//
-// THE ARITHMETIC, shown as the spec requires:
-//     worshipBonus(w) = 0.01 x unlimitedDR(w, 1000) = 0.01 x (sqrt(1 + 8w/1000) - 1) / 2
-//     w = 1000  ->  0.01 x (sqrt(9) - 1) / 2 = 0.01 x 1.0 = 1.00%
-// So "Convergence, once researched, delivers >= 1%" is precisely "the player had banked >= 1,000
-// worship by the time they could buy it" — Kittens' own gate, restated in RR's units.
-//
-// Worship at Sparks is still REPORTED, as a single-run figure, so the trend stays visible
-// without being a pass/fail. worshipBonus() itself is untouched (STANDING-RULINGS §§1 and 3).
-// ============================================================================
-var CONVERGENCE_LABEL = "Convergence AT ITS OWN UNLOCK >= " + CONVERGENCE_BAND[0] + "% (v0.59 Part 4: measured when Convergence first becomes affordable, not at Sparks — " + CONVERGENCE_ANCHOR + ", i.e. >=1,000 worship banked at the gate; the upper edge is worshipBonus()'s own +1000% cap because the source supplies no ceiling)";
+var CONVERGENCE_LABEL = "Convergence at Sparks >= " + CONVERGENCE_BAND[0] + "% (v0.58 Part 2: re-derived as a FLOOR — " + CONVERGENCE_ANCHOR + "; the upper edge is worshipBonus()'s own +1000% cap because the source supplies no ceiling)";
 // worship required for a given bonus, printed beside the measurement so the band stays checkable
 const worshipFor = b => Math.round(1000 * (Math.pow(2 * b / 0.01 + 1, 2) - 1) / 8);
 
@@ -289,34 +264,9 @@ console.log("\nFINAL", JSON.stringify(r.final));
 console.log("PEAK POPULATION:", r.peakPop);
 // v0.53 Part 7: Era 3 length is the number the whole round steers by. It was computed by
 // hand from two milestone rows in every prior report. It is printed.
-// ============================================================================
-// v0.59 PART 3 — THE 1,400-2,300 ERA 3 BAND IS RETIRED. RULED BY JERRY: "907 is okay for Era 3."
-//
-// v0.58.1 measured 907.1 median across three seeds with a x1.02 spread — the tightest figure
-// this project has recorded — and fell OUT of the band on the low side, down from v0.58's
-// 1,403.9. No single note caused it; the aggregate of 48 quality-of-life notes did.
-//
-// The spec framed three positions and Jerry took the third. THE REASON IS RECORDED HERE RATHER
-// THAN ONLY IN A BUILD REPORT, because a retired target that leaves no trace in the instrument
-// is how the next round re-invents it:
-//
-//   1. ICATHIA IS NOW REACHED ON EVERY SEED, for the first time in this project's history.
-//      Era 3 existing at all was the point; a band that fails while the era finally COMPLETES
-//      on 3 of 3 is measuring something other than whether the era works.
-//   2. EVERY ERA-3 TARGET IN THIS PROJECT PREDATES THE SPREAD COLLAPSE (x2.62 -> x1.07 -> x1.02).
-//      A band set when the measurement carried a 2.6x error bar is not evidence about the game.
-//   3. THIS IS A RETIREMENT, NOT A RE-BASE. The band is not moved to 907 — that is the trap the
-//      Convergence ruling names, and this project has re-based two conditions to measured values
-//      already. Era 3 length is REPORTED as a number, with no pass/fail attached, so a future
-//      round can see the trend and set a real target if it can source one.
-//
-// If a future round wants an Era 3 target back, it must derive it from the 7-day arc that
-// `era3_regional_crafting_spec_2.md` states as the design intent — not from prior measurements.
-// ============================================================================
 if (m.sparks !== undefined && m.icathia !== undefined)
   console.log(`ERA 3 LENGTH: ${(m.icathia - m.sparks).toFixed(1)} game-years ` +
-    `(v0.52 baseline 826.5; v0.58.1 907.1. THE 1,400-2,300 BAND IS RETIRED at v0.59 Part 3 — ` +
-    `Jerry's ruling, "907 is okay for Era 3". Reported, not scored; see the comment above this line.)`);
+    `(v0.52 baseline 826.5; target 1,400-2,300; distance to minimum ${(1400 - (m.icathia - m.sparks)).toFixed(1)})`);
 else console.log("ERA 3 LENGTH: n/a (Sparks or Icathia not reached)");
 // v0.49 Part 6 — the category Part 1.7 cut from five members to Kittens' two.
 ["sparks", "hexcore", "icathia", "final"].forEach(k => {
@@ -511,14 +461,11 @@ if (r.capOutPct) {
   //   (b) the ceiling clears the largest SINGLE purchase (recruitCost of the tenth, ~9,611).
   const sch = balAt && r.snaps[balAt] ? r.snaps[balAt].scholarship : null;
   if (sch) {
-    // v0.59 PARTS 5.3 / 5.4 — RE-POINTED. There is no Scholarship FAMILY left: §29 emptied it to
-    // renown and directive 7 deleted it. The five rungs are knowledge amplifiers now, so the
-    // readout reports the two new mechanisms and the cap families themselves.
-    console.log(`\nv0.59 PART 5.3 — THE CAP FAMILIES (measured at ${balAt}); the Scholarship family is DELETED`);
-    console.log(`  families: ` + Object.entries(sch.capFamilies || {}).map(([k, v]) => `${k}=${v}`).join("  ") || "?");
+    console.log(`\nv0.58 PART 3 — THE SCHOLARSHIP FAMILY (measured at ${balAt})`);
+    console.log(`  the line reaches: ${(sch.family || []).join(", ") || "?"}   (v0.58.1 §29 moved culture and devotion out)`);
     console.log(`  rungs held ${sch.owned}/${sch.of} [${(sch.held || []).join(", ") || "none"}]` +
-      `   archiveRatio Σ ${sch.sigmaHeld}/${sch.sigmaFull} × ${sch.observatories} observatories → Archive slice ×${sch.archiveSliceMult}` +
-      `   Astrolabe rungs held [${(sch.astrolabeHeld || []).join(", ") || "none"}] at ×${sch.astrolabeMult}`);
+      `   product now ×${sch.product}   all-five multiplicative ×${sch.fullProduct}` +
+      `   all-five ADDITIVE ×${sch.additiveWouldGive}`);
     ["culture", "devotion", "renown"].forEach(k => {
       const b = bal[k] || {};
       const cls = b.kind === "no-sink" ? "NO SINK AT ALL"
@@ -634,17 +581,14 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
     // v0.58 Part 3: the census that DATED the restructure now REPORTS it. The line is additive,
     // so the figures are a Σ and a 1+Σ, and the retired chain is kept alongside as the
     // counterfactual — a cut that stops stating what it cut from stops being auditable.
-    // v0.59 PART 5.4 — RE-POINTED. This reported a Σ, a 1+Σ and the retired multiplicative chain
-    // on a family that no longer exists. What matters now is the DELIVERED knowledge ratio and
-    // the Observatory count that scales half of it, because Σ 0.06 alone is silent: it delivers
-    // ×1.00 at zero Observatories and ×1.60 at ten.
-    console.log("\nv0.59 PART 5.4 — THE FIVE RUNGS AS KNOWLEDGE AMPLIFIERS (Reflectors + Astrolabe)");
+    console.log("\nv0.57 PART 5 / v0.58 PART 3 — THE SCHOLARSHIP LINE, NOW AN ADDITIVE ACCUMULATOR");
     console.log(`  rungs reached by the instrument: ${sc.owned} of ${sc.of}  [${sc.held.join(", ")}]`);
-    console.log(`  archiveRatio Σ held ${sc.sigmaHeld} of ${sc.sigmaFull} (Kittens' figure) × ${sc.observatories} observatories` +
-      `  →  the Archive's own knowledge slice ×${sc.archiveSliceMult}`);
-    console.log(`  Astrolabe rungs held: [${(sc.astrolabeHeld || []).join(", ") || "none"}] at ×${sc.astrolabeMult} per copy on the Academy / Hexcore Laboratory`);
-    console.log(`  DELIVERED to the whole knowledge ceiling (Morellonomicon compounding included): ` +
-      Object.entries(sc.delivered).map(([k, v]) => `${k} ×${v}`).join("  "));
+    console.log(`  Σ held ${sc.sigmaHeld} → ×${sc.product}   Σ all five ${sc.sigmaFull} → ×${sc.fullProduct}` +
+      `   the RETIRED multiplicative chain on the same members: ×${sc.retiredChainWouldGive}`);
+    console.log(`  delivered per resource: ` + Object.entries(sc.delivered).map(([k, v]) => `${k} ×${v}`).join("  "));
+    console.log(`  → the v0.58 Part 3 restructure is a CUT from ×${sc.retiredChainWouldGive} to ×${sc.fullProduct} ` +
+      `(${(100 * (1 - sc.fullProduct / sc.retiredChainWouldGive)).toFixed(1)}% at five rungs), ` +
+      `applied to a resource sitting at ${(r.capOutPct || {}).culture ?? "?"}% of its ceiling. SHIPPED.`);
   }
 }
 // v0.50 Part 5 — what a PLAYER could run, rather than what the bot did.
@@ -820,14 +764,11 @@ const checks = [
   // a target stops meaning anything, and this project has now done that twice (Rites y55 -> y70,
   // and above y70 -> y75, both with stated reasons and both once).
   { id: "convergence", label: CONVERGENCE_LABEL,
-    // v0.59 Part 4: the value is the bonus Convergence WILL deliver the instant it is bought,
-    // captured by simcore at the gate. `undefined` means the gate never opened, which is a
-    // different failure from "it opened and paid too little" — and the report says which.
-    shape: "median", value: r.convergenceAtUnlock ?? undefined,
+    shape: "median", value: (() => { const at = m.sparks !== undefined ? r.samples.find(s2 => s2.year >= m.sparks) : null;
+                                     return at ? at.worshipBonus : undefined; })(),
     test: v => v !== undefined && v >= CONVERGENCE_BAND[0] && v <= CONVERGENCE_BAND[1],
-    why: "a BALANCE-POINT condition, so the median. It asks whether the typical settlement has " +
-         "banked Kittens' 1,000 worship by the time its own religion gate opens — which is the " +
-         "question the source anchors, unlike 'what is the bonus at Sparks'." },
+    why: "a BALANCE-POINT condition, so the median. It is asking where the typical settlement " +
+         "sits on the worship curve at Sparks, not how the unluckiest one does." },
   { id: "tradeAffordable", label: "cheapest trade AFFORDABLE at Sparks (state, not behaviour)",
     shape: "single", value: !!(r.snaps.sparks && r.snaps.sparks.cheapestTrade && r.snaps.sparks.cheapestTrade.affordable),
     test: v => v === true,

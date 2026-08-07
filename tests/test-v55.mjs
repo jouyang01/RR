@@ -561,8 +561,13 @@ check("17 — every roll inside EXPEDITIONS goes through the wrappers; no raw Ma
 // Kittens' own Solar Revolution gate (1,000 worship = 1.00% on this same formula). This
 // assertion has always been "Convergence IS a pass condition", not "the band is 5-8%", and it
 // is re-pointed to the label the harness now carries.
-check("18 — Convergence at Sparks is a pass condition in the pacing harness",
-  /Convergence at Sparks >= /.test(readFileSync(new URL("../sim/pacing.mjs", import.meta.url), "utf8")));
+// RE-POINTED v0.59, superseded by spec Part 4. The MEASUREMENT POINT moved off Sparks and onto
+// Convergence's own unlock, because `worshipBonus()` returns 0 until the tech is researched
+// (index.html:1827) and at Sparks it is not — so "Convergence at Sparks" was reporting the
+// absence of a tech as a collapsed curve. This assertion has always been "Convergence IS a pass
+// condition", never "the point of measurement is Sparks", and it re-points to the new label.
+check("18/Part 4 — Convergence is a pass condition, measured at its own unlock",
+  /Convergence AT ITS OWN UNLOCK >= /.test(readFileSync(new URL("../sim/pacing.mjs", import.meta.url), "utf8")));
 const unchanged = await page.evaluate(() => ({
   science: (function () {
     S.buildings = {}; S.upgrades = {}; S.techs = {}; S.policies = {}; S.champs = {}; S.pop = 0;

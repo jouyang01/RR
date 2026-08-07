@@ -115,7 +115,9 @@ const scholar = await page.evaluate(() => {
   bare();
   S.buildings = { hallOfHeroes: 20, trainingGround: 10 };
   S.techs = { trade: 1, drakeLore: 1, voidStudies: 1 };
-  const o = { line: SCHOLAR_LINE.slice(), sigma: +SCHOLAR_LINE.reduce((a, u) => a + u[1], 0).toFixed(4) };
+  // RE-POINTED v0.59, superseded by spec Part 5.4: SCHOLAR_LINE is deleted and the three
+  // Reflectors rungs live in ARCHIVE_RATIO_LINE at Kittens' own 0.02 each.
+  const o = { line: ARCHIVE_RATIO_LINE.slice(), sigma: +ARCHIVE_RATIO_LINE.reduce((a, u) => a + u[1], 0).toFixed(4) };
   o.flat = Math.round(computeCaps().renown);
   S.upgrades = { cataloguing: 1, crossReferencing: 1, greatIndex: 1 };
   o.at3 = Math.round(computeCaps().renown);
@@ -147,27 +149,41 @@ const scholar = await page.evaluate(() => {
               none: +storageMultFor("knowledge", rat).toFixed(4) };
   // pass condition 10: capFamilyOf is total and single-valued
   const capped = Object.keys(RES).filter(r => RES[r].baseCap !== undefined);
+  // RE-POINTED v0.59 Part 5.3: two families now, same invariant.
   o.multiFamily = capped.filter(r =>
-    [CAP_MULT_EXEMPT[r], SCHOLAR_CAPS[r], CAP_SCOPE[r]].filter(Boolean).length !== 1);
+    [CAP_MULT_EXEMPT[r], CAP_SCOPE[r]].filter(Boolean).length !== 1);
   o.unfamilied = capped.filter(r => capFamilyOf(r) === null);
   o.prose1 = UPGRADES.find(u => u.id === "cataloguing").effect;
   bare();
   return o;
 });
-check("7 — `scholarMult *= ` appears NOWHERE on stripped source",
-  !/scholarMult\s*\*=/.test(CODE), (CODE.match(/scholarMult\s*\*=/g) || []).join(" ") || "absent");
-check("7 — SCHOLAR_LINE holds INCREMENTS summing 1.60, the BARN_LINE/WAREHOUSE_LINE shape",
-  Math.abs(scholar.sigma - 1.60) < 1e-9 && scholar.line.every(u => u[1] < 1),
+check("7 — `scholarMult` appears NOWHERE on stripped source (v0.59 5.3: deleted outright)",
+  !/scholarMult/.test(CODE), (CODE.match(/scholarMult\s*\S*/g) || []).join(" ") || "absent");
+// RE-POINTED v0.59, superseded by spec Part 5.4. v0.58 Part 3's property was "this line is an
+// ADDITIVE accumulator of small increments, not a multiplicative chain" (§23a), and that is
+// still exactly what is asserted — against Kittens' own Σ 0.06 rather than RR's invented 1.60.
+check("7/5.4 — the Reflectors line holds INCREMENTS summing Kittens' Σ 0.06, three rungs at 0.02",
+  Math.abs(scholar.sigma - 0.06) < 1e-9 && scholar.line.length === 3 &&
+  scholar.line.every(u => u[1] === 0.02),
   `Σ ${scholar.sigma} from ${JSON.stringify(scholar.line)}`);
-check("7 — the DELIVERED multiplier is 1+Σ: ×1.85 at 3 of 5, ×2.60 at 5 of 5",
-  Math.abs(scholar.at3 / scholar.flat - 1.85) < 0.01 &&
-  Math.abs(scholar.at5 / scholar.flat - 2.60) < 0.01,
-  `${scholar.flat} → ${scholar.at3} (×${(scholar.at3 / scholar.flat).toFixed(4)}) → ${scholar.at5} (×${(scholar.at5 / scholar.flat).toFixed(4)})`);
-check("7 — ...and that is the stated 34.9% cut from the retired chain's ×3.9926",
-  Math.abs((1 - 2.60 / 3.9926) - 0.349) < 0.002,
-  `1 − 2.60/3.9926 = ${((1 - 2.60 / 3.9926) * 100).toFixed(1)}%`);
-check("7 — the Scholarship prose says '+25%', never '×1.25', for a rung that adds",
-  /\+25%/.test(scholar.prose1) && !/×1\.25/.test(scholar.prose1), scholar.prose1);
+// RE-POINTED v0.59, superseded by spec Part 5.3. These measured the line's delivery ON RENOWN
+// (×1.85 at three rungs, ×2.60 at five, a 34.9% cut from the retired chain). The line does not
+// reach renown at all now — renown's ceiling is 30 + 900 × Halls, flat — so the three
+// assertions are replaced by the one property directive 7 actually bought.
+check("7/5.3 — the line delivers ×1.00 to renown: its ceiling is flat and additive from the Halls",
+  scholar.at3 === scholar.flat && scholar.at5 === scholar.flat,
+  `${scholar.flat} bare → ${scholar.at3} at three rungs → ${scholar.at5} at five`);
+// The fixture holds trade + drakeLore + voidStudies, which grant 40 / 60 / 80 renown cap on top
+// of RES.renown.baseCap = 30 — the spec's "210 base", confirmed by measurement here rather than
+// inherited. 210 + 900 × 20 = 18,210.
+check("7/5.3 — ...and the flat figure is exactly 210 + 900 × Halls, at 20 Halls",
+  scholar.flat === 210 + 900 * 20, `${scholar.flat} vs ${210 + 900 * 20}`);
+// RE-POINTED v0.59 Part 5.4: the prose is about the Archive and the Observatory now, and the
+// rung is 2% rather than 25%. The invariant — the prose states the increment the code applies,
+// and never a "×" for something that adds — is unchanged.
+check("7/5.4 — the Reflectors prose says 'a further 2%', never a ×, for a rung that adds",
+  /a further 2%/.test(scholar.prose1) && !/×/.test(scholar.prose1) &&
+  /Archive/.test(scholar.prose1) && /Observatory/.test(scholar.prose1), scholar.prose1);
 check("8 — culture, renown and crystals are CLASSIFIED by the apparatus before any sizing",
   /LUMPY SINK ONLY — a ceiling change cannot move this/.test(PACING) &&
   /resourceBalance/.test(SIMCORE) &&

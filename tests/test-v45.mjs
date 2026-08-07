@@ -110,9 +110,24 @@ const caps = await page.evaluate(() => {
     S.res.tome = 0; S.res.morellonomicon = 0;
   };
   const sci = { archive: 30, academy: 30, observatory: 25, hexLab: 13 };
+  // RE-POINTED v0.59, superseded by spec Part 5.4. v0.45 Part 5's property is "knowledge takes
+  // NO WHOLE-CAP STORAGE MULTIPLIER — not Masonry, not Scholarship, not the mountain drakes, not
+  // a leader", and that is exactly as true after Part 5.4 as before: knowledge is still in
+  // CAP_MULT_EXEMPT and no whole-cap knowledge multiplier ships anywhere in the file.
+  //
+  // What Part 5.4 adds is PER-BUILDING amplifiers — Kittens' Reflectors (`archiveRatio`, the
+  // Archive's own slice scaled by Observatory count) and Kittens' Astrolabe (a x1.5 per copy on
+  // the Academy and the Hexcore Laboratory) — which are exactly the shape the source uses and
+  // are NOT storage multipliers. So the expectation reads the per-building terms rather than
+  // pretending they are absent, and the assertion still fails the instant a whole-cap
+  // multiplier appears, because a whole-cap multiplier would scale the BASE CAP too and this
+  // sum does not.
   const buildingKnowledge = () => {
     let sum = RES.knowledge.baseCap;
-    BUILDINGS.forEach(b => { if (b.caps && b.caps.knowledge) sum += b.caps.knowledge * (S.buildings[b.id] || 0); });
+    BUILDINGS.forEach(b => {
+      if (b.caps && b.caps.knowledge)
+        sum += b.caps.knowledge * (S.buildings[b.id] || 0) * capMultPerCopy(b) * capsSliceMult(b, "knowledge");
+    });
     return sum;
   };
   bare(); S.buildings = Object.assign({}, sci);

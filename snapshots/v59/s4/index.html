@@ -162,22 +162,12 @@
   button.owned .b-name { color: var(--teal); }
   button .toggle-state { float: right; font-size: 11px; color: var(--teal); }
 
-  /* v0.59 PART 8 NOTE 1 (Jerry): "the wanderer job buttons are too bulky and the text does not
-     fit." Both halves are the same cause: eight fixed 28px squares plus 6px gaps reserve 272px
-     of a row, so "−20" and "+20" were laid out into 28px of width and clipped, and on a narrow
-     viewport the whole row overflowed its panel. LAYOUT ONLY — no counts, no maxima, no
-     assignJob behaviour is touched.
-     The fix is to stop pretending every chip is the same width. `min-width` with padding lets
-     the two-character chips stay compact and the three-character ones grow to fit their own
-     text; `flex-wrap` on the row means that when the panel is genuinely too narrow the chips
-     drop to a second line instead of spilling outside it. */
-  .job-row { display: flex; align-items: center; gap: 4px; margin-bottom: 7px; flex-wrap: wrap; }
-  .job-row .job-info { flex: 1 1 100%; }
+  .job-row { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+  .job-row .job-info { flex: 1; }
   .job-row .job-name { color: var(--text-bright); font-weight: 600; font-size: 13px; }
   .job-row .job-desc { font-size: 11px; font-style: italic; }
-  .job-row .job-count { color: var(--gold); min-width: 30px; text-align: center; font-size: 15px; }
-  .job-btn { min-width: 24px; height: 24px; padding: 0 5px; margin: 0; text-align: center;
-             font-size: 12px; font-weight: bold; line-height: 22px; white-space: nowrap; flex: 0 0 auto; }
+  .job-row .job-count { color: var(--gold); min-width: 26px; text-align: center; font-size: 15px; }
+  .job-btn { width: 28px; height: 28px; padding: 0; margin: 0; text-align: center; font-size: 16px; font-weight: bold; }
 
   #log { max-height: 230px; overflow-y: auto; font-size: 11px; line-height: 1.4; }
   #log p { margin-bottom: 4px; border-left: 2px solid var(--border); padding-left: 6px; }
@@ -245,7 +235,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.59";
+var VERSION = "v0.58.1";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -1459,20 +1449,7 @@ var CHAMPS = [
     flavor: "The paperwork is always in order. Always.",
     skill: "Ace in the Hole — one perfect shot, ledgers balanced" },
   { id: "swain", name: "Swain", cls: "Mage", cost: { culture: 700 },
-    // v0.59 PART 8 NOTE 5 (Jerry): "Swain's lead duplicates his passive; his passive becomes a
-    // mana-production percentage."
-    //
-    // THIS IS THE TWITCH DEFECT OF v0.54 IN A NEW COSTUME, and the spec names it as such. Note
-    // 20 moved his LEAD onto knowledge production to close a toggling exploit — correctly — but
-    // that left the lead and the passive doing the SAME THING to the SAME RESOURCE, so the
-    // leader slot bought nothing but a bigger number. A leader slot competes with Jarvan,
-    // Twitch, Bard and Caitlyn; it has to be a different decision, not a louder one.
-    //
-    // The passive moves to MANA, which keeps his identity (Swain runs the machinery of the
-    // state) while making "put Swain in the chair" a real choice: hold him for mana whatever
-    // happens, LEAD with him when knowledge is the constraint. The two are now distinct keys
-    // and are asserted distinct.
-    passive: { key: "mana", base: 12, desc: "Administrative Vision: mana production +12%" },
+    passive: { key: "knowledge", base: 12, desc: "Administrative Vision: knowledge production +12%" },
     // v0.58.1 NOTE 20 (Jerry): "Swain leader bonus is abusable. By reducing discovery/knowledge
     // costs, you can toggle it on and off. Let's change it but keep it knowledge focused."
     //
@@ -1544,9 +1521,6 @@ var TRADE_RENOWN = 1;
 var TWITCH_SLOT_CHANCE    = [0.15, 0.10, 0.05];
 // note 23 — Zilean banks time and spends it at +50% speed
 var TIMEWARP_MAX_MS       = 5 * 60 * 1000;
-// v0.59 Part 8 note 3: the player's hand on the lever. Callable whenever ANY time is banked —
-// not only at the ceiling — because "spend it when it helps" is the point, and a button that is
-// only live at 5:00 is the automatic trigger with an extra click.
 var TIMEWARP_GAIN_RATE    = 0.25;   // banks a quarter-second of warp per real second led
 var TIMEWARP_SPEED        = 1.5;
 function champDef(id) { return CHAMPS.find(function (c) { return c.id === id; }); }
@@ -1938,65 +1912,8 @@ function buyWtech(id) {
 // js/buildings.js) and which RR already carries on the Watcher's Eye and the Ice-Wrought
 // Spire -- and NOT back into this chain. The upgrade line was never supposed to be the whole
 // culture ceiling; the buildings are.
-// v0.59 PART 5.4 (Jerry's directive 8) — SCHOLAR_LINE IS DELETED AND THE FIVE UPGRADES BECOME
-// KNOWLEDGE AMPLIFIERS. Its 0.25/0.30/0.30/0.35/0.40 does not survive in any form: the new
-// effects are two DIFFERENT mechanisms, not a shared additive line, and modelling them as one
-// would be the same category error §29 spent a round unpicking.
-//
-// DIRECTIVE 8'S TWO HALVES ARE NOT IN TENSION ONCE THE SOURCE IS READ. The line becomes about
-// knowledge — but as PER-BUILDING amplifiers, never as a multiplier on the summed knowledge cap.
-// Knowledge is in CAP_MULT_EXEMPT and STAYS there.
-//
-// KITTENS HAS EXACTLY ONE WHOLE-CAP SCIENCE MULTIPLIER IN THE ENTIRE GAME, AND IT IS NOT AN
-// UPGRADE. It is the `technocracy` POLICY (js/science.js:1067-1080, `technocracyScienceCap: 0.2`,
-// price CULTURE 150,000, mutually exclusive with theocracy and expansionism), consumed at
-// js/resources.js:954-956. One x1.20, once, for 150,000 culture and the permanent loss of two
-// other policy branches. Every UPGRADE-shaped science boost in Kittens -- Astrolabe, the three
-// Reflectors, Uplink, the AI Core line -- is per-building.
-//
-// THE STANDING RULE THAT FOLLOWS: a whole-cap knowledge multiplier in RR belongs on a POLICY,
-// priced like one and exclusive like one -- never on a Discovery chain. If a future round wants
-// one, x1.20 is the source's magnitude. NONE SHIPS THIS ROUND.
-//
-// ---- The Reflectors family: `archiveRatio` ----
-// Three Kittens upgrades, each `libraryRatio: 0.02`, all scoped to the library
-// (js/workshop.js:1450 titaniumMirrors, :1467 unobtainiumReflectors, :1483 eludiumReflectors),
-// consumed additively inside the LIBRARY's own calculateEffects (js/buildings.js:579-580):
-//
-//     var libraryRatio = game.getEffect("libraryRatio");
-//     effects["scienceMax"] *= (1 + game.bld.get("observatory").on * libraryRatio);
-//
-// READ THAT CAREFULLY: THE AMPLIFIER IS MULTIPLIED BY HOW MANY OBSERVATORIES YOU OWN. It is
-// additive within the family and multiplicative between categories -- Kittens' Law -- and it
-// makes two buildings worth more together than apart. RR had no analogue and this is the piece
-// worth porting. SIGMA 0.06 IS KITTENS' FIGURE TAKEN, NOT TUNED.
-//
-// RR's four knowledge buildings are already a faithful port of Kittens' four (archive 250/0.10,
-// academy 500/0.20, observatory 1000/0.25, hexLab 1500/0.35 against library 250/0.1, academy
-// 500/0.2, observatory 1000/0.25, biolab 1500/0.35), so the Archive IS the Library and takes
-// the ratio; the Observatory IS the Observatory and does the scaling.
-var ARCHIVE_RATIO_LINE = [["cataloguing", 0.02], ["crossReferencing", 0.02], ["greatIndex", 0.02]];
-function archiveRatioTotal() {
-  var t = 0;
-  ARCHIVE_RATIO_LINE.forEach(function (u) { if (S.upgrades[u[0]]) t += u[1]; });
-  return t;
-}
-function archiveRatioOf(id) {
-  for (var i = 0; i < ARCHIVE_RATIO_LINE.length; i++) if (ARCHIVE_RATIO_LINE[i][0] === id) return ARCHIVE_RATIO_LINE[i][1];
-  return 0;
-}
-// ---- The Astrolabe family: +50% held, per copy, on one building ----
-// Kittens' Astrolabe (js/workshop.js:1436-1448) carries `effects: {}`; its entire effect lives
-// in the Observatory's own calculateEffects (js/buildings.js:672):
-//
-//     self.effects["scienceMax"] = ratio * (game.workshop.get("astrolabe").researched ? 1500 : 1000);
-//
-// 1,000 -> 1,500 is +50% on that ONE building's own contribution. RR ALREADY SHIPS THIS as
-// `voidglassLenses` on the Observatory, at capMultPerCopy(). That is Kittens' Astrolabe at exact
-// parity, it is left completely alone, and it is ledgered PARITY. The two upgrades below are the
-// same shape aimed at the two knowledge buildings that do not have one.
-var ASTROLABE_LINE = { annotatedIndex: "academy", livingLibrary: "hexLab" };
-var ASTROLABE_MULT = 1.5;
+var SCHOLAR_LINE = [["cataloguing", 0.25], ["crossReferencing", 0.30], ["greatIndex", 0.30],
+                    ["annotatedIndex", 0.35], ["livingLibrary", 0.40]];
 
 // ============================================================
 // v0.45 Part 2 — ore and timber, composed the way Kittens composes them
@@ -2116,8 +2033,14 @@ function sawDesc(id) {
   SAW_LINE.forEach(function (u) { if (u[0] === id) v = u[1]; });
   return "Every Lumber Mill's woodcutter bonus rises by " + (v * 10).toFixed(1) + " points.";
 }
-// v0.59 Part 5.4: `scholarAddOf` is deleted with SCHOLAR_LINE. Its two successors are
-// `archiveRatioOf` and the ASTROLABE_LINE map, declared beside the tables they read.
+// v0.58 Part 3: the entries are increments now, so this returns the INCREMENT. Every caller
+// that wants a factor asks for `1 + scholarAddOf(id)` and every caller that wants the whole
+// line asks lineTotal(SCHOLAR_LINE) -- exactly as the two storage lines are read. The old name
+// `scholarMultOf` returning 1.25 while the table held 0.25 would have been a silent x0.25.
+function scholarAddOf(id) {
+  for (var i = 0; i < SCHOLAR_LINE.length; i++) if (SCHOLAR_LINE[i][0] === id) return SCHOLAR_LINE[i][1];
+  return 0;
+}
 // v0.44 Part 2.5.2 moved KNOWLEDGE off this line — the knowledge ceiling is now
 // buildings plus the clamped Morellonomicon term and nothing else, exactly as Kittens
 // does it. The prose is generated from SCHOLAR_CAPS so it cannot drift from the code
@@ -2387,31 +2310,18 @@ function poppyLeadDesc() {
     "% across " + capMultNames() + " material lines";
 }
 (function () { var p = champDef("poppy"); if (p) p.lead = poppyLeadDesc(); })();
-// v0.59 PART 5.3 deleted `scholarCapNames()` with the family it read; PART 5.4 re-issues the
-// two generators against the two NEW mechanisms. Same anti-drift rule as every other generator
-// in this file: the prose is computed from the same tables the code reads, so a tooltip cannot
-// outlive the effect it describes — which is exactly what happened to this line at v0.58.
+// v0.59 PART 5.3: `scholarCapNames()` is DELETED with the family it read.
+//
+// The five Scholarship upgrades are INERT for the length of this slice — the family they raised
+// no longer exists — and their descriptions say so plainly rather than advertising a storage
+// bonus that no longer lands. Part 5.4 re-issues all five as knowledge amplifiers and replaces
+// these two generators outright. Nothing here is meant to survive the round; it exists so that
+// the Part 5.3 isolation slice is a page that loads and a tooltip that does not lie.
 function scholarEffect(id, numeral) {
-  var ar = archiveRatioOf(id);
-  if (ar) {
-    // NO LIVE STATE IN THIS STRING. `effect:` is evaluated when the UPGRADES array is built,
-    // which is before S exists — a count() here takes the whole page down, and did once.
-    return "Scholarship " + numeral + " — every Celestial Observatory raises the Archive's " +
-      "knowledge capacity by a further " + Math.round(ar * 1000) / 10 + "%.";
-  }
-  var bld = ASTROLABE_LINE[id];
-  if (bld) {
-    var b = BUILDINGS.find(function (x) { return x.id === bld; });
-    var nm = b ? b.name : bld;
-    // "Academys" and "Hexcore Laboratorys" both shipped from a bare + "s" before this line.
-    var plural = /y$/.test(nm) ? nm.slice(0, -1) + "ies" : nm + "s";
-    return "Scholarship " + numeral + " — " + plural + " hold +" +
-      Math.round((ASTROLABE_MULT - 1) * 100) + "% more knowledge each.";
-  }
-  return "Scholarship " + numeral + ".";
+  return "Scholarship " + numeral + " — no effect (re-issued at v0.59 Part 5.4).";
 }
 function scholarDesc(id, numeral, flavour) {
-  return "Scholarship " + numeral + " — " + flavour + ". " + scholarEffect(id, numeral).replace(/^Scholarship \S+ — /, "");
+  return "Scholarship " + numeral + " — " + flavour + ".";
 }
 var UPGRADES = [
   { id: "runicAttunement", name: "Runic Attunement", cost: { mana: 120 },
@@ -2466,13 +2376,6 @@ var UPGRADES = [
   { id: "arcaneFocus", name: "Arcane Focus", cost: { mana: 300 },
     lore: "A lens for something that was never light.",
     effect: "+4 mana per channel, Arcanists +50%.", unlock: function (s) { return s.seenMax.mana >= 150; } },
-  // v0.59 Part 8 note 6 — the second rung of the Arcanist line; see jobMult for the source
-  // anchor. Priced at the Sparks band (hexsteelSaw beam 50 + gear 25, seasonedTimberworks beam
-  // 60 + gear 30) and keeping the line's own currency in the second term, so it is rung-matched
-  // on both axes rather than only on the tech gate.
-  { id: "leylineCalibration", name: "Leyline Calibration", cost: { beam: 50, mana: 900 }, tech: "sparks", req: "arcaneFocus",
-    lore: "The leylines were never crooked. The instruments were.",
-    effect: "Arcanists +30%. With Arcane Focus the mana job line reaches ×1.80 — Kittens' two-rung figure." },
   { id: "bilgewaterContracts", name: "Bilgewater Contracts", cost: { gold: 250 }, tech: "trade",
     lore: "Signed in three places, one of them a thumbprint.",
     effect: "All gold production +25%."},
@@ -4074,31 +3977,17 @@ function tradeCaravanBulk(fid, times) {
   var f = FACTIONS.find(function (x) { return x.id === fid; });
   if (!f || !tradeOpen(fid)) return;
   var n = Math.min(times, BULK_TRADE_MAX), done = 0;
-  // v0.59 Part 8 note 2: one snapshot for the batch, taken before the first payment.
-  snapshotUndo("Sent caravans to " + f.name, "trade");
-  undoBulkDepth++;
-  try {
-    for (var i = 0; i < n; i++) {
-      if (!canAfford(tradeCost(f))) break;
-      tradeCaravan(fid);
-      done++;
-    }
-  } finally { undoBulkDepth--; }
+  for (var i = 0; i < n; i++) {
+    if (!canAfford(tradeCost(f))) break;
+    tradeCaravan(fid);
+    done++;
+  }
   if (done > 1) addLog("The " + f.name + " road carries " + done + " caravans in convoy.", "trade");
 }
 function tradeCaravan(fid) {
   var f = FACTIONS.find(function (x) { return x.id === fid; });
   if (!tradeOpen(fid)) return;
   if (!canAfford(tradeCost(f))) return;
-  // v0.59 PART 8 NOTE 2, second half — THE OPEN v0.55 ITEM IS CLOSED IN THE SAME ROUND.
-  //
-  // v0.55 Part 8 recorded that trades never call snapshotUndo(), and the spec asks for the two
-  // together or a reason why not. They ship together. A caravan HAS a random outcome, so the
-  // undo must stamp its kind: undoing a bad caravan sets `rerollPenalty.trade`, and the next
-  // attempt runs with `rerollFail` at 0 and `rerollHit`/`rerollAmt` at their worst — which is
-  // exactly the bound v0.55 built for hunts. Without the stamp, adding an undo here would have
-  // handed the player a free re-roll on the one action the original comment said not to.
-  snapshotUndo("Caravan to " + f.name, "trade");
   pay(tradeCost(f));
   var mult = tradeYieldMult(fid);
   if (f.failChance && rerollFail("trade") < f.failChance()) f.fail();
@@ -4272,30 +4161,14 @@ function bfield(id, key) { var b = bdef(id); return (b && b[key]) || 0; }
 // The maximum whole-cap lift is bounded by the slices' share: a settlement that is ALL Marus
 // sees x1.5 and nothing sees more, which is exactly the ceiling note 16 specifies.
 function capsSliceMult(b, r) {
-  if (r === "devotion") {
-    if (b.id === "marus"  && S.wtechs && S.wtechs.solariAltar) return 1.5;
-    if (b.id === "shrine" && hasPolicy("lunariVigil")) return 1.25;
-    return 1;
-  }
-  // v0.59 PART 5.4 — the Reflectors shape, and it is a SLICE by construction rather than by
-  // choice: js/buildings.js:579-580 multiplies the LIBRARY's own scienceMax, not the summed
-  // science ceiling, and the multiplier is the Observatory COUNT times the summed ratio. Ported
-  // one-for-one onto the Archive, which is RR's Library. This is the only cross-building cap
-  // amplifier in the game and it is the reason two Observatories are worth more beside an
-  // Archive than alone.
-  if (r === "knowledge" && b.id === "archive") return 1 + count("observatory") * archiveRatioTotal();
+  if (r !== "devotion") return 1;
+  if (b.id === "marus"  && S.wtechs && S.wtechs.solariAltar) return 1.5;
+  if (b.id === "shrine" && hasPolicy("lunariVigil")) return 1.25;
   return 1;
 }
 function capMultPerCopy(b) {
   var mult = (b.id === "storehouse" && S.upgrades.reinforcedStorehouses) ? 1.75 : 1;
-  // Kittens' Astrolabe: 1,000 -> 1,500 on the Observatory's own contribution (js/buildings.js:672).
-  // Shipped since v0.48 and left EXACTLY as it is — it is the parity row, not a thing to tune.
   if (b.id === "observatory" && S.upgrades.voidglassLenses) mult *= 1.5;
-  // v0.59 PART 5.4 — the same shape aimed at the two knowledge buildings that lacked one.
-  // Extending this function rather than adding a second mechanism is the spec's instruction and
-  // the right one: there is now ONE place in the file where "this building holds more per copy"
-  // is expressed, and a reader can enumerate every such effect by reading four lines.
-  for (var up in ASTROLABE_LINE) if (ASTROLABE_LINE[up] === b.id && S.upgrades[up]) mult *= ASTROLABE_MULT;
   return mult;
 }
 // Per-copy global boost, after the Hexdraulic amplifier. RR's only multiplicative
@@ -4603,8 +4476,6 @@ var FESTIVAL_MORALE_MULT = 1.20;
 // A first festival at two or three Hearths pays ~300 gold, which against an early gold ceiling
 // of a few hundred is exactly the "boost early" the note asks for; twenty Hearths pay ~800.
 var FESTIVAL_GOLD_BASE = 250, FESTIVAL_GOLD_PER_HEARTH = 25;
-// v0.59 Part 8 note 8 — the two luxury terms, named so the half-of relation is readable.
-var FESTIVAL_MUSHROOMS = 2, FESTIVAL_PLUME_SHARE = 0.5;
 function festivalCost() {
   // v0.58.1 NOTE 1 (Jerry): "It should also cost Vigor. IT should have a larger culture cost
   // and be a repetitive culture sink."
@@ -4620,14 +4491,7 @@ function festivalCost() {
   //
   // The luxuries (v0.58 note 12) are untouched: this note ADDS culture and vigor, it does not
   // replace what was there.
-  // v0.59 PART 8 NOTE 8 (Jerry): "Festival costs fewer mushrooms; raptor plumes at half the
-  // mushroom cost." Mushrooms 4 -> 2 per unit of comfort, and plumes are now DERIVED as half of
-  // the mushroom term rather than stated separately, so the stated ratio cannot drift: the two
-  // were both 4 and a future edit to one would silently have broken the relation Jerry asked
-  // for. Measured at luxuryComfort() = 3.0: mushrooms 12 -> 6, plumes 12 -> 3.
-  // FESTIVALS ARE RR-ORIGINAL, so this is a labelled EASIER row rather than a parity move.
-  return { mushrooms: Math.round(FESTIVAL_MUSHROOMS * luxuryComfort()),
-           plumes: Math.round(FESTIVAL_MUSHROOMS * FESTIVAL_PLUME_SHARE * luxuryComfort()),
+  return { mushrooms: Math.round(4 * luxuryComfort()), plumes: Math.round(4 * luxuryComfort()),
            provisions: Math.round(60 * Math.max(1, S.pop)),
            culture: Math.round(30 * Math.max(1, S.pop)),
            vigor: Math.round(10 * Math.max(1, S.pop)) };
@@ -4635,15 +4499,6 @@ function festivalCost() {
 // v0.58 note 12: tick-denominated, so offline catch-up (which advances ticks) expires a
 // festival at exactly the right game-time rather than at the wall clock. `festivalUntil` is
 // still honoured so a save written before v0.58 keeps its running festival.
-function spendTimeWarp() {
-  if (S.warpSpending) return false;            // already running
-  if ((S.timeWarpMs || 0) <= 0) return false;  // nothing banked
-  S.warpSpending = true;
-  addLog("Zilean opens the reservoir. The settlement runs at +" +
-    Math.round((TIMEWARP_SPEED - 1) * 100) + "% until the banked hours run out.", "champion");
-  uiDirty = true;
-  return true;
-}
 function festivalActive() {
   return S.tick < (S.festivalUntilTick || 0) || simNow() < (S.festivalUntil || 0);
 }
@@ -5039,8 +4894,6 @@ function computeRates(bdRes) {
   if (S.wtechs && S.wtechs.ritesOfInsight) boosts.knowledge += 0.10;
   boosts.knowledge += champPassive("knowledge") / 100;
   if (leaderIs("swain")) boosts.knowledge += SWAIN_KNOWLEDGE_LEAD;   // v0.58.1 NOTE 20
-  // v0.59 Part 8 note 5: Swain's passive lands here now, on a DIFFERENT key from his lead.
-  boosts.mana += champPassive("mana") / 100;
   boosts.devotion += champPassive("devotion") / 100;
   boosts.culture += champPassive("culture") / 100;
   boosts.gold += champPassive("gold") / 100;
@@ -5090,19 +4943,7 @@ function computeRates(bdRes) {
     farmer: hoeMult() * villageMult,
     woodcutter: axeMult() * villageMult,
     miner: villageMult,
-    // v0.59 PART 8 NOTE 6 (Jerry): "one more mana-production Discovery", RUNG-MATCHED AGAINST
-    // THE SOURCE rather than by feel, which is what the spec asks for.
-    //
-    // THE ANCHOR. Kittens' catnip JOB line has TWO rungs, not one: `catnipJobRatio` is fed by
-    // mineralHoes 0.50 and ironHoes 0.30 (js/workshop.js), additive, x1.80 at both. RR's mana
-    // job — the Arcanist — had exactly ONE rung, `arcaneFocus` at +50%, so the line was half a
-    // Kittens line. The second rung completes the shape at the SOURCE'S OWN SECOND FIGURE,
-    // +30%, and the line lands at x1.80 fully stacked — Kittens' figure, taken, not tuned.
-    //
-    // ADDITIVE WITHIN THE CATEGORY (Kittens' Law): 1 + 0.50 + 0.30, never 1.5 x 1.3. That is
-    // also why this is the right place for the note rather than a fourth global +25% beside
-    // hexresonance, which would have been a new multiplicative category for one member.
-    arcanist: 1 + (S.upgrades.arcaneFocus ? 0.50 : 0) + (S.upgrades.leylineCalibration ? 0.30 : 0),
+    arcanist: S.upgrades.arcaneFocus ? 1.5 : 1,
     tinkerer: S.upgrades.facetedCuts ? 1.25 : 1,   // v0.45 Part 6 — Lapidary
     loremaster: 1
   };
@@ -5489,20 +5330,7 @@ function tick() {
       if (S.timeWarpMs <= 0) S.warpSpending = false;
     } else {
       S.timeWarpMs = Math.min(TIMEWARP_MAX_MS, (S.timeWarpMs || 0) + ticks * TICK_MS * TIMEWARP_GAIN_RATE);
-      // v0.59 PART 8 NOTE 3 (Jerry): "a BUTTON for Zilean to spend banked time, not an automatic
-      // trigger at 5m." THE AUTOMATIC FLIP IS DELETED — `if (S.timeWarpMs >= TIMEWARP_MAX_MS)
-      // S.warpSpending = true;` used to live on this line — and it is deleted rather than
-      // bypassed, which is what the spec asks for and the difference that matters: a bypassed
-      // path is one condition away from firing again.
-      //
-      // WHY THIS IS A REAL CHANGE AND NOT A UI ONE. The duty cycle's whole value was that the
-      // player watched a meter fill and then got a windfall they did not choose the timing of.
-      // Choosing the timing is strictly better play — spend the +50% while a long craft or a
-      // build queue is running — so the change is a small BUFF as well as an agency win, and it
-      // is labelled EASIER in the ledger for exactly that reason.
-      //
-      // The bank still stops at the ceiling, so time banked past five minutes is still lost;
-      // the pressure to spend is unchanged. See spendTimeWarp().
+      if (S.timeWarpMs >= TIMEWARP_MAX_MS) S.warpSpending = true;
     }
   }
   if (ticks === 1) { step(TICK_MS / 1000, 1); return; }  // the v0.53 path, unchanged
@@ -6125,20 +5953,11 @@ function transmuteMana(times) {
   // conversion was entirely silent — including the Arcanist's Circle automatic yearly draw,
   // which spends up to a third of a full mana pool without ever saying so. A player watching
   // mana fall with no line in the chronicle has no way to learn the mechanic exists.
-  // v0.59 JERRY'S DEV NOTE 1, WHICH SUPERSEDES THE ANALYZER SPEC: "Only bulk crafting of
-  // 'transmute' mana -> timber should show in the chronicle."
-  //
-  // v0.58 note 7 was right that the conversion should not be SILENT — the Arcanist's Circle can
-  // spend a third of a full mana pool without a word. But transmute is also the single most
-  // clicked action in the early game, and one chronicle line per click buries every other line
-  // in the log. A single cast is visible in the resource column the instant it happens; a BATCH
-  // is the thing a player cannot reconstruct afterwards, and the Circle's yearly draw is always
-  // a batch. So the line survives exactly where it earns its place.
-  if (done > 1) {
+  if (done > 0) {
     addLog("Transmutation ×" + done + " — +" + fmt(done * transmuteYield()) + " timber for −" +
       fmt(done * TRANSMUTE_COST) + " mana", "event");
+    uiDirty = true;
   }
-  if (done > 0) uiDirty = true;
 }
 
 // ============================================================
@@ -6307,23 +6126,9 @@ var CRAFTS = [
     u.desc = [u.lore, u.effect].filter(Boolean).join(" ");   // deriveLegacyDesc ran before CRAFTS existed
   });
 })();
-// v0.59 PART 8 NOTE 2 (Jerry): "crafting needs an undo button."
-//
-// It is wired into the EXISTING window and the EXISTING re-roll guard rather than given its
-// own, which is the whole instruction: v0.55 Part 8 built `snapshotUndo()` / `rerollPenalty`
-// precisely so that the next undoable action would inherit the exploit fix instead of shipping
-// the exploit again and being patched later.
-//
-// A BULK CRAFT SNAPSHOTS ONCE, NOT PER ITEM. `undoBulkDepth` suppresses the inner snapshots, so
-// "craft ×200" is one undoable action that returns the player to before the batch — which is
-// what a misclick on ALL actually needs — rather than 200 JSON.stringify(S) calls of which only
-// the last survives.
 function craftItem(id, times) {
   var c = CRAFTS.find(function (x) { return x.id === id; });
   var done = 0;
-  // The snapshot must precede the first `pay()`, and the label must be readable before the
-  // batch has run, so it names the recipe rather than the haul.
-  if (c) snapshotUndo("Crafted " + c.name, "craft");
   var caps = computeCaps();
   var cost = craftCostOf(id);
   for (var i = 0; i < times; i++) {
@@ -6363,12 +6168,7 @@ var undoSnapshot = null, undoLabel = "", undoUntil = 0, UNDO_SECONDS = 10;
 // v0.55 Part 8: which KIND of action the snapshot belongs to, so undoing a champion recruit
 // cannot poison the next hunt. null means "nothing probabilistic to re-roll".
 var undoKind = null;
-// v0.59 Part 8 note 2: bulk actions snapshot ONCE, at the batch boundary. Any inner call made
-// while a batch is running is a no-op, so the outstanding snapshot stays the one that returns
-// the player to before the whole batch.
-var undoBulkDepth = 0;
 function snapshotUndo(label, kind) {
-  if (undoBulkDepth > 0) return;
   try {
     undoSnapshot = JSON.stringify(S);
     undoLabel = label;
@@ -6586,30 +6386,13 @@ function campNextChargeIn(e) {                         // time until the next ch
 var BULK_HUNT_MAX = 500;
 function runExpeditionBulk(id, times) {
   var e = EXPEDITIONS.find(function (x) { return x.id === id; });
-  // v0.59 PART 8 NOTE 4 (Jerry): "bulk hunting on charge camps but not cooldown camps."
-  //
-  // The predicate already existed, so this is a GATE and not new machinery. The old guard
-  // excluded charge camps on the reasoning that "a charge camp banks a x3 haul that a blind
-  // bulk run would spend on the first clear and waste" — that reasoning does not survive Part
-  // 2.1, which makes every hunt pay and turns the charge into a MULTIPLIER rather than a gate.
-  // A bulk run now spends the banked charges at x3 on the first clears and continues at the
-  // ordinary rate, which is precisely what a player clicking the button repeatedly would get.
-  //
-  // COOLDOWN CAMPS STAY EXCLUDED, and that half is not negotiable: a cooldown camp can be run
-  // once and then not again, so a x20 there would either be a lie or a way to skip a cooldown.
-  if (!e || e.cooldown) return;      // guard: same condition as the chips
+  if (!e || e.cooldown || isChargeCamp(e)) return;      // guard: same condition as the chips
   var n = Math.min(times, BULK_HUNT_MAX), done = 0;
-  // v0.59 Part 8 note 2: one snapshot for the batch, and it keeps the "hunt" kind so the
-  // re-roll penalty still bites if the batch is undone.
-  snapshotUndo(e.name + " ×" + n, "hunt");
-  undoBulkDepth++;
-  try {
-    for (var i = 0; i < n; i++) {
-      if (!canAfford(expCost(e))) break;
-      runExpedition(id);
-      done++;
-    }
-  } finally { undoBulkDepth--; }
+  for (var i = 0; i < n; i++) {
+    if (!canAfford(expCost(e))) break;
+    runExpedition(id);
+    done++;
+  }
   if (done > 1) addLog("The war-band goes out " + done + " times over. " + e.name + " ×" + done + ".", "event");
 }
 function runExpedition(id) {
@@ -7844,9 +7627,8 @@ function renderChampions(el) {
     var wp = Math.min(1, (S.timeWarpMs || 0) / TIMEWARP_MAX_MS);
     var wSec = Math.round((S.timeWarpMs || 0) / 1000);
     html += '<div class="panel"><h2>Time Warp</h2>' +
-      '<div style="font-size:11px;font-style:italic;margin-bottom:6px">Zilean banks the hours nobody was using. Spend them when you choose — everything the settlement does runs at +' +
-      Math.round((TIMEWARP_SPEED - 1) * 100) + '% until the reservoir is empty. Hours banked past ' +
-      Math.round(TIMEWARP_MAX_MS / 60000) + 'm are lost.</div>' +
+      '<div style="font-size:11px;font-style:italic;margin-bottom:6px">Zilean banks the hours nobody was using. When the reservoir fills, he spends it — and everything the settlement does runs at +' +
+      Math.round((TIMEWARP_SPEED - 1) * 100) + '% until it is empty.</div>' +
       '<div style="height:12px;border:1px solid var(--border-gold);border-radius:2px;background:var(--panel2);overflow:hidden">' +
         '<div style="height:100%;width:' + (wp * 100).toFixed(1) + '%;background:' +
         (S.warpSpending ? "var(--purple)" : "var(--teal)") + ';transition:width 0.2s"></div></div>' +
@@ -7854,17 +7636,9 @@ function renderChampions(el) {
         (S.warpSpending ? '<b style="color:var(--purple)">SPENDING — the settlement runs at +' + Math.round((TIMEWARP_SPEED - 1) * 100) + "%</b>"
                         : '<span style="color:var(--teal)">Banking…</span>') +
         ' · <b>' + Math.floor(wSec / 60) + "m " + (wSec % 60) + "s</b> of " +
-        Math.round(TIMEWARP_MAX_MS / 60000) + "m stored</div>" +
-      // v0.59 Part 8 note 3 — the button. Disabled while spending or while the bank is empty,
-      // for the same two reasons spendTimeWarp() refuses.
-      '<button id="btn-warp" style="margin-top:6px"' +
-        ((S.warpSpending || (S.timeWarpMs || 0) <= 0) ? " disabled" : "") + '>' +
-        (S.warpSpending ? "Spending…" : "Spend " + Math.floor(wSec / 60) + "m " + (wSec % 60) + "s of banked time") +
-      "</button></div>";
+        Math.round(TIMEWARP_MAX_MS / 60000) + "m stored</div></div>";
   }
   el.innerHTML = html;
-  var warpBtn = el.querySelector("#btn-warp");
-  if (warpBtn) warpBtn.onclick = function () { spendTimeWarp(); renderAll(); };
 
   el.querySelectorAll("[data-champ]").forEach(function (btn) {
     var id = btn.getAttribute("data-champ");
@@ -8201,7 +7975,7 @@ function renderWilds(el) {
     // Same `mini-btn`/`dim` convention as the craft chips and note 4's +caravan.
     // ======================================================================================
     var bulk = "";
-    if (!e.cooldown) {   // v0.59 Part 8 note 4 — charge camps get the chips; cooldown camps do not
+    if (!e.cooldown && !isChargeCamp(e)) {
       var bc = expCost(e);
       var afN = function (k) { return Object.keys(bc).every(function (r) { return S.res[r] >= bc[r] * k; }); };
       bulk = '<span class="mini-btn' + (afN(1) ? "" : " dim") + '" data-expx="' + e.id + ':1000000000" title="as many as Vigor allows">ALL</span>' +

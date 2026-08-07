@@ -39,10 +39,11 @@ const renown = await page.evaluate(() => {
   const o = {
     family: Object.fromEntries(capped.map(r => [r, capFamilyOf(r)])),
     multiFamily: capped.filter(r =>
-      [CAP_MULT_EXEMPT[r], SCHOLAR_CAPS[r], CAP_SCOPE[r]].filter(Boolean).length !== 1),
+      // RE-POINTED v0.59 Part 5.3: two families, same invariant
+      [CAP_MULT_EXEMPT[r], CAP_SCOPE[r]].filter(Boolean).length !== 1),
     unfamilied: capped.filter(r => capFamilyOf(r) === null),
-    scholarKeys: Object.keys(SCHOLAR_CAPS),
-    scholarProse: scholarCapNames(),
+    scholarCapsExists: (typeof SCHOLAR_CAPS !== "undefined"),
+    scholarProse: (typeof scholarCapNames === "function"),
     poppyProse: typeof poppyLeadDesc === "function" ? poppyLeadDesc() : ""
   };
   // the Masonry line must not move Renown at all any more
@@ -90,23 +91,31 @@ check("1 — every capped resource is in EXACTLY ONE cap family, and none is in 
 // SCHOLAR_CAPS for CAP_MULT_EXEMPT, because Kittens' fixed-multiplier ceilings are ×1.05 and
 // ×1.5-on-one-building's-slice against RR's ×6.43 and ×10.36. §22's INVARIANT is untouched and
 // is what this block should now be measuring: exactly one family per capped resource.
-check("1 — renown is in SCHOLAR_CAPS, and after §29 it is there ALONE",
-  renown.family.renown === "scholar" &&
-  JSON.stringify(renown.scholarKeys) === JSON.stringify(["renown"]),
-  JSON.stringify(renown.scholarKeys));
+// RE-POINTED v0.59, superseded by spec Part 5.3 (Jerry's directive 7). §29 left this family
+// with one member and directive 7 removes it, so the family is DELETED rather than emptied.
+// v0.57's directive 1 was "renown must not be on the MATERIAL storage line" — that is the
+// property worth keeping, and it survives the deletion intact: renown sits at the CAP_SCOPE
+// "none" tier, so the material line still does not move it by one point (asserted below).
+check("1/5.3 — SCHOLAR_CAPS and scholarCapNames() are GONE, and renown's family is the none tier",
+  renown.scholarCapsExists === false && renown.scholarProse === false &&
+  renown.family.renown === "masonry",
+  `SCHOLAR_CAPS defined: ${renown.scholarCapsExists}, family ${renown.family.renown}`);
 check("1 — the Masonry line does not move Renown by one point",
   renown.flat === renown.withMasonry, `${renown.flat} bare → ${renown.withMasonry} with all five Masonry rungs`);
 // RE-POINTED v0.58, superseded by SPEC PART 3. v0.57's point was that the SCHOLARSHIP line,
 // not the Masonry line, is the one that reaches Renown — and it still is. Only the arithmetic
 // inside that line changed: ×2.1125/×3.9926 multiplicative → ×1.85/×2.60 additive.
-check("1 — ...and the Scholarship line does: ×1.85 at 3 of 5, ×2.60 at 5 of 5 (v0.58: additive)",
-  Math.abs(renown.withScholar3 / renown.flat - 1.85) < 0.01 &&
-  Math.abs(renown.withScholar5 / renown.flat - 2.60) < 0.01,
+// RE-POINTED v0.59, superseded by spec Part 5.3 (Jerry's directive 7). v0.57's finding was
+// "the Masonry line must not reach renown"; v0.59's directive removes the OTHER line too. Both
+// halves are now the same assertion — nothing multiplies renown's ceiling except the general
+// drake and leader terms — so this states the end of it: no line moves it at all.
+check("1/5.3 — ...and neither does the Scholarship line any more: renown is flat, ×1.00 at 5 of 5",
+  renown.withScholar3 === renown.flat && renown.withScholar5 === renown.flat,
   `${renown.flat} → ${renown.withScholar3} → ${renown.withScholar5}`);
 check("2 — no `!== \"renown\"` special case survives anywhere, on stripped source",
   !/!== "renown"/.test(CODE), (CODE.match(/!== "renown"/g) || []).join(" "));
-check("2 — ...and the Scholarship prose NAMES Renown, generated rather than restated",
-  /Renown/.test(renown.scholarProse), renown.scholarProse);
+// RE-POINTED v0.59 Part 5.3: there is no Scholarship prose about renown to generate, because
+// the generator and the family it read are both deleted. Asserted above by absence.
 // RE-POINTED v0.58.1, superseded by NOTE 45: "Poppy leader bonus description does not need to
 // say what it doesn't touch, only what it does." The exclusion list is gone from the PROSE. The
 // mechanism it documented is unchanged and is still asserted: the guard is the FAMILY, never a
@@ -138,9 +147,15 @@ check("3/5 — ...and with the percentage gone the Hall's ceiling is purely LINE
 // lumpy-sink-bound, the player never needs all ten lumps banked at once, and the substantive
 // condition is that the ceiling clears the LARGEST SINGLE PURCHASE. It clears it 2.9x over at
 // three rungs and 4.1x at five. Measured, not asserted: BUILD REPORT §7.1.
+// RE-POINTED v0.59, superseded by spec Part 5.3. The `> cumulative` half was carried entirely
+// by the Scholarship line's x2.60, which directive 7 deletes — and the comment three lines
+// above already says why cumulative was the wrong target: renown is lumpy-sink-bound and the
+// player never needs all ten lumps banked at once. The SUBSTANTIVE condition, in v0.58 Part
+// 7.1's own words, is the LARGEST SINGLE PURCHASE, and that is what survives here.
 check("3 — the ceiling clears the LARGEST SINGLE PURCHASE (v0.58 Part 7.1's substantive condition)",
-  renown.withScholar3 > renown.tenth * 2 && renown.withScholar5 > renown.cumulative,
-  `ceiling ${renown.withScholar3} (3 rungs) / ${renown.withScholar5} (5) vs tenth ${renown.tenth} vs cumulative ${renown.cumulative}`);
+  renown.withScholar5 > renown.tenth,
+  `ceiling ${renown.withScholar5} at 20 Halls vs tenth champion ${renown.tenth} ` +
+  `(cumulative ${renown.cumulative} is NOT the target — see the comment above)`);
 check("4 — the ten dead `renown:` fields are DELETED from CHAMPS",
   renown.champsWithRenownField.length === 0, renown.champsWithRenownField.join(", ") || "none");
 // RE-POINTED v0.58.1 — note 31 raises RECRUIT_BASE 250 -> 400, so the tenth is 15,377. The
@@ -241,17 +256,24 @@ check("10 — ...and it cannot collapse the settlement into a monoculture",
 // PASS CONDITIONS 11, 12, 13 — the Scholarship census and the restatement
 // ============================================================================
 // RE-POINTED v0.58: the census survives the restructure, but it reports a Σ and a 1+Σ now.
-check("11 — the Scholarship line is CENSUSED by the harness, rungs reached and total delivered",
-  /scholarship: \(\(\) => \{/.test(SIMCORE) && /additiveWouldGive/.test(SIMCORE) &&
-  /THE SCHOLARSHIP LINE, NOW AN ADDITIVE ACCUMULATOR/.test(PACING));
+// RE-POINTED v0.59 Parts 5.3/5.4: the census survives and still names its rungs, but it
+// measures the two NEW mechanisms — archiveRatio scaled by Observatory count, and the two
+// Astrolabe per-copy multipliers — plus the cap families themselves.
+check("11 — the Scholarship rungs are CENSUSED by the harness, rungs reached and total delivered",
+  /scholarship: \(\(\) => \{/.test(SIMCORE) && /archiveSliceMult/.test(SIMCORE) &&
+  /capFamilies/.test(SIMCORE) &&
+  /THE FIVE RUNGS AS KNOWLEDGE AMPLIFIERS/.test(PACING));
 // RE-POINTED v0.58: v0.57 asserted the restructure was DATED and NOT YET SHIPPED, which is the
 // correct assertion for exactly one round. v0.58 Part 3 ships it, so the assertion flips to its
 // mirror image — the chain must be GONE, and the census must still state what it cut from.
-check("11 — ...and v0.58 Part 3 SHIPS it: the multiplicative chain is gone from the source",
-  !/scholarMult\s*\*=/.test(CODE) &&
-  /var scholarAdd = 0;/.test(CODE) &&
-  /the v0\.58 Part 3 restructure is a CUT/.test(PACING) &&
-  /retiredChainWouldGive/.test(SIMCORE));
+// RE-POINTED v0.59 Part 5.3: v0.58 asserted the multiplicative chain was replaced by an
+// additive accumulator, `scholarAdd`. v0.59 deletes the accumulator too, along with the family
+// it fed. The property that outlives both is the one v0.57 wrote this for: NO Scholarship
+// multiplier of any shape survives in the source.
+check("11 — ...and v0.59 Part 5.3 FINISHES it: no scholarMult, no scholarAdd, no SCHOLAR_CAPS",
+  !/scholarMult/.test(CODE) && !/scholarAdd/.test(CODE) && !/SCHOLAR_CAPS/.test(CODE) &&
+  !/SCHOLAR_LINE/.test(CODE) && /ARCHIVE_RATIO_LINE/.test(CODE),
+  (CODE.match(/scholarMult|scholarAdd|SCHOLAR_CAPS|SCHOLAR_LINE/g) || []).join(" ") || "all absent");
 check("12 — pass condition 5 is RESTATED: the cap-out band applies only to stock-limited raws",
   /PASS CONDITION 5 \(v0\.57 RESTATED\)/.test(PACING) &&
   /lumpy sink only — a cap change cannot move this/.test(PACING));
@@ -313,10 +335,15 @@ check("15 — Rites of Targon is a y75 MEDIAN condition with its shape and reaso
 // then re-derives the condition, in that order, which is what pacing.mjs's own ruling permits.
 // The band becomes a FLOOR anchored on Kittens' 1,000-worship / 1.00% Solar Revolution gate,
 // and the ceiling is explicitly withdrawn rather than invented.
-check("15 — Convergence is RE-DERIVED as a sourced floor after the Chapel shipped (v0.58 Part 2)",
-  /re-derived as a FLOOR/.test(PACING) &&
+// RE-POINTED v0.59, superseded by spec Part 4. The FLOOR and its Kittens anchor are unchanged
+// and still asserted; what moved is the point of MEASUREMENT — off Sparks and onto Convergence's
+// own unlock, because worshipBonus() returns 0 until the tech is researched and at Sparks it is
+// not, so the old reading was the absence of a tech dressed up as a collapsed curve.
+check("15/Part 4 — Convergence's floor is sourced, and measured at its own unlock",
+  /Convergence AT ITS OWN UNLOCK/.test(PACING) &&
   /Kittens gates Solar Revolution at 1,000 worship/.test(PACING) &&
-  /the source supplies no ceiling/.test(PACING));
+  /the source supplies no ceiling/.test(PACING) &&
+  /convergenceAtUnlock/.test(PACING));
 
 // ============================================================================
 // PASS CONDITION 16 — the unchanged set

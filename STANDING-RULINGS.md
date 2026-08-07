@@ -844,6 +844,54 @@ larger cut — ×6.43 → ×1.20 — **so if §24's classification is right, cul
 still barely move.** If it falls materially, culture was stock-bound after all and §24 is wrong
 about it. Either result is worth having; the measurement is in BUILD REPORT v0.58.1 §8.
 
+## 30. A deleted id is NEVER reused while its migration exists — ruled v0.59
+
+**This ruling exists because the game was silently destroying players' buildings on every
+load, and it had been doing so for three versions.**
+
+Reproduced before anything was touched: seven Granaries and three Storehouses go into
+`serialize()`; **zero Granaries and ten Storehouses come out.**
+
+The mechanism is two correct decisions meeting.
+
+1. **v0.51** retired a building called the Granary and wrote the ordinary migration for a
+   retired id: fold `fresh.buildings.granary` into `storehouse` and delete the key. Correct.
+2. **v0.56 Part 3.4** shipped a BRAND NEW building and gave it the id `granary`. Also
+   correct-looking — the id was free, nothing referenced it, and `BUILDINGS` had no entry
+   for it.
+
+Neither round did anything visibly wrong. The defect is the *pair*, and nothing in the file,
+the suites or the protocol could see a pair.
+
+**No suite caught it, and the reason is worth stating because it generalises.** `simcore`
+loads `freshState()`, which has no Granaries at all, so every save/load assertion in the
+project round-tripped a state in which the migration was a no-op. **A migration is only
+observable against a save that contains the thing being migrated**, and a fixture built from
+`freshState()` never contains it.
+
+### The ruling
+
+- **A migration SOURCE id is permanently reserved.** While a migration for id `X` exists, no
+  live `BUILDINGS`, `UPGRADES`, `TECHS` or `RES` entry may use `X`. The id is not free; it is
+  load-bearing.
+- **Every migration must name the version that retires it.** A migration with no stated
+  expiry is a permanent reservation nobody agreed to. The `runestone` migration now says it
+  retires at **v1.0**.
+- **A migration must justify its own survival by measurement, not by caution.** `runestone`
+  is kept because `BUILDINGS.find(b => b.id === "runestone")` is `undefined` — checked, not
+  assumed. `granary` is deleted outright because that same check returns a live building.
+- **`test-v59` enforces the reservation mechanically.** It extracts the migration sources
+  FROM THE SOURCE (rather than restating them) and fails if any of them is a live id. A
+  migration added in a future round without a round-trip assertion fails the suite instead of
+  passing it silently.
+
+### What this amends
+
+Nothing. §30 is new law over a case no prior ruling contemplated. It sits beside the
+Appendix's list of deleted content — `tavern`, `bloomery`, `refinedMetallurgy`,
+`timberframeJoinery`, `petricite`, `mw` — **every one of which is now a reserved id under this
+ruling for as long as its migration exists.**
+
 ## Appendix — settled items an analyzer session should not re-open
 
 These are not separate rulings; they are the code-verified state as of v0.52, recorded so a
