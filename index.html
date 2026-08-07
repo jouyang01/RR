@@ -6498,10 +6498,41 @@ function loadFromString(str) {
     delete fresh.buildings.lumberCamp;
   }
   // v0.9 → v0.10: Granaries and Runestones consolidated into Storehouses
-  var legacy = (fresh.buildings.granary || 0) + (fresh.buildings.runestone || 0);
+  // ==========================================================================================
+  // v0.59 PART 1 — THE GRANARY MIGRATION IS RETIRED. THIS WAS LIVE DATA LOSS.
+  //
+  // Jerry's dev note 9: "Granaries are turning into storehouses on refresh. MAJOR BUG."
+  // Reproduced end to end by the analyzer: seven Granaries and three Storehouses, serialised
+  // and reloaded, came back as ZERO Granaries and TEN Storehouses.
+  //
+  // The block that did it was the v0.10-era migration folding the OLD Granary into the
+  // Storehouse. v0.56 Part 3.4 then shipped a NEW building on the same id `granary` — Kittens'
+  // `pasture` analogue, provisions 100 + timber 10, eatCut 0.005 — and the migration has been
+  // eating it on every single load ever since. It is simultaneously a LOSS (the eatCut the
+  // building was bought for) and a free-Storehouse EXPLOIT (a provisions 5,000 cap building
+  // handed over 1:1 for a provisions 100 one).
+  //
+  // WHY NO SUITE CAUGHT IT, and this is the part worth fixing structurally: `simcore` loads
+  // `freshState()`, which has no Granaries, so `legacy` was always 0 and the simulator never
+  // touched the path. `test-v56` asserts the Granary EXISTS; nothing round-tripped it through
+  // serialize() -> loadFromString(). test-v59 does now, for every id this whole block names.
+  //
+  // THE GRANARY TERM IS DELETED OUTRIGHT. The old Granary was consolidated in v0.10, FIFTY
+  // versions ago, and the id is live content today — there is no reading on which the migration
+  // is still correct.
+  //
+  // `runestone` IS KEPT, and here is the reasoning rather than "just in case": it is the same
+  // v0.10 vintage, but NO LIVE BUILDING USES THE ID — `BUILDINGS.find(b => b.id ===
+  // "runestone")` is undefined — so the migration is still a truthful statement about a save
+  // it might see, and retiring it can only strand a resource, never eat a live building.
+  // THE RULE THAT FOLLOWS IS STANDING-RULINGS §30: a deleted id must never be reused while its
+  // migration still exists, and a migration must name the version that retires it.
+  // THIS MIGRATION RETIRES AT v1.0, or when the last v0.10 save is declared unloadable.
+  // ==========================================================================================
+  var legacy = (fresh.buildings.runestone || 0);
   if (legacy) {
     fresh.buildings.storehouse = (fresh.buildings.storehouse || 0) + legacy;
-    delete fresh.buildings.granary; delete fresh.buildings.runestone;
+    delete fresh.buildings.runestone;
   }
   // v0.48 → v0.49: the Demacian-stone monument merged into the Petricite Quarry. The two
   // buildings are not interchangeable — the Quarry costs stoneSlab 1000 where the monument
