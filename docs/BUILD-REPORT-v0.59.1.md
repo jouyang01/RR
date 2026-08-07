@@ -233,7 +233,67 @@ Two more, each its own case:
 
 ## 8. Pacing — the full-rigour gate
 
-*(three seeds, 2,500 game-years, launched concurrently)*
+**Three seeds, 2,500 game-years, concurrent. 4,038.5 s wall (67.3 min). 10 of 10 pass
+conditions.**
+
+| figure | v0.59 | **v0.59.1** | spread | per-seed |
+|---|---|---|---|---|
+| **Pass conditions** | **9 of 10** | **10 of 10** | — | — |
+| First champion `[max] < 120` | **FAIL, 142** | **PASS, 105.6** | ×1.19 | 104.6 / 105.6 / 88.6 |
+| Era 3 | 797.5 | 785.9 | **×1.58** | 785.9 / 582.8 / 920.5 |
+| Icathia | 997.9 | 993.9 | ×1.39 | 3 of 3 seeds |
+| Tenth champion | 994.5 | 991.7 | ×1.38 | 3 of 3 seeds |
+| Sparks | 200.4 | 208.0 | ×1.15 | 208 / 215.6 / 188 |
+| Peak population | 204 | 209 | — | 209 / 209 / 204 |
+| Morale in the 90–140 band | 100% | 100% | — | — |
+| Convergence at its unlock | 8.834% | 9.160% | — | 9.026 / 9.16 / 9.19 |
+
+**The v0.59 failure is closed and nothing was aimed at it.** `First champion before year 120`
+failed at v0.59 with seed 2 reading 142 against a `[max]` shape. It now reads 104.6 / 105.6 /
+88.6 — **worst case 105.6, comfortably inside** — and no note in this round touched renown,
+champions or the early economy. **That is the variance HANDOFF v0.59 §4 flagged, resolving in the
+lucky direction on this draw rather than being fixed.** It should not be read as a repair, and it
+does not retire the open question.
+
+### The thing that did NOT happen, and it is note 7's own stated goal
+
+> *"it should force the player to build more hextech refineries and allocate tinkerers"*
+
+| | v0.59 | v0.59.1 |
+|---|---|---|
+| crystals at their ceiling | 95.5% of ticks | **95.9%** |
+| crystals held at end | 90,279 / 90,279 | **94,360 / 94,360** |
+| crystal income at end | 421.6/s | **559.0/s** |
+| **tinkerers assigned, ever** | **0** | **0** |
+| Refineries at Icathia | 41 | 41 |
+
+**Cost ×6.7 and fuel ×6 did not move the crystal economy at all, and the arithmetic says why: the
+burn is two orders of magnitude below the faucet.** Twenty Manufactories burn `20 × 0.12 = 2.4`
+crystals/s against a late-game income of **559/s** — **0.4%**. A ×6 on a number that small is
+still a rounding error at the scale the note is aimed at.
+
+**Two separate causes, and they need separate fixes:**
+
+1. **The burn is too small by roughly two orders of magnitude**, not by a factor of six. Making
+   the Manufactory a *primary* crystal sink means a burn measured against 559/s, which is a
+   different size of number entirely — and `MANUFACTORY_FUEL` is the one dial that does it.
+2. **The bot has no tinkerer policy at all.** `manageJobs()` never staffs one, in any round, at
+   any population — the same shape of gap v0.57 Part 4 found and fixed for farmers. **So "allocate
+   tinkerers" cannot be measured by this harness until the bot can do it**, and no crystal price
+   will produce that behaviour on its own.
+
+**I shipped the note as specified and am reporting the measurement rather than quietly picking
+larger numbers.** Jerry asked for "more expensive" and got it; the *consequence* he named needs a
+second round with the two causes above addressed, and the analyzer notes carry both.
+
+### Era 3's spread widened again: ×1.02 → ×1.32 → ×1.58
+
+Three rounds, and nothing in any of them touched Era-3 content. v0.59 traced it to champion
+passives gated on a newly-variable renown economy; **this round adds a second term**, because
+seed 2 reaches Icathia at 798.4 while seed 3 takes 1,108.5 on a build where the Manufactory is now
+a real drag on the crystal chain. **Two candidate causes are now stacked and neither is
+quantified.** This is the project's largest open measurement question and it deserves a round of
+its own rather than another note.
 
 ---
 

@@ -92,6 +92,25 @@ is now a real drag on the crystal economy and the whole Era-3 industry chain run
 **Era 3 has no target.** The 1,400–2,300 band was retired at v0.59 on Jerry's ruling, recorded in
 `pacing.mjs` with its reasoning. **Do not re-base it to whatever this round measures.**
 
+**MEASURED: 10 of 10 pass conditions, 4,038.5 s wall.** Era 3 785.9 (582.8–920.5). v0.59's one
+failure — `First champion before year 120` at its `[max]` shape — is **closed**, 104.6 / 105.6 /
+88.6 against a worst case of 142 last round. **Nothing in this round was aimed at it**; that is
+the run-to-run variance resolving in the lucky direction, not a repair, and it does not retire the
+question.
+
+**NOTE 7 DID NOT ACHIEVE ITS STATED GOAL AND THE REPORT SAYS SO.** Crystals are still at their
+ceiling **95.9%** of ticks, still finish full (94,360/94,360), and the bot still assigns **zero
+tinkerers**. The arithmetic: twenty Manufactories burn 2.4 crystals/s against a late-game income
+of **559/s — 0.4%.** A ×6 on a number that small is a rounding error at the scale the note is
+aimed at. Two separate causes, needing separate fixes: **the burn is short by roughly two orders
+of magnitude, not by a factor of six**, and **the bot has no tinkerer policy at all** — the same
+shape of gap v0.57 Part 4 found and fixed for farmers. See BUILD REPORT §8.
+
+**Era 3's spread has now widened three rounds running — ×1.02 → ×1.32 → ×1.58 — with no round
+touching Era-3 content.** Two candidate causes are stacked (champion passives on a variable renown
+economy; the Manufactory's new drag on the crystal chain) and neither is quantified. **This is the
+project's largest open measurement question and it deserves a round of its own.**
+
 ---
 
 ## 5. Operational rules, each of which has already cost a round
@@ -155,10 +174,15 @@ The places to start, in order:
 4. **`XP_PER_SECOND` is still UNVERIFIED**, and v0.59 Part 6 made it matter more: the rank ladder
    is a **102% threshold debt** at the top rung, and a threshold debt at an unverified accrual rate
    is one unknown times another.
-5. **Era 3's spread went ×1.02 → ×1.32 at v0.59 with no Era-3 content changed** — traced to
-   champion passives gated on a now-variable renown economy, but not quantified. **Note 7 will
-   move Era 3 again this round**, so separate the two effects before reading either.
-6. **120 UNVERIFIED rows.** v0.59 Part 5.4 is the model: it read `js/workshop.js` and
+5. **Era 3's spread is ×1.02 → ×1.32 → ×1.58 across three rounds, none of which touched Era-3
+   content.** Two candidate causes are stacked and neither is quantified. **Separate them before
+   reading either**, and prefer a round spent measuring this over any round spent tuning a number.
+6. **Note 7's crystal sink is short by roughly two orders of magnitude, and the bot cannot staff
+   a tinkerer.** BUILD REPORT §8 has the arithmetic. The second half is a BOT defect, not a
+   balance one: `manageJobs()` has no tinkerer rule at any population, so "allocate tinkerers"
+   is unmeasurable by this harness until it does — exactly the gap v0.57 Part 4 closed for
+   farmers.
+7. **120 UNVERIFIED rows.** v0.59 Part 5.4 is the model: it read `js/workshop.js` and
    `js/buildings.js` and found **six** RR upgrades already at parity that nobody had checked.
 
 ---
