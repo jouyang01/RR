@@ -1,4 +1,4 @@
-# BUILDER SPEC v0.59 — the Granary is being deleted on every load, and it is a reused id
+# BUILDER SPEC v0.59 — the Granary is a reused id, and renown becomes a deed currency
 
 Written against the **v0.58.1 tag**, verified from disk on a fresh clone.
 
@@ -33,6 +33,33 @@ and `XP_CAP 25,556`; `RENOWN_DEED_RATE 0.34`; both audit graphs zero.
 > `gainRenown()` called from expedition resolution, scaled by `RENOWN_DEED_RATE 0.34`, plus
 > Caitlyn's per-caravan clause when she leads. Spending a Wilds charge is the only way to earn
 > it.
+
+**Jerry issued eight further directives after the first draft of this spec, and they rewrite
+Parts 2 and 5.** They are researched, measured and specified in place; the summary is that
+**renown stops being an idle income and becomes a deed currency** (directives 1–6, Part 2) and
+**the Scholarship line stops being a renown cap multiplier and becomes RR's port of Kittens'
+knowledge amplifiers** (directives 7–8, Part 5). Two of the eight — no renown from Ascent, none
+from first-time research — **were measured as already true and require no code**; two more
+exposed defects nobody had reported: **`RENOWN_DEED_RATE 0.34` collapses the entire low camp
+ladder to a flat 1 renown**, and **renown accrues invisibly before Call to Arms and arrives
+pinned at its cap**, which is the backfill directive 2 rules out.
+
+**Two corrections to my own previous work are recorded in place rather than quietly fixed.**
+Part 2's opening retracts my claim that renown is expedition-only — **there is a passive trickle
+at `index.html:5129` that I missed** because it writes `rates.renown` instead of calling
+`gainRenown()`, and directive 2 therefore *cuts* an existing trickle by 14–100× rather than
+adding a new one. Part 5.2 retracts the first draft's claim that `SCHOLAR_CAPS` had "three
+members and three behaviours" — **it has one**, and §22 was never violated.
+
+**One long-open lookup closed as a by-product.** Culture's ×1.05 — UNVERIFIED since v0.55
+because three rounds could not retrieve `cityOnAHill` through grep.app — is **`cityOnAHill`'s
+`onAHillCultureCap: 0.05`, consumed as a whole-cap multiplier at `js/resources.js:958–961`.
+Exact parity with RR's `CULTURE_FIXED_MULT`.** The ledger row moves UNVERIFIED → PARITY.
+
+**This round's Kittens research was done against a local clone of
+`github.com/nuclear-unicorn/kittensgame`, not grep.app.** Every source citation below was read
+from disk and can be re-checked the same way; the clone is the retrieval route future rounds
+should use.
 
 **And one discrepancy against the report's "0 failures":** `test-v581`'s assertion 36 fails
 during a full-suite sweep — *"the Rift Scuttler scales with max knowledge and max Vigor: FAIL
@@ -96,35 +123,190 @@ every id named in the migration block has a round-trip assertion; `test-v59` fai
 
 ---
 
-## Part 2 — Renown is earned only by spending a Wilds charge (dev note 10, builder note 5)
+## Part 2 — The renown economy: Jerry's directives 1–6
 
-Enumerated: `gainRenown()` has exactly two callers — expedition resolution
-(`Math.max(1, round(e.renown × RENOWN_DEED_RATE × policyMult("renown")))`, with `e.renown`
-running 2 for Wolves to 40 for the Baron) and Caitlyn's `CAITLYN_TRADE_RENOWN` per caravan.
-**No building, job or tech produces renown at all.**
+**Read this first: I got the enumeration wrong last round, and the correction changes the
+sizing.** I reported that "no building and no job produces renown" and that renown is
+expedition-only. `gainRenown()` does have exactly two callers, and neither is a building or a
+job — but **there is a passive renown trickle** and I missed it, because it writes `rates.renown`
+directly rather than going through `gainRenown()`. `index.html:5129`, inside `computeRates()`:
 
-**Jerry calls this a bug, so it is a directive.** The design reading that makes it coherent is
-the one the constant already names: `RENOWN_DEED_RATE` says renown is paid for **deeds**, and
-the game has deeds that are not expeditions.
+```js
+if (S.techs.logistics && S.pop > 0) {
+  var renownTrickle = 0.005 * S.pop * (S.techs.callToArms ? 1 : 0.5);
+  rates.renown += renownTrickle;
+  track("renown", "A settlement of " + S.pop + ", spoken of", renownTrickle);
+}
+```
 
-- **Add renown to deeds the player already performs and is not paid for.** The candidates, in
-  order of how clearly they are "a deed the settlement would sing about": completing a **trade
-  route** (not only under Caitlyn), an **Ascent**, a **first-time tech or Discovery**, and a
-  **drake kill** that is not itself an expedition. **Pick and state the set**; do not add a
-  passive per-second trickle, which is a production line rather than a deed and would make
-  Renown a fifth resource economy.
-- **Builder note 5 is the sizing lever and it is the right one.** First champion reads y140.9 on
-  one seed against a y120 condition; `RENOWN_DEED_RATE 0.34` is the multiplier on every deed
-  and it moves all of them together, where the recruit base `250 × 1.5ⁿ` moves the ladder's
-  *shape*. **Size with the rate, not the base**, and report first-champion on all three seeds.
-- **This interacts with three v0.58.1 notes pushing the same way** — note 31 raised the ladder,
-  31.1 removed the Hall's percentage, 30 removed the Training Ground's ceiling. **Report the
-  net**, and if first champion moves earlier than y100 on any seed, say so: the round removed
-  three renown sources and this Part adds several back.
+**Measured, live:** 0.200/s at pop 40 with Call to Arms, 0.100/s before it. Directive 2 does not
+add a trickle to a game that has none — **it replaces a population-scaled trickle with a flat
+one, and the flat one is far smaller.** That is Jerry's call to make, but he should make it
+knowing the size of the cut. Part 2.2 states it.
 
-**Pass conditions:** at least one non-expedition renown source ships and is asserted;
-`RENOWN_DEED_RATE` is the stated lever with its before/after value; first champion, tenth
-champion and Renown time-at-cap reported on all three seeds.
+### 2.0 What I measured before writing any of this
+
+A live probe, fresh state, all techs, pop 40, 30 Halls, renown seeded at 100, one action per
+run. **Every directive was checked against the game rather than against the code's intent:**
+
+| directive | action | renown delta | verdict |
+|---|---|---|---|
+| 1 | `ascendTargon()` with 500 devotion | **0** | **already true — no code change needed** |
+| 5 | `buyTech("mining")`, first time | **0** | **already true** |
+| 5 | `buyUpgrade("cataloguing")`, first time | **0** | **already true** |
+| 4 | `tradeCaravan("demacia")`, no leader | **0** | directive 4 is a real addition |
+| 3 | `runExpedition("wolves")`, 2 charges | **+1** | |
+| 3 | `runExpedition("wolves")`, 0 charges | **0** | **Jerry's bug, reproduced** |
+
+**Directives 1 and 5 are already satisfied and the builder must not "fix" them.** Ascent converts
+devotion to worship and grants nothing else (`index.html:1846`); `buyTech` and `buyUpgrade` grant
+nothing but the tech or the upgrade. **Record both as ledger rows and ship no code.** The likely
+reason Jerry saw renown appear at an Ascent is the trickle above: at pop 40 it pays 0.2/s
+continuously, so renown rises during *any* action that takes wall-clock time. **If he saw a
+step-change rather than a drift, that is a new bug and this Part has not found it — say so in the
+build report rather than quietly closing the note.**
+
+### 2.1 Hunts always pay, and the charge multiplies (directive 3)
+
+`index.html:6356`:
+
+```js
+if (!isChargeCamp(e) || empowered) {
+  gainRenown(Math.max(1, Math.round((e.renown || 2) * RENOWN_DEED_RATE * policyMult("renown"))));
+}
+```
+
+For a charge camp — Wolves, Gromp, Raptors, Krugs, the Abyss Journey — renown is paid **only when
+a charge was consumed**. That is exactly Jerry's report. **Delete the guard.**
+
+**And a second defect the directive exposes, which matters more than the guard.**
+`RENOWN_DEED_RATE 0.34` with a `Math.max(1, Math.round(...))` floor **collapses the whole low
+ladder to a constant**:
+
+| camp `renown` field | 2 | 3 | 4 | 5 | 6 | 8 | 10 |
+|---|---|---|---|---|---|---|---|
+| renown actually paid | **1** | **1** | **1** | 2 | 2 | 3 | 3 |
+
+Wolves, Gromp, Raptors and Krugs are authored at 2, 2, 3 and 3 and **all four pay exactly 1**.
+The camp ladder's differentiation is dead on the shipped build, and "the charges should multiply
+the renown given" cannot mean anything until it is alive.
+
+**Ship this shape:**
+
+```js
+var base = Math.max(1, Math.round((e.renown || 2) * RENOWN_DEED_RATE * policyMult("renown")));
+gainRenown(empowered ? base * CHARGE_BONUS : base);
+```
+
+— unconditionally, for every expedition. **Multiply after the floor, not before**, so the charge
+is a clean ×3 (`CHARGE_BONUS 3.0`, `index.html:6251`) rather than something rounding eats.
+
+**`RENOWN_DEED_RATE` is the lever for the ladder, and it should rise to 1.00.** At 1.00 the
+authored fields pay themselves — Wolves 2, Raptors 3, Baron 40 — which is what "the small renown
+bonus listed" means to a player reading the camp. **Predicted:** an unempowered Wolves hunt goes
+1 → 2, an empowered one 1 → 6. **Measure first-champion on three seeds before and after**; this
+is the single largest renown change in the round and it moves the same direction as 2.2's cut.
+If Jerry prefers to keep 0.34, say so in the report and leave the ladder flat by his ruling —
+but do not leave it flat silently.
+
+### 2.2 The passive trickle becomes flat 0.007/s (directive 2)
+
+Replace the population-scaled trickle at `index.html:5129` with a **flat 0.007/s**. Jerry's
+figure, taken as stated. **What it costs, stated before the run:**
+
+| pop | shipped trickle | directive 2 | factor |
+|---|---|---|---|
+| 20 | 0.100/s | 0.007/s | **14× slower** |
+| 40 | 0.200/s | 0.007/s | **29× slower** |
+| 140 | 0.700/s | 0.007/s | **100× slower** |
+
+At 0.007/s the trickle pays **15,377 renown in 25.4 real days**, so it can no longer fund the
+champion ladder on its own at any settlement size. **That is coherent design, not a
+mistake** — it converts renown from an idle income into a deed currency, which is what
+`RENOWN_DEED_RATE` always claimed it was and what directives 3 and 4 build out. **But it only
+works if 2.1 and 2.3 land in the same build.** Ship all three together or none.
+
+**No backfill (directive 2, second sentence), and it is a live defect today.** Measured: before
+Call to Arms, renown is `hidden` (`index.html:355`) but the trickle still runs at 0.100/s into a
+cap of 30, so **a player arrives at Call to Arms with renown already pinned at 30/30 by a
+resource they have never seen.** That is the backfill Jerry is ruling out.
+
+**Gate the trickle on the same condition that reveals the resource** — `S.techs.callToArms`, not
+`S.techs.logistics` — so the meter starts at 0 on the tick the player first sees it. Drop the
+`(callToArms ? 1 : 0.5)` factor with the gate that made it necessary. **Assert it:** a state with
+`logistics` and without `callToArms`, ticked for an hour, ends with `S.res.renown === 0`.
+
+### 2.3 Trading pays +1 renown (directive 4)
+
+`tradeCaravan()` grants renown only under Caitlyn (`CAITLYN_TRADE_RENOWN 5`, `index.html:1671`
+call site). Add a flat **+1 renown per completed caravan for every leader**, through
+`gainRenown()` so the Call to Arms gate is respected.
+
+- **Caitlyn's 5 becomes an addition, not a replacement** — she pays 1 + 5 = 6, keeping her lead
+  meaningfully better rather than 5× a baseline of 1 becoming 5× nothing. State the resolved
+  number in the report.
+- **Bulk trades pay per caravan, not per click.** `tradeCaravanBulk(fid, times)` must grant
+  `times` renown. **Assert it** — a ×10 bulk trade grants 10 (16 under Caitlyn). This is the
+  clause most likely to be missed.
+- **A failed caravan pays nothing.** The grant belongs on the success path, inside the same
+  branch the yields are in.
+
+### 2.4 Ascent and first-time research: no change, ledger rows only (directives 1, 5)
+
+Both measured at 0 above. **Ship no code.** Add two PARITY-LEDGER rows recording that renown is
+deliberately *not* granted by Ascent or by first-time research, with Jerry's directive as the
+authority, so a future round does not add it as an "obvious" deed source. **Part 2 of the v0.59
+spec as originally written listed both as candidates to ADD — that recommendation is withdrawn
+and this Part supersedes it.**
+
+### 2.5 The renown sink: many Halls of Heroes (directive 6)
+
+`RECRUIT_BASE 400 × RECRUIT_RATIO 1.5ⁿ` (`index.html:1595`) prices the tenth champion at
+**15,377 in one lump**, 45,332 cumulatively. The ceiling is `30 base + 40 trade + 60 drakeLore +
+80 voidStudies = 210`, plus **900 per Hall of Heroes** flat (`caps: { renown: 900 }`, note 31.2),
+all multiplied by the Scholarship line's **×2.60**.
+
+**Part 5 removes that ×2.60 from renown, and doing so satisfies directive 6 almost by itself:**
+
+| champion | price | Halls needed **today** (×2.60) | Halls needed **after Part 5** |
+|---|---|---|---|
+| 7 | 4,556 | 2 | **5** |
+| 8 | 6,834 | 3 | **8** |
+| 9 | 10,252 | 5 | **12** |
+| 10 | 15,377 | **7** | **17** |
+
+**Ship Part 5 first and measure before adding anything else.** Seventeen Halls is a real
+build-out — cumulative **16,269 timber and 29,284 ore** at `ratio 1.15`, with the seventeenth
+alone costing 2,339 timber — and it is reached by deleting a multiplier rather than by inventing
+a gate. **That is the Kittens-shaped answer:** the source paces content by making the ceiling
+building expensive and additive, never by a hard "you must own N of X" check.
+
+**Only if 17 is not enough for Jerry**, escalate in this order, and state which was used:
+
+1. **Raise `RECRUIT_RATIO` above 1.5.** Steepens the back half without touching the front —
+   the first three champions are unaffected. Preferred: it is the ladder's own shape.
+2. **Cut the Hall's flat 900.** Direct, but note 31.2 raised it 250 → 900 *specifically* to keep
+   the ladder finishable. **Do not undo that note without saying so.**
+3. **A hard Hall-count requirement per champion.** **Last resort and RR-original** — Kittens
+   never gates a purchase on a building count. If it ships it is a **HARDER** ledger row with the
+   departure named.
+
+**Do not let the ladder become unfinishable.** Note 31.2's constraint stands: the tenth champion
+must remain affordable. **Pass condition: the tenth champion is affordable within 2,500
+game-years on at least one seed, and the Hall count needed for it is reported.**
+
+### Part 2 pass conditions
+
+| | |
+|---|---|
+| Charge guard | deleted; **every** expedition pays renown, asserted with 0 charges |
+| Charge multiplier | **×3 after the floor**, asserted: Wolves 2 unempowered → 6 empowered |
+| `RENOWN_DEED_RATE` | ruled by name, before/after stated; the camp ladder no longer flat |
+| Trickle | flat **0.007/s**, gated on `callToArms`, asserted |
+| No backfill | `logistics` without `callToArms` + 1 hour ticked → `S.res.renown === 0` |
+| Trade | +1 per caravan, all leaders; **bulk ×10 grants 10**; failures grant 0 |
+| Ascent, first research | **unchanged**, two ledger rows |
+| Champion ladder | first and tenth champion on **three seeds**, with the Hall count for the tenth |
 
 ---
 
@@ -183,7 +365,7 @@ the Convergence-affordable year both reported on three seeds.
 
 ---
 
-## Part 5 — §29's magnitudes get their line numbers, and the cap family has stopped being one
+## Part 5 — The Scholarship line becomes the knowledge line (directives 7, 8), and §29's citations
 
 ### 5.1 The citations builder note 3 asks for — one found, one still missing
 
@@ -191,7 +373,7 @@ the Convergence-affordable year both reported on three seeds.
 ×1.5 slice**, both as Jerry's figures with no Kittens line number. I went looking.
 
 **Devotion's ×1.5-on-a-slice is now sourced, and Jerry's scope claim is exactly right.**
-`js/buildings.js:1929–1931`, inside the **Temple's** `calculateEffects`:
+`js/buildings.js:1964–1966`, inside the **Temple's** `calculateEffects`:
 
 ```js
 var goldenSpire = game.religion.getRU("goldenSpire");
@@ -205,27 +387,192 @@ else.** And a repo-wide search for **`faithMaxRatio` returns no hits at all** �
 genuinely no whole-cap faith multiplier anywhere in Kittens. **Note 16's claim holds on both
 counts. Record the citation in the ledger.**
 
-**Culture's ×1.05 is still UNVERIFIED and should be labelled so.** The only `cultureMaxRatio`
-terms in the source are the **Ziggurat's 0.08 per copy** (`js/buildings.js`, priceRatio 1.25 —
-a per-copy ratio, not a fixed multiplier) and a **`cultureMaxRatioBonues: 0.01`** in
-`js/religion.js:919`. The ×1.05 is presumably the City On A Hill policy, but `cityOnAHill`'s
-effects object could not be retrieved — three queries returned only its references in
-`js/science.js:229/1199/1275`. **Label it UNVERIFIED with the retrieval routes recorded**, the
-way `XP_PER_SECOND` already is. Do not invent a citation.
+**Culture's ×1.05 is now VERIFIED, and it closes a lookup that has been open since v0.55.**
+Three previous rounds failed to retrieve `cityOnAHill`'s effects object through grep.app and
+correctly refused to invent one. The local clone settles it. `js/science.js:1283–1297`:
 
-### 5.2 The finding that came with it: `SCHOLAR_CAPS` no longer has one behaviour
+```js
+name: "cityOnAHill",
+prices: [ {name : "culture", val: 4000} ],
+effects:{ "onAHillCultureCap" : 0.05 },
+```
 
-Measured on a fully-stacked state: **culture ×1.05, devotion ×1.00, renown ×2.60.** All three are
-in the same cap family, and §22's whole point was that a capped resource belongs to exactly one
-family *with one behaviour*. After §29 the family has three members and three treatments, and
-`renown` — the one §29 does not name — kept the multiplier the other two lost.
+and it is consumed as a **whole-cap multiplier** at `js/resources.js:958–961`:
 
-- **Rule on renown's ×2.60 explicitly.** Either it belongs with its family-mates at the source's
-  magnitudes, or it is a deliberate exception and §29 should say so by name. **What is not
-  acceptable is inheriting it because §29 happened not to mention it.**
-- **Note the interaction with Part 2:** three v0.58.1 notes already cut renown's ceiling and its
-  sources. Removing the ×2.60 as well would be a fourth cut in the same direction. **Measure
-  before deciding** (§24/§26 — renown's cap-out fraction is the wrong shape of target).
+```js
+//city on a hill bonus
+if (res.name == "culture"){
+    maxValue *= (1 + this.game.getEffect("onAHillCultureCap"));
+}
+```
+
+**×1.05, applied to the entire culture cap, from a single policy.** RR's `CULTURE_FIXED_MULT =
+1.05` gated on Progress Day Parade is **exact parity — same magnitude, same whole-cap scope,
+same single-toggle shape.** Jerry's note 15 figure was right and is now sourced. **Move the
+ledger row from UNVERIFIED to PARITY and cite both lines**; the ledger's UNVERIFIED count drops
+by one, from 126 to 125, and the PARITY count rises 57 → 58. **Report the recomputed totals.**
+
+### 5.2 CORRECTION — `SCHOLAR_CAPS` has one member, not three
+
+**The version of 5.2 in the first draft of this spec was wrong and is retracted here.** It
+claimed culture, devotion and renown were "all in the same cap family" with "three members and
+three treatments", and framed that as a §22 violation. I inferred the membership from the three
+measured multipliers instead of reading the object. **What the file actually says
+(`index.html:2054`):**
+
+```js
+var SCHOLAR_CAPS = { renown: 1 };
+var CAP_MULT_EXEMPT = { vigor: 1, knowledge: 1, culture: 1, devotion: 1 };
+```
+
+`capFamilyOf()` returns **`exempt` / `exempt` / `scholar`** for culture, devotion and renown.
+They are in **different families, one behaviour each. §22 holds and was never violated.** The
+measurements were right — culture ×1.05, devotion ×1.00, renown ×2.60 — the structural claim
+built on them was not.
+
+**The history, from the file, for the record:** v0.52 shipped `{ culture, devotion }`; v0.57
+Part 1 added renown on Jerry's directive; **v0.58.1 removed culture and devotion** in service of
+his notes 15 and 16 — note 16 names Scholarship explicitly as one of the two things illegitimately
+multiplying the whole Devotion cap — moving both to `CAP_MULT_EXEMPT` and giving culture a single
+`CULTURE_FIXED_MULT = 1.05` gated on Progress Day Parade. **Renown was simply what was left
+behind.** Directive 7 now removes it too.
+
+### 5.3 Renown leaves the line, and the line's whole mechanism goes with it (directive 7)
+
+Remove `renown` from `SCHOLAR_CAPS`. **The object is then empty, so do not leave it empty —
+delete the family.** That means deleting `SCHOLAR_CAPS`, the `scholar` branch of
+`capFamilyOf()`, `scholarMult` and its arm of the `storageMultFor` ternary in `computeCaps()`,
+the `!SCHOLAR_CAPS[r]` guards in `capMultNames()` and Poppy's lead loop, and `scholarCapNames()`.
+**This is a net deletion of a whole cap family and it is the single best structural outcome
+available this round** — RR drops from three cap families to two, and `capFamilyOf()` becomes
+`exempt` / `masonry` / null.
+
+- **Renown's ceiling afterwards is `210 + 900 × Halls`, flat and additive**, plus the mountain
+  drake multiplier and Poppy's ×1.08 — both of which now reach renown, because the
+  `SCHOLAR_CAPS` guard that excluded it is gone. **Assert Poppy's new reach and report her
+  advertised line count**, which is generated from `capMultNames()` and will change.
+- **Poppy's description string is generated, not literal** (`poppyLeadDesc()`), so it will
+  re-read itself. **Assert the number in it**, not the sentence.
+- **Part 2.5 depends on this and is sized against it.** Ship 5.3 before measuring the champion
+  ladder.
+
+### 5.4 The five upgrades become knowledge amplifiers (directive 8)
+
+**Directive 8's two halves are not in tension once the Kittens shape is read: the line becomes
+about knowledge, but as per-building amplifiers, never as a multiplier on the summed knowledge
+cap.** Knowledge is in `CAP_MULT_EXEMPT` and must stay there.
+
+**And the source backs the instinct precisely.** Kittens has exactly one whole-cap science
+multiplier in the entire game, and it is **not an upgrade** — it is the `technocracy` **policy**
+(`js/science.js:1067–1080`, `technocracyScienceCap: 0.2`, price **culture 150,000**, mutually
+exclusive with `theocracy` and `expansionism`), consumed at `js/resources.js:954–956`:
+
+```js
+if (res.name == "science"){
+    maxValue *= (1 + this.game.getEffect("technocracyScienceCap"));
+}
+```
+
+**One ×1.20, once, for 150,000 culture and the permanent loss of two other policy branches.**
+Every *upgrade*-shaped science boost in Kittens — Astrolabe, the three Reflectors, Uplink, the
+AI Core line — is per-building. **So directive 8 is not a departure from the source; it is the
+source's own division of labour**, and the standing rule follows from it: **a whole-cap knowledge
+multiplier in RR belongs on a policy, priced like one and exclusive like one — never on a
+Discovery chain.** If a future round wants one, ×1.20 is the source's magnitude.
+
+**First, what RR already ships — do not re-invent it.** Kittens' **Astrolabe**
+(`js/workshop.js:1436–1448`) carries `effects: {}`; its entire effect lives in the Observatory's
+own `calculateEffects` (`js/buildings.js:672`):
+
+```js
+self.effects["scienceMax"] = ratio * (game.workshop.get("astrolabe").researched ? 1500 : 1000);
+```
+
+**1,000 → 1,500 is +50% on that one building's own contribution.** RR shipped this in
+`voidglassLenses` — *"Celestial Observatories hold +50% more knowledge each"*
+(`index.html:2472`), implemented at `capMultPerCopy()` (`index.html:4112`) as
+`observatory × 1.5`. **That is Kittens' Astrolabe at exact parity, already in the game. Ledger it
+as PARITY and leave it alone.**
+
+**What is missing is the Reflectors family**, and it is a different and better shape — a
+*cross-building* amplifier. Three upgrades, each `libraryRatio: 0.02`, all
+`upgrades: { buildings: ["library"] }`:
+
+| upgrade | `js/workshop.js` | effect | price |
+|---|---|---|---|
+| `titaniumMirrors` | :1450 | `libraryRatio 0.02` | titanium 15, science 20,000, starchart 20 |
+| `unobtainiumReflectors` | :1467 | `libraryRatio 0.02` | unobtainium 75, science 250,000, starchart 750 |
+| `eludiumReflectors` | :1483 | `libraryRatio 0.02` | science 250,000, eludium 15 |
+
+consumed additively in the **Library's** `calculateEffects` (`js/buildings.js:579–580`):
+
+```js
+var libraryRatio = game.getEffect("libraryRatio");
+effects["scienceMax"] *= (1 + game.bld.get("observatory").on * libraryRatio);
+```
+
+**Read that carefully: the amplifier is multiplied by how many Observatories you own.** Three
+upgrades sum to 0.06 and the Library's 250 is scaled by `1 + observatories × 0.06`. It is
+additive within the family, multiplicative between categories — Kittens' Law — and it makes two
+buildings worth more together than apart. **RR has no analogue of this and it is the piece worth
+porting.**
+
+**The mapping.** RR's four knowledge buildings are already a faithful port —
+`archive` 250 / boost 0.10, `academy` 500 / 0.20, `observatory` 1000 / 0.25, `hexLab` 1500 / 0.35
+against Kittens' library 250/0.1, academy 500/0.2, observatory 1000/0.25, biolab 1500/0.35. So
+assign by role, which is the standing rule:
+
+| RR upgrade | tech | new effect | Kittens shape |
+|---|---|---|---|
+| `cataloguing` | ritesOfTargon | `archiveRatio += 0.02` | Reflectors |
+| `crossReferencing` | ritesOfTargon | `archiveRatio += 0.02` | Reflectors |
+| `greatIndex` | callToArms | `archiveRatio += 0.02` | Reflectors |
+| `annotatedIndex` | chemtech | **Academies hold +50% knowledge each** | Astrolabe |
+| `livingLibrary` | deepWorks | **Hexcore Laboratories hold +50% knowledge each** | Astrolabe |
+
+with `archiveRatio` consumed exactly as the source consumes `libraryRatio` — inside the Archive's
+own cap slice, scaled by Observatory count:
+
+```
+archive knowledge slice *= (1 + count("observatory") * archiveRatioTotal)
+```
+
+**Σ 0.06 is Kittens' figure taken, not tuned.** The two Astrolabe-shaped upgrades reuse
+`capMultPerCopy()`, which already does exactly this for `observatory`; extend it rather than
+adding a second mechanism. **`SCHOLAR_LINE`'s 0.25/0.30/0.30/0.35/0.40 is deleted with the
+family** — the new effects are not a shared additive line and must not be modelled as one.
+
+**Predicted, stated before the run**, at a plausible late state (20 archives, 15 academies,
+10 observatories, 5 hexLabs, all five upgrades, `voidglassLenses`):
+
+| slice | base | after |
+|---|---|---|
+| archive | 5,000 | **8,000** (`1 + 10 × 0.06`) |
+| academy | 7,500 | **11,250** |
+| observatory | 15,000 (already ×1.5) | 15,000 |
+| hexLab | 7,500 | **11,250** |
+| **building total** | **35,000** | **45,500 — ×1.30** |
+
+**And a compounding the builder must measure rather than assume.** `caps.knowledge` takes
+`min(150 × morellonomicons, buildingKnowledgeCap)` at `index.html:4726` — the Morellonomicon
+ceiling is *the building total*, so raising the building slices raises the compendium ceiling
+too. **A ×1.30 on buildings is up to ×1.30 on the whole knowledge cap, not less.** Report the
+fully-stacked figure, not the building subtotal.
+
+### Part 5 pass conditions
+
+| | |
+|---|---|
+| `SCHOLAR_CAPS`, `scholarMult`, `scholarCapNames` | **deleted**; `capFamilyOf()` returns only `exempt`/`masonry`/null |
+| Renown ceiling | `210 + 900 × Halls`, asserted at 0, 1 and 20 Halls |
+| Poppy | now reaches renown; `capMultNames()` count asserted, not the sentence |
+| `voidglassLenses` | **unchanged**, ledgered PARITY against `js/buildings.js:672` |
+| Culture ×1.05 | ledger row moved UNVERIFIED → PARITY, both citations recorded |
+| No whole-cap knowledge multiplier | anywhere — the technocracy shape is a **policy**, and none ships this round |
+| `archiveRatio` | Σ **0.06** at 5-of-5, scaled by Observatory count, asserted at 0 and 10 observatories |
+| Knowledge | still in `CAP_MULT_EXEMPT`; **no global multiplier anywhere** |
+| Fully-stacked knowledge cap | reported **with** the Morellonomicon compounding |
+| Ledger | one row per repurposed upgrade, each citing its Kittens shape |
 
 ---
 
@@ -320,11 +667,16 @@ the same round.
    else in this round matters to a player until it is fixed. Ship it, tag it, and consider a
    point release before the rest of the round lands.
 2. **Part 7** — the fixture defect, so the suite is trustworthy for everything after it.
-3. **Part 2** — renown from deeds.
-4. **Parts 3 and 4** — the Era-3 ruling and the Convergence measurement point. Both are rulings
+3. **Part 5.3** — delete the Scholarship cap family. **Before Part 2.5**, because the champion
+   ladder is sized against renown's post-deletion ceiling and measuring it first wastes the run.
+4. **Part 2** — the renown economy, all of 2.1–2.5 in one slice. **These do not decompose:** 2.2
+   cuts renown income 14–100× and 2.1/2.3 add it back, so a prefix containing only one of them
+   measures a game that will never ship.
+5. **Part 5.4** — the knowledge amplifiers.
+6. **Parts 3 and 4** — the Era-3 ruling and the Convergence measurement point. Both are rulings
    plus a condition restatement; neither should move a game number.
-5. **Parts 5 and 6** — the citations, the renown ×2.60 ruling, the rank-ladder ledger rows.
-6. **Part 8** — the eight feel notes, with their ledger rows.
+7. **Parts 5.1, 5.2 and 6** — the citations, the retraction, the rank-ladder ledger rows.
+8. **Part 8** — the eight feel notes, with their ledger rows.
 
 ### Operational
 
@@ -341,13 +693,19 @@ works via the handoff's token-remote recipe.
 | 1 | Granary survives save → load | **7 in, 7 out**; asserted |
 | 2 | Every id in the migration block | has a round-trip assertion |
 | 3 | Reused-id guard | `test-v59` fails if a live `BUILDINGS` id is a migration *source* |
-| 4 | Non-expedition renown source | ships, asserted; the deed set stated |
-| 5 | First / tenth champion, Renown at cap | reported on three seeds |
+| 4 | Charge guard deleted | every expedition pays renown with **0 charges**; ×3 when empowered |
+| 5 | First / tenth champion, Renown at cap | reported on three seeds, **with the Hall count for the tenth** |
 | 6 | Era 3 vs the band | **ruled in `pacing.mjs` with a reason**; not re-based silently |
 | 7 | Convergence condition | restated against the **unlock**, source anchor cited |
 | 8 | Golden Spire citation | in the ledger for §29's ×1.5 slice |
-| 9 | Culture's ×1.05 | labelled **UNVERIFIED** with retrieval routes recorded |
-| 10 | Renown's ×2.60 | **ruled by name** — kept as an exception or brought to family |
+| 9 | Culture's ×1.05 | **VERIFIED** — ledgered PARITY vs `js/science.js:1290` + `js/resources.js:960`; totals recomputed (**57→58 PARITY, 126→125 UNVERIFIED**) |
+| 10 | Renown's ×2.60 | **deleted with the whole cap family** (5.3); `capFamilyOf()` down to two families |
+| 10a | Trickle | flat **0.007/s**, gated on `callToArms`; no-backfill assertion passes |
+| 10b | Trade | +1/caravan all leaders; **bulk ×10 grants 10**; failures grant 0 |
+| 10c | `RENOWN_DEED_RATE` | ruled by name; the camp ladder no longer pays a flat 1 |
+| 10d | Ascent, first-time research | **unchanged**, measured at 0, two ledger rows |
+| 10e | `voidglassLenses` | untouched, ledgered **PARITY** vs `js/buildings.js:672` |
+| 10f | `archiveRatio` | Σ **0.06**, scaled by Observatory count; knowledge still `CAP_MULT_EXEMPT` |
 | 11 | Rank ladder | in the ledger rung by rung with the debt at each |
 | 12 | `test-v581` | passes ten consecutive sweeps, three under load; `fixture-sweep` reported |
 | 13 | Swain's lead and passive | asserted **distinct** |
@@ -363,34 +721,77 @@ works via the handoff's token-remote recipe.
 | v0.58.1 baseline | **907.1** | ×1.02 | the report's figure; my ensemble did not finish inside the session |
 | s1: Granary migration | **≈ 0** | unchanged | the simulator never exercised the path — **a null slice by construction, and stated as a testable claim** |
 | s2: fixture fix | **0.0** | unchanged | no game code |
-| s3: + renown from deeds | **−30 to +60** | unchanged | champions arrive earlier; champion passives are production multipliers |
-| s4: + rulings and conditions | **0.0** | unchanged | no game numbers move |
-| s5: + the eight feel notes | **−50 to +100** | | note 6's mana Discovery is the only production change |
-| **shipped** | **850–1,050** | **under ×1.10** | **still below the band; Part 3's ruling decides whether that matters** |
+| s3: Part 5.3, cap family deleted | **+40 to +150** | unchanged | renown's ceiling falls ×2.60; champions arrive **later**, and champion passives are production multipliers |
+| s4: Part 2, the renown economy | **−80 to +40** | may widen | **the round's one genuinely uncertain slice** — 2.2 cuts income 14–100×, 2.1 and 2.3 add it back, and which dominates depends on how much the bot hunts |
+| s5: Part 5.4, knowledge amplifiers | **−60 to −10** | unchanged | ×1.30 on the knowledge ceiling brings late techs forward |
+| s6: + rulings and conditions | **0.0** | unchanged | no game numbers move |
+| s7: + the eight feel notes | **−50 to +100** | | note 6's mana Discovery is the only production change |
+| **shipped** | **800–1,150** | **under ×1.15** | **still below the band; Part 3's ruling decides whether that matters** |
+
+**Renown-specific predictions, stated before the run** (three seeds, median and spread on each):
+
+| figure | v0.58.1 | predicted after Part 2 |
+|---|---|---|
+| first champion | y140.9 | **y150–260** — the trickle cut dominates early, when pop is small and hunts are few |
+| tenth champion | never inside 2,500 | **still never** — report it, and report the Hall count reached |
+| renown time-at-cap | 83.1% at 3-of-5 Scholarship | **under 40%** — the ×2.60 is gone and income is deed-paced |
+| Halls at y2,500 | — | **report it**; 17 is the tenth champion's requirement |
+
+**The s4 row is the one to distrust.** I am predicting a band that straddles zero because the two
+halves of Part 2 pull opposite ways and the bot's hunting cadence is not something I can derive
+from the source. **If s4 lands outside −80…+40, that is information about the bot's play pattern,
+not a failure of the spec** — report what the bot actually did with charges before concluding
+anything about balance (§16: the bot is an instrument, not an authority).
 
 **The s1 prediction is the one to check.** I am claiming the Granary fix cannot move pacing
 because `freshState()` has no Granaries and the migration never fires in the simulator. **If s1
 moves Era 3 at all, the migration is firing somewhere I have not found**, and that is a bigger
 finding than the fix.
 
-**And one informative failure to watch for.** If first champion lands **earlier than y100** on
-any seed after Part 2, the round has over-corrected a renown economy that v0.58.1 deliberately
-tightened in three places — report the net across all four changes rather than Part 2 alone.
+**And the informative failures to watch for.** If first champion lands **earlier than y100** on
+any seed, Part 2 has over-corrected a renown economy that v0.58.1 already tightened in three
+places. If it lands **later than y400**, the trickle cut has over-shot and `RENOWN_DEED_RATE`
+is the lever to relieve it — not the trickle, which is Jerry's stated figure. **Report the net
+across Parts 2 and 5.3 together; neither is interpretable alone.**
 
 ---
 
 ## Sources, all read this session
 
-**Kittens** (`github.com/nuclear-unicorn/kittensgame`): **`js/buildings.js:1929–1931`** — the
+**Line numbers below are pinned to `nuclear-unicorn/kittensgame` at `c52985b` (2026-08-04).**
+They drift between revisions — the Golden Spire block that earlier rounds cited as
+`js/buildings.js:1929–1931` from a grep.app index is `:1964–1966` at this revision, same code.
+**Future rounds should clone and cite a revision, not quote a bare line number.**
+
+**Kittens** (`github.com/nuclear-unicorn/kittensgame`): **`js/buildings.js:1964–1966`** — the
 Temple's `calculateEffects` multiplying `effects["faithMax"] *= (1 + (0.4 + 0.1 *
 goldenSpire.on))`, **×1.5 at one level and scoped to the Temple's slice**, which is §29's
 missing citation; a repo-wide search for **`faithMaxRatio` returns no hits**, confirming there is
 no whole-cap faith multiplier in the source. `js/buildings.js` — `ziggurat`
 `cultureMaxRatio: 0.08` per copy at priceRatio 1.25; `js/religion.js:919` —
-`cultureMaxRatioBonues: 0.01`. **`cityOnAHill`'s effects object could not be retrieved** —
-`js/science.js:229`, `:1199`, `:1275` are references only — so culture's ×1.05 stays UNVERIFIED.
+`cultureMaxRatioBonues: 0.01`. **`js/science.js:1283–1297` — `cityOnAHill`,
+`onAHillCultureCap: 0.05`, price culture 4,000** — and `js/resources.js:958–961` consuming it as
+a whole-cap culture multiplier: **culture's ×1.05 is VERIFIED and the four-round lookup is
+closed.** `js/science.js:1067–1080` and `js/resources.js:954–956` — `technocracy`'s
+`technocracyScienceCap: 0.2`, the source's only whole-cap science multiplier and a policy, not
+an upgrade.
 `js/village.js` — `getValueModifierPerSkill()`'s seven tiers topping at **0.1875 at 9,000**, the
 denominator of Part 6's 102% debt.
+
+**Kittens, read from a local clone this session** (`js/workshop.js:1436–1448` **`astrolabe`** —
+`effects: {}`, prices titanium 5 / science 25,000 / starchart 75, `upgrades: {buildings:
+["observatory"]}`; `js/buildings.js:669–672` — the Observatory's `calculateEffects` where
+Astrolabe's whole effect lives, `scienceMax = ratio * (astrolabe ? 1500 : 1000)`;
+`js/workshop.js:1450/1467/1483` — **`titaniumMirrors`, `unobtainiumReflectors`,
+`eludiumReflectors`**, each `libraryRatio: 0.02`; `js/buildings.js:571–580` — the Library's
+`scienceRatio 0.1` / `scienceMax 250` / `cultureMax 10` and the consumption
+`effects["scienceMax"] *= (1 + observatory.on * libraryRatio)`; `js/buildings.js:627–629` — the
+Academy's `scienceRatio 0.2` / `scienceMax 500`; `js/buildings.js:687–689` — the BioLab's
+`scienceRatio 0.35`; `js/buildings.js:1953–1955` — `scholasticism` as a third amplifier shape,
+`scienceMax = 400 + 100 * on`, noted but not ported; `js/space.js:252/264` — `observatoryRatio`
+from satellites, the shape RR's `voidglassLenses` already occupies). **`titaniumReflectors` does
+not exist under that name** — the identifier is `titaniumMirrors`, and the three "Reflectors" are
+a Library family, not an Observatory one.
 
 **RR**, at the v0.58.1 tag: **`index.html:6501–6505`** — the legacy `granary`/`runestone`
 migration, reproduced end to end; `index.html:546–550` — the v0.56 Granary on the reused id;
@@ -399,10 +800,24 @@ migration, reproduced end to end; `index.html:546–550` — the v0.56 Granary o
 `tests/test-v581.mjs:446–465` — the unreset `v0 = S.res.vigor` baseline; `RANKS` topping at
 **18,200 / 0.1875**; `XP_PER_SECOND 0.5`, `XP_CAP 25,556`; `STANDING-RULINGS.md` §§19–29.
 
+**RR sites read for directives 1–8:** `index.html:5129` — the pop-scaled renown trickle inside
+`computeRates()`, gated on `logistics`; `:6356` — the `if (!isChargeCamp(e) || empowered)` guard;
+`:6251` — `CHARGE_BONUS 3.0`; `:1670–1671` — `RENOWN_DEED_RATE 0.34` and `gainRenown()`'s
+`callToArms` gate; `:1846` — `ascendTargon()`, granting no renown; `:1595` — `RECRUIT_BASE 400`,
+`RECRUIT_RATIO 1.5`; `:1007–1056` — the Hall of Heroes, `caps: { renown: 900 }` flat after note
+31.1 deleted its percentage; `:2054` — `SCHOLAR_CAPS = { renown: 1 }`; `:1899` — `SCHOLAR_LINE`;
+`:4106/4112` — `capsSliceMult()` and `capMultPerCopy()`, the two per-building hooks the amplifiers
+extend; `:2472` — `voidglassLenses`; `:631/637/654/660` — the four knowledge buildings;
+`:4726` — the Morellonomicon's `min(150 × n, buildingKnowledgeCap)` doubling clamp.
+
 **Measurements taken this session:** all 28 suites (**1,435 passed, 1 failed** — `test-v581`
 under a full sweep, passing 2/2 idle); an independent row-and-verdict count of the parity ledger
 (**226 / 57 / 41 / 2 / 126**, exact); a live-game probe reproducing the Granary bug (7 → 0,
-storehouses 3 → 10), enumerating renown producers (**none**), and reading the rank ladder, the
+storehouses 3 → 10), enumerating renown producers (**and finding the trickle I had previously missed**), a
+one-action-per-run probe measuring the renown delta of Ascent, first-time tech, first-time
+Discovery, a caravan and a Wolves hunt with and without a charge (**0 / 0 / 0 / 0 / +1 / 0**), a
+probe reading `SCHOLAR_CAPS`, `capFamilyOf()` and the three multipliers on a fully-stacked state,
+and reading the rank ladder, the
 fully-stacked cap multipliers (**culture ×1.05, devotion ×1.00, renown ×2.60**), `XP_PER_SECOND`,
 `XP_CAP` and both audit graphs. **The three-seed ensemble was launched but had not finished after
 62 minutes and is not quoted here** — Part 9's baseline row carries the report's figure and says

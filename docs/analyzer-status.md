@@ -25,7 +25,7 @@ table wins.
 | Previous spec-produced build | **v0.58**, tagged `v0.58` — the Convergence round |
 | Last consumed spec | `docs/specs/rr-analyzer-v058-spec.md` (consumed by v0.58) |
 | Last consumed dev notes | `docs/specs/rr-devnotes-v0.58.1.md` (consumed by v0.58.1) |
-| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.59, "the Granary is being deleted on every load, and it is a reused id".** Written against the `v0.58.1` tag. Integers remain reserved 1:1 for spec rounds; off-cycle work took the point release. |
+| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.59, "the Granary is a reused id, and renown becomes a deed currency".** Written against the `v0.58.1` tag, then extended with Jerry's eight renown/Scholarship directives. Integers remain reserved 1:1 for spec rounds; off-cycle work took the point release. |
 | Live suites | **28 suites — the analyzer measured 1,435 passed against the report's 1,436, with `test-v581` assertion 36 failing on a full sweep and passing alone.** A §21 fixture defect, not a game bug; v0.59 Part 7 fixes it. |
 | Parity ledger | **226 rows — PARITY 57, EASIER 41, HARDER 2, UNVERIFIED 126** — reproduced exactly by the analyzer at v0.58.1 |
 | Era 3 | **v0.58 measured 1,403.9 median of three seeds, spread 1,310.2–1,497.6 (×1.14), inside the 1,400–2,300 target but on its LOWER edge; Icathia reached on 2 of 3 seeds.** v0.58.1's own three-seed figure is in `docs/BUILD-REPORT-v0.58.1.md` §8 — **re-measure, do not trust a pre-run baseline.** **The v0.59 analyzer could NOT re-measure: its three-seed ensemble passed 70 minutes and was still running at hand-off, so every Era-3 figure in the v0.59 spec is the report's, flagged as such. Budget 75–90 minutes.** |
@@ -119,6 +119,76 @@ vigor above the ceiling makes `gain()` clamp and the delta go hugely negative. `
 itself is right — `SCUTTLER_KNOWLEDGE_PCT 0.04`, `SCUTTLER_VIGOR_PCT 0.06`, both floored, +186 of
 3,100 on a clean state, which is exactly 6%. **The idle-box re-run is what hid it, which is the
 precise remedy §21 exists to retire.** v0.59 Part 7.
+
+### Jerry's eight directives, and two corrections to my own work
+
+**Issued after the first draft of v0.59 and specified into Parts 2 and 5.** Every one was
+measured against the game before being written up — a one-action-per-run live probe, fresh state,
+all techs, pop 40, 30 Halls, renown seeded at 100:
+
+| directive | action | renown delta | verdict |
+|---|---|---|---|
+| 1 — no renown from Ascent | `ascendTargon()` | **0** | **already true; ship no code** |
+| 5 — none from first research | `buyTech`, `buyUpgrade` | **0 / 0** | **already true; ship no code** |
+| 4 — +1 per trade | `tradeCaravan`, no leader | **0** | a real addition |
+| 3 — hunts always pay | Wolves, 2 charges | **+1** | |
+| 3 — hunts always pay | Wolves, 0 charges | **0** | **Jerry's bug, reproduced** |
+
+**CORRECTION 1 — renown is not expedition-only, and I said it was.** `gainRenown()` does have
+exactly two callers, but **there is a passive trickle at `index.html:5129`** that I missed
+because it writes `rates.renown` directly: `0.005 × pop × (callToArms ? 1 : 0.5)`, gated on
+`logistics`. Measured 0.200/s at pop 40. **Directive 2's flat 0.007/s therefore CUTS an existing
+trickle by 14× at pop 20 and 100× at pop 140** rather than adding a new one — a fact Jerry should
+have when he rules, and the spec states it in a table before specifying the change.
+
+**CORRECTION 2 — `SCHOLAR_CAPS` has one member, not three.** The first v0.59 draft claimed
+culture, devotion and renown shared a cap family with "three treatments" and called it a §22
+violation. `index.html:2054` is `{ renown: 1 }`; culture and devotion are in `CAP_MULT_EXEMPT`.
+**`capFamilyOf()` returns `exempt`/`exempt`/`scholar` — different families, one behaviour each,
+§22 never violated.** The three measured multipliers were right; the structure inferred from them
+was not. Retracted in place at spec §5.2.
+
+**Two defects nobody had reported, found while sizing the directives.**
+
+- **`RENOWN_DEED_RATE 0.34` collapses the low camp ladder to a constant.** With the
+  `Math.max(1, Math.round(...))` floor, camps authored at 2, 3 and 4 renown **all pay exactly
+  1**. Wolves, Gromp, Raptors and Krugs are indistinguishable. "Charges multiply the renown"
+  cannot mean anything until this is fixed.
+- **Renown backfills before the player ever sees it.** It is `hidden` until `callToArms`
+  (`index.html:355`) but the trickle runs from `logistics` at 0.100/s into a cap of 30, so the
+  resource **arrives pinned at 30/30 from a meter the player has never seen.** That is exactly
+  the backfill directive 2 rules out, and it is live on the shipped build.
+
+### The Kittens source is now a local clone, and it closed a four-round lookup
+
+**Research this round was done against `github.com/nuclear-unicorn/kittensgame` at `c52985b`
+(2026-08-04), cloned to disk — not grep.app.** Future rounds should do the same and **cite a
+revision, not a bare line number**: the Golden Spire block earlier rounds cited as
+`js/buildings.js:1929–1931` is `:1964–1966` at this revision, same code.
+
+**Culture's ×1.05 is VERIFIED and the lookup open since v0.55 is closed.** Three rounds failed to
+retrieve `cityOnAHill` through grep.app and correctly refused to invent a citation. It is
+`js/science.js:1283–1297`, `onAHillCultureCap: 0.05`, price culture 4,000, consumed as a
+**whole-cap** culture multiplier at `js/resources.js:958–961`. **Exact parity with RR's
+`CULTURE_FIXED_MULT = 1.05`.** Ledger row moves UNVERIFIED → PARITY: **57→58 PARITY,
+126→125 UNVERIFIED.**
+
+**And the finding that grounds directive 8.** Kittens has exactly **one** whole-cap science
+multiplier in the entire game and it is **a policy, not an upgrade** — `technocracy`
+(`js/science.js:1067–1080`, `technocracyScienceCap: 0.2`, culture 150,000, mutually exclusive
+with theocracy and expansionism). Every upgrade-shaped science boost is per-building: **Astrolabe**
+(`js/workshop.js:1436`, `effects: {}`, all of its effect inside the Observatory's
+`calculateEffects` at `js/buildings.js:672`, `scienceMax 1000 → 1500`) and the three **Reflectors**
+(`titaniumMirrors` :1450, `unobtainiumReflectors` :1467, `eludiumReflectors` :1483, each
+`libraryRatio: 0.02`, consumed at `js/buildings.js:579–580` as
+`library.scienceMax *= (1 + observatory.on × libraryRatio)`). **So Jerry's instruction not to
+raise knowledge caps from the Discovery line is the source's own division of labour, not a
+departure from it.**
+
+**RR already ships the Astrolabe.** `voidglassLenses` — *"Celestial Observatories hold +50% more
+knowledge each"* (`index.html:2472`, implemented at `capMultPerCopy()`) is Kittens' Astrolabe at
+**exact parity**. The builder must not re-ship it. What is missing is the Reflectors' *cross*-
+building shape, and that is what spec §5.4 ports.
 
 ### The MAJOR BUG: `granary` is a reused id, and the migration eats it on every load
 
