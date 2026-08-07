@@ -4603,7 +4603,14 @@ var FESTIVAL_MORALE_MULT = 1.20;
 // A first festival at two or three Hearths pays ~300 gold, which against an early gold ceiling
 // of a few hundred is exactly the "boost early" the note asks for; twenty Hearths pay ~800.
 var FESTIVAL_GOLD_BASE = 250, FESTIVAL_GOLD_PER_HEARTH = 25;
-// v0.59 Part 8 note 8 — the two luxury terms, named so the half-of relation is readable.
+// v0.59 Part 8 note 8 — the FESTIVAL'S OWN two line items, named so the half-of relation is
+// readable. SCOPE, because the first draft of this comment said "the two luxury terms" and that
+// is a fair thing to misread as the luxury MATERIALS: these two constants are read in exactly
+// one place, `festivalCost()`, and they price nothing else in the game. Mushrooms and plumes
+// keep every other price and yield they had — the Noxus route's 120 plumes, the raptor camp's
+// 12-18, Jessed Hawks, Beast Lore, Harvest Rites, Shaco, Twitch, and the per-head luxury drain
+// in `computeRates()`, which is identical across furs, mushrooms and plumes and is untouched.
+// `test-v59` asserts that scope so it cannot quietly widen.
 var FESTIVAL_MUSHROOMS = 2, FESTIVAL_PLUME_SHARE = 0.5;
 function festivalCost() {
   // v0.58.1 NOTE 1 (Jerry): "It should also cost Vigor. IT should have a larger culture cost
@@ -4621,10 +4628,15 @@ function festivalCost() {
   // The luxuries (v0.58 note 12) are untouched: this note ADDS culture and vigor, it does not
   // replace what was there.
   // v0.59 PART 8 NOTE 8 (Jerry): "Festival costs fewer mushrooms; raptor plumes at half the
-  // mushroom cost." Mushrooms 4 -> 2 per unit of comfort, and plumes are now DERIVED as half of
-  // the mushroom term rather than stated separately, so the stated ratio cannot drift: the two
-  // were both 4 and a future edit to one would silently have broken the relation Jerry asked
-  // for. Measured at luxuryComfort() = 3.0: mushrooms 12 -> 6, plumes 12 -> 3.
+  // mushroom cost." Clarified by Jerry after the round shipped: "fewer mushrooms / plumes at
+  // half should only be for the FESTIVAL COST, not the luxury material overall." That is what
+  // shipped and it is asserted below — THIS FUNCTION IS THE ONLY PLACE THE TWO CONSTANTS ARE
+  // READ.
+  //
+  // The Festival's mushroom line goes 4 -> 2 per unit of comfort, and its plume line is DERIVED
+  // as half of its own mushroom line rather than stated separately, so the ratio cannot drift:
+  // the two were both 4, and a future edit to one would silently have broken the relation.
+  // Measured at luxuryComfort() = 3.0: mushrooms 12 -> 6, plumes 12 -> 3.
   // FESTIVALS ARE RR-ORIGINAL, so this is a labelled EASIER row rather than a parity move.
   return { mushrooms: Math.round(FESTIVAL_MUSHROOMS * luxuryComfort()),
            plumes: Math.round(FESTIVAL_MUSHROOMS * FESTIVAL_PLUME_SHARE * luxuryComfort()),

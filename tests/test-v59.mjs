@@ -27,6 +27,8 @@ const SIMCORE = readFileSync(new URL("../sim/simcore.mjs", import.meta.url), "ut
 const PACING = readFileSync(new URL("../sim/pacing.mjs", import.meta.url), "utf8");
 const LEDGER = readFileSync(new URL("../docs/PARITY-LEDGER.md", import.meta.url), "utf8");
 const RULINGS = readFileSync(new URL("../STANDING-RULINGS.md", import.meta.url), "utf8");
+// The three luxuries are furs, plumes and mushrooms; note 8 must not have changed that.
+const LUXURY_KINDS_EXPECTED = 3;
 
 // ============================================================================
 // PART 1 — the Granary is deleted on every load, and the id that ate it
@@ -445,6 +447,21 @@ const feel = await page.evaluate(() => {
   const fc = festivalCost();
   o.festivalPlumesAreHalf = fc.plumes * 2 === fc.mushrooms || Math.abs(fc.plumes * 2 - fc.mushrooms) <= 1;
   o.festivalCost = fc;
+  // 8.8 SCOPE — every OTHER thing in the game denominated in mushrooms or plumes.
+  o.luxScope = {
+    noxusPlumes:  FACTIONS.find(f => f.id === "noxus").cost.plumes,
+    jessedHawks:  UPGRADES.find(u => u.id === "jessedHawks").cost.plumes,
+    beastLore:    UPGRADES.find(u => u.id === "beastLore").cost,
+    harvestRites: UPGRADES.find(u => u.id === "harvestRites").cost.mushrooms,
+    shaco:        CHAMPS.find(c => c.id === "shaco").cost.plumes,
+    twitch:       CHAMPS.find(c => c.id === "twitch").cost.mushrooms,
+    raptorYield:  EXPEDITIONS.find(e => e.id === "raptors").yield,
+    luxuryKinds:  LUXURY_KINDS
+  };
+  TECHS.forEach(t => S.techs[t.id] = 1);
+  S.pop = 40; ["mushrooms", "plumes", "furs"].forEach(r => { S.res[r] = 500; S.seenMax[r] = 500; });
+  const lr = computeRates();
+  o.luxDrain = { furs: +lr.furs.toFixed(4), mushrooms: +lr.mushrooms.toFixed(4), plumes: +lr.plumes.toFixed(4) };
   fresh();
   return o;
 });
@@ -491,6 +508,33 @@ check("8.8 — the Festival costs fewer mushrooms, and plumes are HALF the mushr
   feel.festivalConsts.mushrooms === 2 && feel.festivalConsts.plumeShare === 0.5 &&
   feel.festivalPlumesAreHalf,
   JSON.stringify(feel.festivalCost));
+// 8.8 SCOPE — added after Jerry clarified: "fewer mushrooms / plumes at half should only be for
+// the FESTIVAL COST, not the luxury material overall." It already was, but "it already was" is
+// not a guarantee about the next round. This pins the scope in both directions: the two
+// constants are read in exactly ONE function, and every other price and yield denominated in
+// mushrooms or plumes still carries the figure it carried before the note.
+check("8.8 SCOPE — FESTIVAL_MUSHROOMS / FESTIVAL_PLUME_SHARE are read in festivalCost() ALONE", (() => {
+  // Counting references would encode how many times the function happens to mention them today
+  // (three, because the plume line is derived FROM the mushroom line). What the scope claim
+  // actually needs is that no reference lives OUTSIDE festivalCost(), which is what is checked:
+  // blank the function's body out of the source and require that nothing is left.
+  const body = CODE.slice(CODE.indexOf("function festivalCost()"));
+  const end = body.indexOf("\n}");
+  const outside = CODE.replace(body.slice(0, end), "")
+    .replace(/var FESTIVAL_MUSHROOMS[^\n]*\n/, "");          // the declaration itself is fine
+  const stray = (outside.match(/FESTIVAL_MUSHROOMS|FESTIVAL_PLUME_SHARE/g) || []);
+  return stray.length === 0;
+})(), "no reference outside festivalCost() other than the declaration");
+check("8.8 SCOPE — ...and note 8 moved NO other mushroom or plume price in the game",
+  feel.luxScope.noxusPlumes === 120 && feel.luxScope.jessedHawks === 120 &&
+  feel.luxScope.beastLore.plumes === 30 && feel.luxScope.beastLore.mushrooms === 40 &&
+  feel.luxScope.harvestRites === 400 && feel.luxScope.shaco === 60 && feel.luxScope.twitch === 90 &&
+  /12–18 Raptor Plumes/.test(feel.luxScope.raptorYield),
+  JSON.stringify(feel.luxScope));
+check("8.8 SCOPE — ...and the per-head luxury DRAIN is still identical across all three luxuries",
+  feel.luxDrain.furs === feel.luxDrain.mushrooms && feel.luxDrain.mushrooms === feel.luxDrain.plumes &&
+  feel.luxDrain.mushrooms < 0 && LUXURY_KINDS_EXPECTED === feel.luxScope.luxuryKinds,
+  JSON.stringify(feel.luxDrain));
 
 // ============================================================================
 // JERRY'S DEV NOTE 1 — only BULK transmute shows in the chronicle
