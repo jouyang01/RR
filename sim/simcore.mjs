@@ -363,11 +363,18 @@ export async function runSim(page, years, seed = 1) {
           // NB: `held` above is the list of rung IDs owned. The per-resource stock is `heldRes`,
           // deliberately a different key -- an earlier draft reused `held` and silently replaced
           // the rung list with a resource map, which is the same class of collision §22 exists for.
+          // v0.58.1 — read the THREE resources this census is about, not SCHOLAR_CAPS' current
+          // membership. §29 moved culture and devotion out of the family and the readout
+          // immediately started printing `cap undefined` for both — the census stopped
+          // reporting the very resources the round had just changed, which is the same class of
+          // instrument-vs-code drift v0.58 §1.5 hit from the other direction. The family is
+          // reported separately below so a future membership change is still visible.
           o.caps = {}; o.heldRes = {};
-          Object.keys(SCHOLAR_CAPS).forEach(rr => {
+          ["culture", "devotion", "renown"].forEach(rr => {
             o.caps[rr] = Math.round(withAll[rr] || 0);
             o.heldRes[rr] = Math.round(S.res[rr] || 0);
           });
+          o.family = Object.keys(SCHOLAR_CAPS);
           o.largestRenownPurchase = (() => {
             let mx = 0;
             (CHAMPS || []).forEach(c => {

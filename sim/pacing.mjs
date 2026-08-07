@@ -462,6 +462,7 @@ if (r.capOutPct) {
   const sch = balAt && r.snaps[balAt] ? r.snaps[balAt].scholarship : null;
   if (sch) {
     console.log(`\nv0.58 PART 3 — THE SCHOLARSHIP FAMILY (measured at ${balAt})`);
+    console.log(`  the line reaches: ${(sch.family || []).join(", ") || "?"}   (v0.58.1 §29 moved culture and devotion out)`);
     console.log(`  rungs held ${sch.owned}/${sch.of} [${(sch.held || []).join(", ") || "none"}]` +
       `   product now ×${sch.product}   all-five multiplicative ×${sch.fullProduct}` +
       `   all-five ADDITIVE ×${sch.additiveWouldGive}`);
