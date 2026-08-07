@@ -26,6 +26,7 @@ const CODE = strip(RAW);
 const SIMCORE = readFileSync(new URL("../sim/simcore.mjs", import.meta.url), "utf8");
 const LEDGER = readFileSync(new URL("../docs/PARITY-LEDGER.md", import.meta.url), "utf8");
 const RULINGS = readFileSync(new URL("../STANDING-RULINGS.md", import.meta.url), "utf8");
+const OFFCYCLE = readFileSync(new URL("../OFF-CYCLE-PROTOCOL.md", import.meta.url), "utf8");
 
 // ============================================================================
 // NOTE 1 — the Festival
@@ -591,8 +592,21 @@ check("48 — every new entity carries a PARITY LEDGER row (OFF-CYCLE-PROTOCOL �
 // THE ROUND ITSELF — off-cycle bookkeeping (OFF-CYCLE-PROTOCOL §1 and §4)
 // ============================================================================
 const version = await page.evaluate(() => VERSION);
-check("§1 — the version is a POINT release off v0.58; integers stay reserved for spec rounds",
-  /^v0\.\d\d\.\d+$/.test(version) && version === "v0.58.1", version);
+// RE-POINTED at v0.59, superseded by v0.59 spec Part 0. This pinned `version === "v0.58.1"`,
+// which is the LITERAL VERSION STRING rule 7 of HANDOFF v0.58.1 §5 forbids — and it is the
+// second one of these the round has had to unpick, which is why it is worth naming the pattern:
+// **an assertion about "the round we are in" written in the suite of a round that has shipped
+// will always be wrong from the next round onward.** It ran green for exactly one version.
+//
+// What OFF-CYCLE-PROTOCOL §1 actually rules is a property of the NUMBERING SCHEME, not of any
+// one version: an off-cycle round takes a point release `v0.NN.M`, and integers are reserved
+// 1:1 for spec rounds. That is true forever and is what is asserted now — the scheme admits
+// both shapes, this round's version is a well-formed member of it, and the rule itself is still
+// written down where a future round will read it. `test-v59` asserts that v0.59 specifically is
+// the INTEGER shape, which is that round's business and not this one's.
+check("§1 — the numbering scheme is intact: point releases for off-cycle, integers for spec rounds",
+  /^v0\.\d\d(\.\d+)?$/.test(version) &&
+  /point release/i.test(OFFCYCLE) && /integer/i.test(OFFCYCLE), version);
 check("§1 — ...and the footer is rendered from the constant",
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1));
 // RE-POINTED at v0.59, superseded by v0.59 spec Part 0 (a new analyzer round legitimately

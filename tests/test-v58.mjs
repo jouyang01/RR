@@ -308,8 +308,16 @@ check("15 — the counts sum to the total row count",
     const total = (LEDGER.match(/\*\*total rows\*\* \| \*\*(\d+)\*\*/) || [])[1];
     return g("PARITY") + g("EASIER") + g("HARDER") + g("UNVERIFIED") === +total;
   })(), "counts sum");
-check("15 — the ledger is regenerated at v0.58",
-  /# PARITY LEDGER — Runeterra Reclaimed v0\.58/.test(LEDGER));
+// RE-POINTED v0.59. This pinned the ledger's header to v0.58 and so asserted "the ledger was
+// regenerated at THE ROUND THIS SUITE WAS WRITTEN FOR" — which stops being the useful question
+// the moment another round ships. **The property worth keeping is that the ledger is CURRENT:
+// its header names the version the game reports, so a round that changes the game and forgets
+// to run `tools/parity-ledger.mjs` fails here.** That is version-independent and strictly
+// stronger — the old form would have passed happily on a stale v0.58 ledger at v0.59.
+const ledgerVersion = await page.evaluate(() => VERSION);
+check("15 — the ledger is REGENERATED, and its header matches the running build",
+  LEDGER.indexOf("# PARITY LEDGER — Runeterra Reclaimed " + ledgerVersion) === 0,
+  `${(LEDGER.split("\n")[0] || "").slice(0, 60)} vs VERSION ${ledgerVersion}`);
 
 // ============================================================================
 // PASS CONDITION 16 — what must NOT have moved
@@ -375,6 +383,18 @@ const notes = await page.evaluate(() => {
   // 14 — Wilds-only expedition discounts
   o.survey = UPGRADES.find(u => u.id === "surveyedApproaches").effect;
   o.wheels = UPGRADES.find(u => u.id === "ironShodWheels").effect;
+  // v0.59 PART 7 — A §21 DEFECT, found by `tools/fixture-sweep.mjs` and fixed rather than
+  // re-run away. This asserted an EXACT product, `round(150 x 0.85 x 0.90)`, against a value
+  // `expCost()` computes from THREE inputs — and the block reset only one of them. `expCost()`
+  // multiplies by `policyVigorMult()`, and **Open Range costs Wilds expeditions 10% more
+  // vigor**, so any earlier block that left that policy standing moved this measurement by
+  // exactly the amount that makes an exact-equality assertion fail.
+  //
+  // It has been latent since v0.58 and passes on a clean page, which is the whole signature of
+  // the class: invisible alone, a few per cent wrong in a full sweep. The remedy §21 asks for
+  // is to make the measurement independent of what ran before it, so the two containers
+  // `expCost()` reads and this block did not own are cleared here.
+  S.policies = {}; S.champs = {}; S.leader = null;
   S.upgrades.surveyedApproaches = 1; S.upgrades.ironShodWheels = 1;
   o.krugVigor = expCost(EXPEDITIONS.find(e => e.id === "krugs")).vigor;
   o.scoutVigor = expCost(EXPEDITIONS.find(e => e.id === "scouting")).vigor;
@@ -453,8 +473,13 @@ check("note 14 — the vigor discounts say WILDS expedition, and apply only to W
 // ============================================================================
 // RE-POINTED v0.58.1: a literal version is true for one round by construction, and
 // OFF-CYCLE-PROTOCOL §1 takes a POINT release off this one. Pin the shape, not the value.
-check("17 — VERSION is a v0.58 build (spec round or its point releases), footer rendered from it",
-  /^v0\.58(\.\d+)?$/.test(unchanged.version) &&
+// RE-POINTED AGAIN at v0.59. v0.58.1's re-point pinned the shape `v0.58(.M)` — which is still a
+// literal version with a wildcard on the end, and it failed on the next round exactly as the
+// literal did. **The scheme is what is stable: `v0.NN` for a spec round, `v0.NN.M` for an
+// off-cycle point release.** Pin that. Which specific version this build carries is the
+// business of the round's own suite, and `test-v59` asserts it.
+check("17 — VERSION is well-formed under the numbering scheme, footer rendered from it",
+  /^v0\.\d\d(\.\d+)?$/.test(unchanged.version) &&
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1),
   unchanged.version);
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));
