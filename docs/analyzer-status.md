@@ -21,14 +21,17 @@ table wins.
 
 | | |
 |---|---|
-| Last shipped build | **v0.58.1**, tagged `v0.58.1` — **an OFF-CYCLE round**, built from Jerry's gameplay notes with no analyzer spec (`OFF-CYCLE-PROTOCOL.md`) |
-| Previous spec-produced build | **v0.58**, tagged `v0.58` — the Convergence round |
-| Last consumed spec | `docs/specs/rr-analyzer-v058-spec.md` (consumed by v0.58) |
-| Last consumed dev notes | `docs/specs/rr-devnotes-v0.58.1.md` (consumed by v0.58.1) |
-| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.59, "the Granary is a reused id, and renown becomes a deed currency".** Written against the `v0.58.1` tag, then extended with Jerry's eight renown/Scholarship directives. Integers remain reserved 1:1 for spec rounds; off-cycle work took the point release. |
-| Live suites | **28 suites — the analyzer measured 1,435 passed against the report's 1,436, with `test-v581` assertion 36 failing on a full sweep and passing alone.** A §21 fixture defect, not a game bug; v0.59 Part 7 fixes it. |
-| Parity ledger | **226 rows — PARITY 57, EASIER 41, HARDER 2, UNVERIFIED 126** — reproduced exactly by the analyzer at v0.58.1 |
-| Era 3 | **v0.58 measured 1,403.9 median of three seeds, spread 1,310.2–1,497.6 (×1.14), inside the 1,400–2,300 target but on its LOWER edge; Icathia reached on 2 of 3 seeds.** v0.58.1's own three-seed figure is in `docs/BUILD-REPORT-v0.58.1.md` §8 — **re-measure, do not trust a pre-run baseline.** **The v0.59 analyzer could NOT re-measure: its three-seed ensemble passed 70 minutes and was still running at hand-off, so every Era-3 figure in the v0.59 spec is the report's, flagged as such. Budget 75–90 minutes.** |
+| Last shipped build | **v0.59**, tagged `v0.59` — the Granary/renown/Scholarship round, built from `docs/specs/rr-analyzer-v059-spec.md` plus Jerry's two superseding dev notes |
+| Previous build | **v0.58.1**, tagged `v0.58.1` — an OFF-CYCLE round from Jerry's 48 gameplay notes |
+| Last consumed spec | `docs/specs/rr-analyzer-v059-spec.md` (consumed by v0.59) |
+| Last consumed dev notes | Jerry's two v0.59 dev notes, recorded in `docs/BUILD-REPORT-v0.59.md` §7; the 48-note set is `docs/specs/rr-devnotes-v0.58.1.md` |
+| Current spec, awaiting a builder | **NONE.** The repo root has no `current-build-spec.md`. The next analyzer round writes one. |
+| Live suites | **29 suites** — `tests/test-v59.mjs` is new, 79 assertions over the round's 17 pass conditions. `test-v581`'s assertion 36 was a §21 fixture defect and is fixed (v0.59 Part 7), not re-run away. |
+| Parity ledger | **227 rows — PARITY 64, EASIER 40, HARDER 2, UNVERIFIED 121.** Parity debt fell 126 → 121: Part 5.4 found citations for six upgrade rows at once (the three Reflectors, the two Astrolabes, and `arcaneFocus` as Kittens' first `catnipJobRatio` rung). |
+| Cap families | **TWO, not three.** `SCHOLAR_CAPS` is DELETED (Part 5.3), with `SCHOLAR_LINE`, `scholarMult`, `scholarAdd` and `scholarCapNames()`. `capFamilyOf()` returns `exempt` / `masonry` / null. Do not re-add a third. |
+| Era 3 | **THE 1,400-2,300 BAND IS RETIRED**, on Jerry's ruling ("907 is okay for Era 3"), recorded in `pacing.mjs` with its reasoning at the site. Era 3 length is reported as a number with no pass/fail attached. **This is a retirement, not a re-base — do not set the band to whatever the next run measures.** If a target should return, derive it from `era3_regional_crafting_spec_2.md`'s 7-day arc, not from prior measurements. |
+| Convergence | **The measurement point moved off Sparks and onto the UNLOCK** (Part 4). It read 0 on all three seeds because `worshipBonus()` returns 0 until the tech is researched — the condition was measuring the absence of a tech. Kittens' anchor is Solar Revolution's 1,000-worship gate, where the same formula pays exactly 1.00%. |
+| Machine note | **This container has `nproc` = 2.** A three-seed 2,500-year ensemble needs the box to itself; v0.59 launched four attribution slices beside it and all seven stalled. Check `nproc` before planning concurrency, and budget 75-90 minutes for the ensemble alone. |
 
 **The cycle table was six rounds stale before v0.58.1 and is corrected here.** It had been
 carrying v0.58's suite and ledger counts from v0.57 (26/1,273 and 220 rows) and an Era 3 figure

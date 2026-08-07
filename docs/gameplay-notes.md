@@ -282,3 +282,61 @@ numbered artefact and that artefact is archived intact.
   row's verdict said HARDER while its own note said *"i.e. EASIER"* — same class of defect,
   fixed.
 
+
+---
+
+## v0.59 — Jerry's eight renown/Scholarship directives and eight feel notes, all actioned
+
+- ~~**"Renown should not be in the Scholarship line either."** (directive 7)~~ — **v0.59 Part
+  5.3, and it took a whole cap family with it.** §29 had already emptied `SCHOLAR_CAPS` to
+  renown alone; removing the last member left an empty family object, which is worse than no
+  family. `SCHOLAR_CAPS`, `scholarMult`, `scholarCapNames()`, the `scholar` branch of
+  `capFamilyOf()`, the ternary arm in `computeCaps()` and both `!SCHOLAR_CAPS[...]` guards are
+  all **deleted**. **RR is down from three cap families to two.** Renown's ceiling is
+  `210 + 900 × Halls`, flat, and **Poppy's +8% now reaches it**. **STANDING-RULINGS §29 stands;
+  §30 is new.**
+- ~~**"The Scholarship line should be about knowledge."** (directive 8)~~ — **v0.59 Part 5.4,
+  and the source backed the instinct precisely.** The five rungs become **per-building**
+  knowledge amplifiers, never a whole-cap multiplier: three Reflectors rungs at Kittens' own
+  **Σ 0.06**, scaled by Observatory count inside the Archive's slice, and two Astrolabe-shaped
+  **+50% per copy** on the Academy and the Hexcore Laboratory. **Kittens has exactly one
+  whole-cap science multiplier in the entire game and it is the `technocracy` POLICY** — so the
+  standing rule is recorded and nothing ships against it. Measured ×1.30 on the building total
+  *and* ×1.30 on the fully-stacked ceiling, because the Morellonomicon clamp reads the building
+  total.
+- ~~**"Hunting should always give renown; the charges should multiply it."** (directive 3)~~ —
+  **v0.59 Part 2.1.** The guard is deleted and the charge multiplies ×3 **after the floor**. The
+  bigger find was underneath: at `RENOWN_DEED_RATE 0.34` the floor collapsed the whole low
+  ladder to a flat 1 — Wolves, Gromp, Raptors and Krugs, authored at 2/2/3/3, **all paid 1**.
+  The rate rises to **1.00** and every camp now pays the number printed on its card.
+- ~~**"Renown passive gain should be flat and should not backfill."** (directive 2)~~ — **v0.59
+  Part 2.2.** Flat **0.007/s**, 100× smaller at pop 140 than the old pop-scaled trickle. The
+  gate moves to `callToArms`, which fixed a live defect: renown was **hidden** until Call to Arms
+  but the trickle ran anyway, so players arrived at the tech with the meter already pinned at
+  30/30 by a resource they had never seen.
+- ~~**"Trading should give renown."** (directive 4)~~ — **v0.59 Part 2.3.** +1 per completed
+  caravan for every leader; Caitlyn's 5 **adds**, so she pays 6. Moved inside the success branch,
+  which fixed a second thing: her grant had been paying out on **failed** caravans.
+- ~~**"Renown from the Ascent / from first-time research."** (directives 1 and 5)~~ —
+  **measured at 0 and NO CODE SHIPPED.** Both were already correct. Two ledger rows so a future
+  round does not add them as an "obvious" deed source.
+- ~~**"There should be a bigger renown sink."** (directive 6)~~ — **satisfied by Part 5.3 alone.**
+  Deleting the ×2.60 takes the tenth champion from 7 Halls of Heroes to **18**. No escalation
+  lever was needed: `RECRUIT_RATIO` is untouched, the Hall's 900 is untouched, and no hard
+  building-count gate ships — which is the Kittens-shaped answer, since the source paces content
+  by making the ceiling building expensive, never by a "you must own N of X" check.
+- ~~**"907 is okay for Era 3."**~~ — **v0.59 Part 3. The 1,400–2,300 band is RETIRED**, with the
+  reasoning recorded in `pacing.mjs`: Icathia is now reached on every seed for the first time,
+  and every Era-3 target in this project predates the ×2.62 → ×1.02 spread collapse. **Retired,
+  not re-based to 907.**
+- ~~**"Only bulk crafting of transmute should show in the chronicle."**~~ — **v0.59.** A single
+  cast is visible in the resource column as it happens; a batch is what a player cannot
+  reconstruct, and the Arcanist's Circle's yearly draw is always a batch.
+- ~~**The eight feel-and-UI notes.**~~ — all shipped, each with a ledger row: the job row wraps
+  and its chips size to their own text; **crafting AND trades** now use the existing undo window
+  and its re-roll guard (closing an open v0.55 item); Zilean spends banked time on a **button**
+  and the automatic trigger is deleted; bulk hunting works on charge camps and is still refused
+  on cooldown camps; **Swain's passive moves to mana** so it stops duplicating his own lead; a
+  second Arcanist rung completes Kittens' two-rung job line at ×1.80 exactly; the Festival was
+  already on the buff banner; and its mushroom cost halves with plumes **derived** at half of
+  that, so the ratio cannot drift.
