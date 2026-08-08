@@ -393,14 +393,27 @@ check("9 — culture's ×1.05 is VERIFIED, with BOTH citations recorded",
   /cityOnAHill/.test(LEDGER) && /js\/science\.js:12(8[0-9]|9[0-7])/.test(LEDGER) &&
   /js\/resources\.js:9(5[89]|6[01])/.test(LEDGER) && /onAHillCultureCap/.test(LEDGER));
 // PASS CONDITION 11
+// RE-POINTED v0.60, superseded by v0.60 PART 7. v0.59 pinned RR's top two rungs (10,200 /
+// 18,200) and the 102% debt they implied; note 4 moved them to 7,500 / 11,500 and the debt
+// re-rated to 28%. THE PROPERTY IS UNCHANGED and is what stays asserted: Kittens' seven rungs and
+// their seven bonuses are present RUNG BY RUNG, RR's own top two are named, and the debt is
+// stated as a number rather than as an adjective. The KITTENS half of this line is pinned as
+// before — those seven thresholds and bonuses are the source's and do not move.
 check("11 — the rank ladder is in the ledger RUNG BY RUNG against Kittens' seven tiers",
   ["100", "500", "1,200", "2,500", "5,000", "9,000"].every(t => LEDGER.indexOf(t) > -1) &&
   ["1.25%", "2.5%", "4.5%", "7.5%", "12.5%", "18.75%"].every(t => LEDGER.indexOf(t) > -1) &&
-  LEDGER.indexOf("10,200") > -1 && LEDGER.indexOf("18,200") > -1 &&
-  /102% debt/.test(LEDGER),
+  LEDGER.indexOf("7,500") > -1 && LEDGER.indexOf("11,500") > -1 &&
+  /HARDER — 28%/.test(LEDGER),
   "all seven Kittens rungs, their bonuses, and the debt at each");
-check("11 — ...and the interaction with the still-UNVERIFIED XP_PER_SECOND is stated in one line",
-  /XP_PER_SECOND/.test(LEDGER) && /threshold/i.test(LEDGER) && /accrual/i.test(LEDGER));
+// RE-POINTED v0.60, same supersession. v0.59's whole point here was that a threshold debt
+// measured against an UNKNOWN rate is one unknown times another — so the row had to state the
+// interaction rather than report the thresholds alone. The rate is now known, which does not
+// retire the property, it DISCHARGES it: the row must still state both factors, and now it can
+// state the product, which is the only figure a player experiences.
+check("11 — ...and the ladder is rated by the PRODUCT of threshold ratio and rate ratio",
+  /XP_PER_SECOND/.test(LEDGER) && /threshold/i.test(LEDGER) &&
+  /threshold ratio x1\.28/i.test(LEDGER) && /rate ratio x1\.00/i.test(LEDGER) &&
+  /product x1\.28/i.test(LEDGER));
 // PART 5.2 — the retraction
 check("5.2 — the v0.58.1 §22 claim is RETRACTED in the ledger: SCHOLAR_CAPS had one member",
   /RETRACT/i.test(LEDGER) && /§22/.test(LEDGER));

@@ -440,10 +440,19 @@ check("note 10 — the Masonry line says which stores grow and by how much, in p
   /Barns and cellars hold \+75% more/.test(notes.masonry) &&
   /Warehouses and yards hold \+25% more/.test(notes.masonry),
   notes.masonry);
-check("note 11 — the XP rate is honestly labelled UNVERIFIED, with the failed routes recorded",
+// RE-POINTED v0.60, superseded by v0.60 PART 7 (and by Jerry's v0.60 note 4, which supersedes his
+// own note 11). What this line guarded was NOT that the rate stay unverified — it was that the
+// rate never carry a number nobody could cite, and that the FAILED ROUTES stay on the record so
+// the next attempt does not repeat them. Both properties survive the retrieval, and the second is
+// the one that mattered: all three recorded dead ends were ways of reading the repo WITHOUT
+// cloning it, and the fact fell to one grep the moment the source was on disk. So this now
+// asserts that the rate carries a citation, that the citation is the source line, and that the
+// v0.58 failure record is still present rather than tidied away by the round that closed it.
+check("note 11 — the XP rate now carries a citation, and the failed routes are STILL on record",
   /CANNOT BE CONFIRMED/.test(RAW) && /robots\.txt/.test(RAW) &&
-  /CANNOT BE CONFIRMED/.test(LEDGER) && /XP_PER_SECOND = 0\.5/.test(CODE),
-  "no number invented");
+  /CLOSED AT v0\.60 PART 7/.test(RAW) &&
+  /js\/village\.js:3228/.test(LEDGER) && /XP_PER_SECOND = 0\.05/.test(CODE),
+  "retrieved, not invented — and the five dead routes are kept");
 // RE-POINTED v0.58.1, superseded by NOTE 1 (both). "It should also cost Vigor. IT should have a
 // larger culture cost and be a repetitive culture sink" — culture and vigor JOIN the three; and
 // "It should give you a flat 20% morale bonus" — 1.30 -> 1.20. The DURATION this assertion also

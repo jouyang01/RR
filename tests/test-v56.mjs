@@ -213,8 +213,13 @@ const xp = await page.evaluate(() => {
   o.rankUnchanged = rankOf(mig, "farmer").id;
   return o;
 });
-check("6 — XP_PER_SECOND is 0.5 — slower than v0.55's 2 AND than v0.54's 1, per directive 3",
-  xp.rate === 0.5, `${xp.rate}/s`);
+// RE-POINTED v0.60, superseded by v0.60 PART 7. Directive 3's PROPERTY was "slower than v0.55's
+// 2 and than v0.54's 1"; the rate is now the source's own `js/village.js:3228` figure — 0.01 per
+// tick at 5 ticks/s = 0.05/s — which satisfies the directive by a wider margin. Asserted as the
+// ORDERING the directive actually stated, plus the retrieved literal, so the next reprice fails
+// only if it breaks the directive rather than merely because a number moved.
+check("6 — XP_PER_SECOND is 0.05 — the source's rate, still slower than v0.55's 2 AND v0.54's 1",
+  xp.rate === 0.05 && xp.rate < 1 && xp.rate < 2, `${xp.rate}/s`);
 check("6 — time-to-Challenger is reported in real hours, before and after",
   xp.hoursToChallenger > xp.hoursBefore,
   `${xp.top} points = ${xp.hoursBefore} real h at 2/s → ${xp.hoursToChallenger} real h at ${xp.rate}/s`);
@@ -328,10 +333,17 @@ const rows = LEDGER.split("\n").filter(l => /^\|\s*`/.test(l));
 const counts = {}; VERDICTS.forEach(v => counts[v] = rows.filter(l => new RegExp("\\b" + v + "\\b").test(l)).length);
 check("14 — no blank rows, and the UNVERIFIED count is reported",
   rows.every(l => VERDICTS.some(v => new RegExp("\\b" + v + "\\b").test(l))), JSON.stringify(counts));
-check("14 — the storage restructure and the skill cap are labelled PARITY, the XP rate is not",
+// RE-POINTED v0.60, superseded by v0.60 PART 7. The point of this line in v0.56 was that the two
+// retrieved facts were labelled PARITY while the ONE unretrieved fact was labelled honestly
+// rather than assumed — not that the XP rate was permanently unverifiable. It is now retrieved
+// (`js/village.js:3228` @ c52985b) and labelled PARITY like its neighbours. Re-pointed to the
+// property that survives: each of the three is labelled to the state of its OWN retrieval, and
+// the row that changed carries the citation that changed it.
+check("14 — the storage restructure, the skill cap AND the now-retrieved XP rate are all PARITY",
   /addBarnWarehouseRatio[\s\S]{0,400}\*\*PARITY\*\*/.test(LEDGER) &&
   /skillsCap = 20001[\s\S]{0,400}\*\*PARITY\*\*/.test(LEDGER) &&
-  /XP_PER_SECOND = 0\.5[\s\S]{0,600}\*\*UNVERIFIED\*\*/.test(LEDGER));
+  /XP_PER_SECOND = 0\.05[\s\S]{0,600}\*\*PARITY\*\*/.test(LEDGER) &&
+  /XP_PER_SECOND = 0\.05[\s\S]{0,400}js\/village\.js:3228/.test(LEDGER));
 
 // ============================================================================
 // PASS CONDITION 15 — the unchanged set

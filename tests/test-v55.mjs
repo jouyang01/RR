@@ -480,7 +480,13 @@ check("16 — the accrual rate is a named constant, and it is slower than v0.54'
 // two literal-source assertions below could no longer match. The PROPERTY this has always
 // guarded — the rate is a NAMED CONSTANT with one place to reprice it, and the two banks are
 // fed from the same expression — is unchanged and is what is asserted now.
-  xp.rate === 0.5 && /var XP_PER_SECOND = 0\.5;/.test(CODE) &&
+// RE-POINTED v0.60, superseded by v0.60 PART 7 (the rate is retrieved from the source:
+// `js/village.js:3228` @ c52985b banks 0.01/tick, and Kittens ticks 5/s, so the parity figure
+// is 0.05/s). The literal moves 0.5 -> 0.05; the guarded PROPERTY is untouched, and the
+// assertion's own headline — slower than v0.54's 1/s — is satisfied by a wider margin than
+// before. This is the fourth time this line has been re-pointed and every move has been
+// downward; the rate now has a line number, so it should be the last.
+  xp.rate === 0.05 && /var XP_PER_SECOND = 0\.05;/.test(CODE) &&
   /var xpRate = XP_PER_SECOND \* \(1 \+ champPassive\("xp"\) \/ 100\);/.test(CODE) &&
   /w\.jx\[w\.j\] = Math\.min\(\(w\.jx\[w\.j\] \|\| 0\) \+ dt \* xpRate, XP_CAP\);/.test(CODE) &&
   /w\.xp = \(w\.xp \|\| 0\) \+ dt \* xpRate;/.test(CODE), `XP_PER_SECOND ${xp.rate}`);
