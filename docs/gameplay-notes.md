@@ -385,3 +385,45 @@ numbered artefact and that artefact is archived intact.
 - ~~**"Masquerade should unlock Harvest Rites, songcraft should not."**~~ — **note 8.** Songcraft
   is the tech that makes culture a resource; gating the festival on it put the first culture SINK
   on the rung that opens the faucet. Cost untouched, gate moved.
+
+## v0.60 — Jerry's five round notes, all actioned or held as instructed
+
+Four of the five are instructions about HOW the round should be run rather than what the game
+should do; they are recorded here because two of them are holds, and a hold that is not written
+down gets quietly re-proposed by the next spec.
+
+- ~~**"Start with Part 1... until a suite that throws is a suite that fails, every measurement
+  this round produces is being graded by an instrument that reports health when it crashes."**~~
+  — **note 1, and it was the right ordering for a reason the note did not predict.** The guard
+  shipped first and then **caught a real regression later in the same round**: Part 5 deleted
+  `AUTOMATION_TRIGGER`, `test-v591` referenced it and died, and the missing `SUITE-END` trailer is
+  what surfaced it. It also surfaced six assertions that had been passing on stale numbers. The
+  balance check shipped as a **lower bound rather than the equality the spec asked for** — seven
+  suites call `check()` in loops and legitimately execute more assertions than they have call
+  sites; the deviation and its residual gap are stated at the top of `tools/run-suites.mjs`.
+- ~~**"Then Part 2 before anything crystal-related... fixing the loop to pick the job furthest
+  below its share makes ordering stop mattering permanently."**~~ — **note 2, and it is worth
+  more than the tinkerer exactly as the note said.** The bot's `want` list was an ordered
+  first-match with an early `return` and shares summing to 1.06 of a population of 1.00, so the
+  last entry was unreachable **by construction**. Two rounds had read that artefact as a fact
+  about the economy. The loop now normalises to an 0.85 budget and assigns the largest deficit.
+  **The tinkerer exists for the first time in the project's history** — 1 / 3 / 5 / 6 across the
+  run — and it was never a pricing problem.
+- ~~**"Hold the line on Part 3... the arithmetic genuinely doesn't close. A third ×6 on
+  `MANUFACTORY_FUEL` without that answer will fail the same way."**~~ — **note 3, HELD, and the
+  decomposition settled it in the note's favour on the second of its two hypotheses.** 42
+  Refineries × 0.02 = 0.84/s base delivers **77.33/s**: a ×92.1 stack, global bonuses ×4.66,
+  **converter side ×19.77 against Kittens' ×3.70.** No unenumerated faucet — a multiplier is
+  ×5.3 the source. **`MANUFACTORY_FUEL` stays at 0.12.** Also: **the 559/s two rounds argued over
+  was never a Refinery figure** — that run had built 8–10 Augment Chambers and this one builds
+  zero.
+- ~~**"Change the EXP ratio to match kittens. We want the top rank to be reached in about 50-75
+  hours."**~~ — **note 4, both halves, and it supersedes Jerry's own v0.58.1 note 11.** The rate
+  is the source's: `js/village.js:3228` @ `c52985b` banks 0.01/tick and Kittens ticks 5/s, so
+  **`XP_PER_SECOND` 0.50 → 0.05.** At that rate note 11's 18,200 top rung is 101.1 hours, outside
+  the band; **11,500 is 63.9 hours, its centre**, so the top two rungs revert to 7,500 / 11,500 —
+  Grandmaster for monotonicity, not symmetry. **There is no figure that satisfies both notes.**
+  **This is a large pacing move and it landed as one: Era 3's median went 785.9 → 1,172.5**,
+  because every wanderer skill bonus now accrues ten times slower for the whole run. If that is
+  too slow, **the lever is the thresholds, not the rate** — the rate now has a line number.
+- ~~**"Hold the line on Mana."**~~ — **note 5, HELD.** No mana constant moved this round.

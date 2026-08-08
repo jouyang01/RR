@@ -228,6 +228,12 @@ rounds, measured on thresholds with the rate unknown — and its own row said *"
 debt at an unverified rate is one unknown multiplied by another."* **It is 28%, and the rate row
 is now PARITY for the first time.**
 
+**But 28% is the TOP RUNG only, and my first draft of this row got the rest of the ladder wrong.**
+The two ladders do not match rung-for-rung below the top and cannot — RR has nine rungs, Kittens
+seven. Matched by bonus, RR is **harsher at every Kittens rung except +12.5%, where it is easier**,
+and the early ladder is far harsher than 28%. The error, how it was caught and the corrected table
+are in **§10.1**.
+
 ---
 
 ## 5. Part 5 — `factoryAutomation`, and RR was wrong on all three of its numbers
@@ -335,15 +341,136 @@ Two of them matter beyond their own row:
 
 ---
 
-## 8. Pacing — the full-rigour gate
+## 8. The round's pass conditions, scored
 
-*(three seeds, 2,500 game-years)*
+**14 of 15 pass, one is a partial and it is stated as one.** The failing pacing condition is
+separate and is in §8.1 below.
+
+| # | Condition | Verdict | Evidence |
+|---|---|---|---|
+| 1 | `test-v38`, `test-v45` run to completion | **PASS** | 33 and 57 assertions execute. The spec predicted 27 and 59; the counts differ because `check()` in a loop over-runs its call sites (`test-v38`: 27 sites, 33 executed) and because `test-v45`'s `kindling` block was re-pointed rather than deleted. |
+| 2 | `SUITE-END` on every suite | **PASS — with a stated deviation** | All 31 print a trailer. **The balance test shipped as `passed + failed ≥ asserted`, a LOWER BOUND, not the equality the spec asked for**: seven suites call `check()` inside loops and legitimately execute more assertions than they have call sites. Equality would fail seven healthy suites. Reasoning and the residual gap are at the head of `tools/run-suites.mjs`; see §1.2. |
+| 3 | Non-zero exit fails the round, demonstrated | **PASS** | `--selftest` runs `tests/_selftest-throws.mjs`, which dies formatting a message with an undefined identifier — the exact shape of the two real aborts. Verdict **CAUGHT**. |
+| 4 | Σ job shares ≤ 1.0 in both branches | **PASS** | Normalised to `JOB_SHARE_BUDGET = 0.85` when the raw sum exceeds it; asserted from the arrays. |
+| 5 | Tinkerers > 0 on all three seeds | **PASS** | **1 at Sparks, 3 at Hexcore, 5 at Icathia, 6 at the end — the first tinkerer in the project's history.** |
+| 6 | Crystal decomposition printed; 559/s attributed to 100% | **PARTIAL — and the shortfall is the finding** | The decomposition ships and prints at all four milestones, every term with its share of gross, summing to 100%. **But 559/s could not be attributed because it does not exist in this build**: v0.59.1's run had 8–10 Augment Chambers, this one builds zero. Crystal income is **77.33/s**. The stack is decomposed in full (§2); the specific number the spec named was an artefact of a different bot. |
+| 7 | `MANUFACTORY_FUEL` unchanged until 6 is in the report | **PASS** | **Unchanged at 0.12.** The decomposition is in §2 and it argues against the third raise, not for it. |
+| 8 | Era 3 variance: four slices, seed-matched, table, prediction scored | **PASS** | §9. Twelve runs, three seeds each, same seeds. **C and D are unscoreable on Era 3 and that is itself reported as a methodological finding**, not hidden in a blank cell. |
+| 9 | `factoryAutomation`: one constant, 0.90 cap, table asserted | **PASS** | `AUTOMATION_BASE = 0.02` drives trigger and share; `Math.min(base × (n+1), 0.90)`; cap asserted at 44+ copies. **RR was wrong on all three of its numbers** (§5). |
+| 10 | Mana census: three rows, citation corrected, no magnitude moved | **PASS** | §6. Three ledger rows with the five-category census cited; **no mana magnitude moved**, per Jerry's note 5. |
+| 11 | `XP_PER_SECOND`: citation, ladder re-rated by the product, ×4.95 stated | **PASS** | `js/village.js:3228` @ `c52985b`. Re-rated by the product. **The ×4.95 the spec expected does not survive Jerry's note 4** — that figure was the product at note 11's 18,200 threshold; with the ladder back at 11,500 the product is **×1.28 HARDER**, and the spec's premise is stated and superseded rather than quietly dropped (§4.3). |
+| 12 | `XP_CAP`: staleness recorded, 40,446 named, not changed without Jerry | **PASS** | Recorded and named. **Not changed — and it did not need to be**: with the top rank back at 11,500 the shipped constant is literally `Math.floor(11500 * 20001 / 9000)` and the source ratio is restored by construction (§4.2). |
+| 13 | Ledger triage: every UNVERIFIED row classed, RETRIEVABLE set retrieved, split reported | **PASS** | **RETRIEVABLE 35** (the spec predicted 35 — exact), **RR-ORIGINAL 85** (predicted 60), **GENUINELY OPEN 0** (predicted 25). 13 building rows retrieved; the generator now **aborts** on a genuinely-open row with no recorded retrieval attempt. |
+| 14 | The unchanged set | **PASS** | `capFamilyOf()` two families · audits 0/0 · Σ 4.35/1.80 · `CONSUMPTION` 4.25 · ratio 1.17647. |
+| 15 | Every Part actioned or its non-action justified | **PASS** | Parts 1–8 all actioned. The two deliberate non-actions — `MANUFACTORY_FUEL` and `XP_CAP` — are argued in §2 and §4.2. |
+
+---
+
+## 8.1 Pacing — the full-rigour gate
+
+**Three seeds, 2,500 game-years, concurrent. 2,641.7 s wall (44.0 min). 9 of 10 pass conditions.**
+
+| figure | v0.59.1 | **v0.60** | spread | per-seed |
+|---|---|---|---|---|
+| Era 3 | 785.9 | **1,172.5** | ×1.92 | 1172.5 / 1284.7 / 669.6 |
+| Icathia | 993.9 | 1,348.9 | ×1.77 | 3 of 3 seeds |
+| Sparks | 208.0 | 176.4 | ×1.23 | 176.4 / 216.5 / 176.4 |
+| First champion | 104.6 | 106.1 | ×1.46 | 84.8 / 106.1 / **124.0** |
+| Tenth champion | 991.7 | 1,343.8 | ×1.76 | 3 of 3 seeds |
+| Peak population | 209 | 184 | — | 170 / 184 / 213 |
+| Morale in the 90–140 band | 100% | 97% | — | 97 / 97 / 96 |
+| **Tinkerers at Icathia** | **0** | **5** | — | first in project history |
+| Crystals at cap | 95.9% | 96.2% | — | — |
+
+### 8.2 The XP ruling is a large pacing change, and it landed as one
+
+**Era 3's median went 785.9 → 1,172.5, +386.6 game-years.** The spec warned this would happen —
+*"a ×10 cut to XP is a large pacing change... v0.55 already moved this constant twice and one move
+cost −193.6 game-years of Era 3"* — and it is the dominant effect in this table. Wanderer skill
+bonuses now accrue at a tenth of their previous rate, so **every job's output ramps far more slowly
+for the entire run**, which lengthens everything downstream of population.
+
+**That is the ruling working as specified, not a regression.** Jerry asked for the source's rate
+and a 50–75 hour top rank; both shipped, and this is what they cost. **The lever if it is too slow
+is the ladder's thresholds, not the rate** — the rate now has a line number and the thresholds do
+not.
+
+### 8.3 The one failing pacing condition
+
+**`First champion before year 120` FAILS at its `[max]` shape: seed 3 reads 124.** Seeds 1 and 2
+read 84.8 and 106.1; the median, 106.1, is comfortably inside. This condition failed at v0.59
+(142), passed at v0.59.1 (105.6), and fails again here by four years. **It is a ceiling condition
+by construction and one seed missing by 3% is what a ceiling condition is for.** Reported, not
+re-based — and see §9, which now has direct evidence about where that variance comes from.
 
 ---
 
 ## 9. Part 4 — the Era-3 variance decomposition
 
-*(four seed-matched slices)*
+**Four slices, three seeds each, the same three seeds throughout, 1,400 game-years.**
+
+**Slice A reproduces v0.59.1's ×1.58 exactly** — 785.9 / 582.8 / 920.5, the identical Era 3
+figures the 2,500-year ensemble produced last round. **The method is sound and 1,400 years is
+sufficient length for the baseline.**
+
+### 9.1 What could not be scored on Era 3, and why it is itself a finding
+
+| slice | intervention | Era 3 per seed | spread |
+|---|---|---|---|
+| **A** | v0.59.1 as shipped | 785.9 / 582.8 / 920.5 | **×1.58** |
+| **B** | `MANUFACTORY_FUEL = 0` | 784.3 / 393.6 / 597.2 | **×1.99** |
+| **C** | champion roster fixed at y400 | 721.5 / — / — | **not scoreable** |
+| **D** | both | 774.4 / 525.8 / — | **not scoreable** |
+
+**C and D cannot be scored on Era 3 because the intervention moved the milestone the experiment
+measures.** Withholding champions until y400 pushes **Sparks from ~200 to ~490**, and Icathia
+past the 1,400-year horizon on two of three seeds for C and one of three for D.
+
+**That is a methodological result worth more than the number it cost.** "Force a fixed roster at a
+fixed year" is not "remove the renown-variance channel" — it is "remove champions from the first
+four hundred years", which is a large pacing intervention in its own right. **A variance
+decomposition whose control arm changes the mean cannot isolate anything.** A future attempt should
+hold the roster fixed *at the year each seed would have reached it anyway*, or seed the roster from
+the baseline run's own timeline.
+
+### 9.2 What CAN be scored, and it is decisive
+
+**Every one of the twelve runs reached Sparks**, so Sparks is a complete, seed-matched,
+four-way comparison — and it is upstream of Era 3, which is where the champion channel acts.
+
+| slice | Sparks per seed | spread | share of A's excess spread removed |
+|---|---|---|---|
+| **A** | 208.0 / 215.6 / 188.0 | ×1.147 | — |
+| **B** | 208.0 / 215.6 / 188.0 | **×1.147** | **+0.0%** |
+| **C** | 489.9 / 486.5 / 515.4 | **×1.059** | **+59.5%** |
+| **D** | 489.9 / 486.5 / 515.4 | ×1.059 | +59.5% |
+
+**B is BIT-IDENTICAL to A.** Not "barely moved" — identical to the tenth of a year on all three
+seeds. **The Manufactory's fuel contributes exactly zero variance**, which it must, because it is
+a smooth per-tick subtraction and smooth terms cannot widen a spread.
+
+**And D is identical to C**, so the two channels do not interact: B contributes nothing on top of
+C either.
+
+### 9.3 The prediction, scored
+
+> *"Mine: C dominates... Predicted: B ≈ ×1.50 (barely moved), C ≈ ×1.15, D ≈ ×1.10. If B moves
+> more than C, my model of this is wrong and the report should say so plainly."*
+
+**The direction is right and the mechanism is confirmed. C dominates — 59.5% against B's 0.0%,
+which is as clean a separation as this experiment could produce.** The analyzer's reasoning was
+that a threshold crossing on a bursty resource feeding a production multiplier is the classic
+variance amplifier, and that smooth terms do not widen spreads; **both halves hold.**
+
+**One prediction is wrong and in an interesting direction: B's Era 3 spread went the OTHER WAY,
+×1.58 → ×1.99.** Removing the crystal drag *widened* Era 3. The drag is smooth, so it cannot add
+variance — but it can *cap* it, and it caps the fastest seeds hardest, because they build the most
+Manufactories. **Removing a smooth brake lets the fast seeds run away.** That is a real and
+non-obvious property and it is the opposite of what "the drag is irrelevant" would predict.
+
+**The residual is not measured.** With C unscoreable on Era 3, D's residual — the spread surviving
+both interventions — has no figure, so **the spec's "if the residual exceeds ×1.20 a third cause
+exists" cannot be evaluated and is left open rather than absorbed.**
 
 ---
 
@@ -357,6 +484,44 @@ Two of them matter beyond their own row:
 | `test-v591` | §3 — the repo root has no spec to consume | **Part 0**, same class. Re-pointed onto the two archived artefacts, which is what OFF-CYCLE-PROTOCOL §3 actually requires. |
 | `test-v581` | `AUTOMATION_TRIGGER` / `AUTOMATION_SHARE` exist as separate constants | **Part 5** — one `AUTOMATION_BASE` drives both, as in the source. |
 | `test-v591` | the RR-original share is labelled UNVERIFIED | **Part 5** — retrieved and rated PARITY. |
+| `test-v55` | 16 — the rate is a named constant `= 0.5` | **Part 7** — retrieved: `js/village.js:3228` @ `c52985b`. **Fourth re-point of this line and every move has been downward**; the rate now has a line number, so it should be the last. The guarded property — one named constant, both banks fed from one expression — never changed. |
+| `test-v56` | 6 — `XP_PER_SECOND` is 0.5 per Jerry's directive 3 | **Part 7**. Directive 3's property was *slower than v0.55's 2 and v0.54's 1*; 0.05 satisfies it by a wider margin. Re-pointed to the **ordering the directive stated**, plus the retrieved literal, so a future reprice fails only if it breaks the directive. |
+| `test-v56` | 14 — the two retrieved facts are PARITY, **the XP rate is not** | **Part 7**. The point was that each row is labelled to the state of **its own** retrieval, not that this one stay unverified forever. Now asserts all three PARITY *and* that the changed row carries the citation that changed it. |
+| `test-v58` | note 11 — the rate is honestly labelled UNVERIFIED, with the failed routes recorded | **Part 7** (and **Jerry's note 4 supersedes his own note 11**). Re-pointed to the property that actually mattered: **the five dead retrieval routes stay on the record** — the v0.58 comment block is kept in `index.html` with a `CLOSED AT v0.60 PART 7` marker rather than tidied away, because every one of those routes was a way of reading the repo *without cloning it*. |
+| `test-v59` | 11 — the ladder rung by rung, pinning 10,200 / 18,200 and a **102% debt** | **Part 7** — note 4 moved the top two rungs; the debt re-rated to 28%. Kittens' seven rungs and bonuses stay pinned (they are the source's and do not move); RR's two are re-pointed. |
+| `test-v59` | 11 — …the interaction with the **still-UNVERIFIED** rate is stated | **Part 7**. The retrieval does not retire this property, it **discharges** it: the row must still state both factors, and can now state the product. |
+
+**Two of these six were not stale — they were load-bearing.** `test-v59`'s rung-by-rung assertion
+failed against the *rewritten* ledger row and that is how the error in §4.3 below was caught. See
+§10.1.
+
+### 10.1 The correction `test-v59` caught, recorded rather than quietly repaired
+
+The first draft of the re-rated ladder row stated that the two ladders match rung-for-rung below
+the top — `100 → 100`, `500 → 500`, and so on. **That cannot be true and I should not have
+written it: RR's ladder has NINE rungs and Kittens' has SEVEN.** There is no rung-for-rung
+threshold mapping to state. The old suite failed on it, which is the second time in this round
+that a **superseded assertion caught a new mistake**, and it is the whole argument for rule 10.
+
+The comparison with meaning is **by bonus**, because the bonus is what the player receives and
+the threshold is only its price. Matched that way — the RR threshold at which a wanderer first
+reaches at least each Kittens bonus:
+
+| Kittens bonus | Kittens | RR | ratio | RR hours | Kittens hours |
+|---|---|---|---|---|---|
+| +1.25% | 100 | 350 | **×3.50** | 1.9 | 0.6 |
+| +2.5% | 500 | 800 | ×1.60 | 4.4 | 2.8 |
+| +4.5% | 1,200 | 1,600 | ×1.33 | 8.9 | 6.7 |
+| +7.5% | 2,500 | 2,900 | ×1.16 | 16.1 | 13.9 |
+| +12.5% | 5,000 | 4,800 | **×0.96 — EASIER** | 26.7 | 27.8 |
+| +18.75% | 9,000 | 11,500 | ×1.28 | **63.9** | **50.0** |
+
+**The debt narrows monotonically up the ladder, crosses to RR's favour at +12.5%, and re-opens
+only at the top rung.** The headline **28% is the top-rung figure** — which is the right headline,
+because that is the rung Jerry's note 4 sets a target for — **but the early ladder is materially
+harsher than 28% and the ledger now says so.** What the old 102% got wrong was not only the
+arithmetic; it was the shape. Five assertions in `test-v60` pin the corrected shape, computed
+from `RANKS` rather than from prose.
 
 ---
 
@@ -370,7 +535,7 @@ Two of them matter beyond their own row:
 | `tools/run-suites.mjs` | **new** — the runner that fails on a dying suite |
 | `tests/_suite-end.mjs`, `tests/_selftest-throws.mjs` | **new** — the trailer and its demonstration |
 | `tools/parity-ledger.mjs` | Parts 6, 7, 8 — the census, the re-ratings, the triage classifier and its abort guard |
-| `tests/test-v60.mjs` | **new**, 50 assertions |
+| `tests/test-v60.mjs` | **new**, 55 assertions (50 for the spec parts, 5 pinning the §10.1 correction) |
 | `tests/test-v38/45/59/581/591` | re-pointed, §10 above |
 | `snapshots/v60/A,B,C,D` | Part 4's seed-matched slices |
 | `docs/specs/rr-analyzer-v060-spec.md` | the consumed spec, archived |
