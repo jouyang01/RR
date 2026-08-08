@@ -23,6 +23,7 @@ const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, "").split("\n")
 const CODE = strip(RAW);
 const LEDGER = readFileSync(new URL("../docs/PARITY-LEDGER.md", import.meta.url), "utf8");
 const RULINGS = readFileSync(new URL("../STANDING-RULINGS.md", import.meta.url), "utf8");
+const OFFCYCLE = readFileSync(new URL("../OFF-CYCLE-PROTOCOL.md", import.meta.url), "utf8");
 
 // ============================================================================
 // NOTE 1 — the mana Discovery affects ALL mana production
@@ -260,7 +261,11 @@ const fac = await page.evaluate(() => {
              lines: S.log.length };
   };
   o.at50 = run(0.50); o.at94 = run(0.94); o.atCeiling = run(1.00);
-  o.trigger = AUTOMATION_TRIGGER; o.share = AUTOMATION_SHARE;
+  // RE-POINTED v0.60 Part 5: the two independent literals are gone — ONE `AUTOMATION_BASE`
+  // drives both the trigger and the share, as it does in the source. Note that this suite
+  // DIED here rather than failing, and the v0.60 runner caught it: the trailer guard shipped
+  // this round and earned itself in the same round.
+  o.trigger = automationTrigger(); o.share = automationShare(5); o.base = AUTOMATION_BASE;
   o.noFlatGrant = true;
   return o;
 });
@@ -273,30 +278,46 @@ check("7.1 — ...and it BURNS accordingly: 0.12/s per copy, six times what it w
 check("7 — all three Manufactory discoveries are dearer, and dearer IN CRYSTALS",
   fac.discoveries.pressureRegulators === 600 && fac.discoveries.rollingPress === 450 &&
   fac.discoveries.automatedWorkshop === 900, JSON.stringify(fac.discoveries));
-check("7.2 — automation does NOTHING below the 95% trigger, at 50% or at 94%",
+// RE-POINTED v0.60 Part 5 — the trigger is the SOURCE's 98%, not RR's invented 0.95, so a
+// stockpile at 94% is now correctly below it and one at 50% still is. The property v0.59.1
+// wrote this for — automation does NOTHING below its trigger — is unchanged and is what
+// makes the mechanism a spill-guard rather than a faucet.
+check("7.2 — automation does NOTHING below the trigger, at 50% or at 94%",
   fac.at50.beams === 0 && fac.at50.slabs === 0 && fac.at94.beams === 0 && fac.at94.slabs === 0 &&
-  fac.trigger === 0.95,
-  `50%: ${JSON.stringify(fac.at50)}  94%: ${JSON.stringify(fac.at94)}`);
+  Math.abs(fac.trigger - 0.98) < 1e-9 && fac.base === 0.02,
+  `trigger ${fac.trigger}; 50%: ${JSON.stringify(fac.at50)}  94%: ${JSON.stringify(fac.at94)}`);
 check("7.2 — AT the ceiling it converts the overflow into beams and slabs",
   fac.atCeiling.beams > 0 && fac.atCeiling.slabs > 0, JSON.stringify(fac.atCeiling));
 check("7.2 — ...and it PAYS for them: this is a spill-guard, not a faucet",
   fac.atCeiling.timberSpent > 0 && fac.atCeiling.oreSpent > 0,
   `spent ${fac.atCeiling.timberSpent} timber and ${fac.atCeiling.oreSpent} ore`);
 check("7.2 — the v0.58.1 yearly FLAT GRANT of four goods out of nothing is gone",
-  !/MANUFACTORY_AUTOCRAFT/.test(CODE) && /AUTOMATION_TRIGGER/.test(CODE) &&
+  !/MANUFACTORY_AUTOCRAFT/.test(CODE) && /AUTOMATION_BASE/.test(CODE) &&
   /AUTOMATION_PAIRS/.test(CODE));
 check("7.2 — a whole year of automation writes ONE chronicle line",
   fac.atCeiling.lines === 1, `${fac.atCeiling.lines} lines`);
-check("7.2 — the RR-ORIGINAL share is labelled UNVERIFIED, not dressed up as parity",
-  /AUTOMATION_SHARE/.test(RAW) && /RR-ORIGINAL magnitude/.test(RAW) &&
-  /Workshop Automation/.test(LEDGER) && /UNVERIFIED/.test(LEDGER));
+// RE-POINTED v0.60 Part 5. v0.59.1 shipped the share as an RR-ORIGINAL magnitude and said so
+// honestly; the clone retrieved the real figure and the row is PARITY now. The property worth
+// keeping is that the row is RATED AGAINST A CITATION rather than left as an assertion.
+check("7.2 — the share is now RETRIEVED and the row cites the Steamworks",
+  /AUTOMATION_BASE/.test(RAW) && /js\/buildings\.js:1309/.test(LEDGER) &&
+  /factoryAutomation/.test(LEDGER));
 
 // ============================================================================
 // THE ROUND ITSELF — off-cycle bookkeeping (OFF-CYCLE-PROTOCOL §1 and §4)
 // ============================================================================
 const version = await page.evaluate(() => VERSION);
-check("§1 — this is an OFF-CYCLE round, so it takes a POINT release off v0.59",
-  /^v0\.\d\d\.\d+$/.test(version) && version === "v0.59.1", version);
+// RE-POINTED v0.60 — the EIGHTH assertion of the version-pinned class, and the last one left.
+// This asserted the RUNNING build is v0.59.1; it is true of that round forever and false of the
+// build from the next round onward. **A suite cannot assert which round the build is in.** What
+// OFF-CYCLE-PROTOCOL §1 rules is a property of the NUMBERING SCHEME — point releases for
+// off-cycle rounds, integers reserved for spec rounds — plus a fact about THIS round that does
+// not change: v0.59.1 was off-cycle, and its artefact is archived as dev notes, not as a spec.
+check("§1 — the numbering scheme holds, and v0.59.1's own artefact is dev notes (an off-cycle round)",
+  /^v0\.\d\d(\.\d+)?$/.test(version) &&
+  /point release/i.test(OFFCYCLE) && /integer/i.test(OFFCYCLE) &&
+  (() => { try { readFileSync(new URL("../docs/specs/rr-devnotes-v0.59.1.md", import.meta.url)); return true; }
+           catch (e) { return false; } })(), version);
 check("§1 — ...and the footer is rendered from the constant",
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1));
 check("§2 — the notes artefact is CONSUMED: moved to docs/specs/, gone from the repo root", (() => {
@@ -325,7 +346,10 @@ check("§3 — every one of the eight notes has its ledger row",
   /v0\.59\.1 NOTE 4\.3/.test(LEDGER) &&      // 4 — all three sub-notes
   /v0\.59\.1 NOTE 5/.test(LEDGER) &&          // 5 — the bulk chronicle
   /v0\.59\.1 NOTE 6/.test(LEDGER) &&          // 6 — True Ice Cellars
-  /v0\.59\.1 NOTE 7/.test(LEDGER) && /v0\.59\.1 NOTE 7\.2/.test(LEDGER) &&
+  // v0.60 Part 5 REBUILT note 7.2's mechanism from source and rewrote its row, so the row no
+  // longer carries the v0.59.1 tag — it carries the retrieval citation instead, which is
+  // strictly better provenance. Matched on the mechanism rather than on the note number.
+  /v0\.59\.1 NOTE 7\b/.test(LEDGER) && /factoryAutomation/.test(LEDGER) &&
   /v0\.59\.1 NOTE 8/.test(LEDGER),            // 8 — Harvest Rites
   "all eight notes present in docs/PARITY-LEDGER.md");
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));

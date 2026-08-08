@@ -180,13 +180,26 @@ check("14 — bulk trading exists with the same x/y/all shape, looping the real 
 // ============================================================================
 // NOTE 11 — the top two rungs of the wanderer ladder double
 // ============================================================================
-const ranks = await page.evaluate(() => RANKS.map(r => [r.id, r.xp]));
-check("11 — Master → Grandmaster doubles: the gap 2,700 → 5,400, so GM is 10,200",
-  ranks[7][1] === 10200 && ranks[7][1] - ranks[6][1] === 5400, JSON.stringify(ranks[7]));
-check("11.1 — Grandmaster → Challenger doubles: the gap 4,000 → 8,000, so C is 18,200",
-  ranks[8][1] === 18200 && ranks[8][1] - ranks[7][1] === 8000, JSON.stringify(ranks[8]));
+const ranks = await page.evaluate(() => ({
+  all: RANKS.map(r => [r.id, r.xp]),
+  gm: RANKS.find(r => r.id === "grandmaster") && ["grandmaster", RANKS.find(r => r.id === "grandmaster").xp],
+  challenger: RANKS.find(r => r.id === "challenger") && ["challenger", RANKS.find(r => r.id === "challenger").xp],
+  gaps: RANKS.map((r, i) => i ? r.xp - RANKS[i - 1].xp : 0)
+}));
+// RE-POINTED v0.60, superseded by JERRY'S NOTE 4: "Change the EXP ratio to match kittens. We
+// want the top rank to be reached in about 50-75 hours." Note 11 doubled these two gaps to reach
+// 18,200; at the source's newly-retrieved 0.05 XP/s that is 101.1 real hours, outside the band.
+// 11,500 gives 63.9 — the band's centre — and Grandmaster reverts with it so the gaps stay
+// monotonic (a 5,400 gap before a 1,300 gap would be the hardest rung followed by the easiest).
+// THERE IS NO FIGURE THAT SATISFIES BOTH NOTES: holding 18,200 in the band needs ~0.084 XP/s,
+// which is not Kittens' rate. Note 11's PROPERTY — that the top of the ladder is where RR
+// diverges and the early rungs are untouched — survives and is what is asserted now.
+check("11/note 4 — the top two rungs revert to 7,500 / 11,500, and the gaps stay monotonic",
+  ranks.gm[1] === 7500 && ranks.challenger[1] === 11500 &&
+  ranks.gaps.every((g, i) => i < 2 || g >= ranks.gaps[i - 1]),
+  `GM ${ranks.gm[1]}, Challenger ${ranks.challenger[1]}, gaps ${JSON.stringify(ranks.gaps)}`);
 check("11 — ...and nothing below Master moved",
-  JSON.stringify(ranks.slice(0, 7).map(r => r[1])) === JSON.stringify([0, 100, 350, 800, 1600, 2900, 4800]));
+  JSON.stringify(ranks.all.slice(0, 7).map(r => r[1])) === JSON.stringify([0, 100, 350, 800, 1600, 2900, 4800]));
 
 // ============================================================================
 // NOTES 13, 18 — the Targon gates
@@ -594,7 +607,7 @@ const fac = await page.evaluate(() => {
   manufactoryYear();
   o.autocraft = ["beam", "stoneSlab"].map((r, i) => (S.res[r] || 0) - before[i]);
   o.autoSpent = [rawBefore[0] - S.res.timber, rawBefore[1] - S.res.ore];
-  o.autoTrigger = AUTOMATION_TRIGGER;
+  o.autoTrigger = automationTrigger();   // v0.60 Part 5: derived from AUTOMATION_BASE now
   S.res.crystals = 0; o.unfuelled = +(computeRates().parchment || 0).toFixed(4);
   S.buildings = {}; S.upgrades = {}; S.techs = {};
   return o;
@@ -614,9 +627,10 @@ check("48.2B — the Rolling Press prints 0.005 parchment/s per copy, Jerry's fi
 // v0.59.1 note 7.2 replaces it with Kittens' Workshop Automation: at 95% of a raw resource's
 // ceiling the overflow is converted into the crafted tier AT THE ORDINARY PRICE. It can only
 // ever act on units that were about to be thrown away, so it is a spill-guard, not a faucet.
-check("48.2C/7.2 — automation does NOTHING below the 95% trigger",
-  JSON.stringify(fac.autoIdle) === JSON.stringify([0, 0]) && fac.autoTrigger === 0.95,
-  JSON.stringify(fac.autoIdle));
+// RE-POINTED v0.60 Part 5 — the trigger is the source's 98%, derived from AUTOMATION_BASE.
+check("48.2C/7.2 — automation does NOTHING below the trigger",
+  JSON.stringify(fac.autoIdle) === JSON.stringify([0, 0]) && Math.abs(fac.autoTrigger - 0.98) < 1e-9,
+  `trigger ${fac.autoTrigger}, made ${JSON.stringify(fac.autoIdle)}`);
 check("48.2C/7.2 — ...and AT the ceiling it converts the overflow AND PAYS for it",
   fac.autocraft[0] > 0 && fac.autocraft[1] > 0 &&
   fac.autoSpent[0] > 0 && fac.autoSpent[1] > 0,
