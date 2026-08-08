@@ -25,13 +25,16 @@ table wins.
 | Previous spec-produced build | **v0.59**, tagged `v0.59` — the Granary/renown/Scholarship round |
 | Last consumed spec | `docs/specs/rr-analyzer-v059-spec.md` (consumed by v0.59) |
 | Last consumed dev notes | `docs/specs/rr-devnotes-v0.59.1.md` (consumed by v0.59.1) |
-| Current spec, awaiting a builder | **NONE.** The repo root has no `current-build-spec.md`. The next analyzer round writes one — and should read `docs/BUILD-REPORT-v0.59.1.md` first, because v0.59.1 moved numbers the v0.59 ensemble measured. |
-| Live suites | **30 suites** — `tests/test-v591.mjs` is new (43 assertions, one block per note) |
+| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.60, "the rate half of the rank ladder, found; two suites that die without failing; and a job the bot cannot reach".** Written against the `v0.59.1` tag. |
+| Live suites | **30 suites, 1,573 assertions passed, 0 failed — BUT `test-v38` and `test-v45` ABORT BY EXCEPTION**, at assertion 21 of 27 and 43 of 59. **22 authored assertions never execute and no failure is reported.** v0.60 Part 1. |
 | Parity ledger | **226 rows — PARITY 63, EASIER 41, HARDER 2, UNVERIFIED 120.** Down one row (`kindling` deleted, note 3); PARITY −1 / EASIER +1 because `leylineCalibration` was re-rated when note 1 changed its scope. |
 | Cap families | **TWO, not three.** `SCHOLAR_CAPS` was deleted at v0.59 Part 5.3. `capFamilyOf()` returns `exempt` / `masonry` / null. Do not re-add a third. |
-| Era 3 | **THE 1,400-2,300 BAND IS RETIRED** (v0.59 Part 3, Jerry's ruling "907 is okay"), recorded in `pacing.mjs` with its reasoning. Reported, not scored. **Do not re-base it to whatever the next run measures.** v0.59 measured **797.5, spread ×1.32** — and the SPREAD is the open question, not the median: it was ×1.02 one round earlier and nothing touched Era-3 content. See HANDOFF v0.59 §4. |
+| Era 3 | **THE 1,400-2,300 BAND IS RETIRED** (v0.59 Part 3, Jerry's ruling "907 is okay"). Reported, not scored. **Do not re-base it.** v0.59.1 measured **785.9, spread ×1.58** — ×1.02 → ×1.32 → ×1.58 across three rounds, none of which touched Era-3 content. **THE SPREAD IS THE PROJECT'S LARGEST OPEN MEASUREMENT QUESTION**; v0.60 Part 4 decomposes it in four seed-matched slices. **The v0.60 analyzer's own ensemble did not finish — its Era-3 figures are v0.59.1's.** |
 | Convergence | Measured at its own **UNLOCK** since v0.59 Part 4, not at Sparks. v0.59: **8.83% median** against a 1% sourced floor, with 17,459 worship banked at Sparks. |
 | §30 | **A deleted id is never reused while its migration exists, and a migration must name the version that retires it.** Written at v0.59, first applied at v0.59.1 (`kindling`). Reserved ids: `granary`-era `runestone`, `hunterLodge`, `lumberCamp`, `petricite`, `tavern`, `bloomery`, `refinedMetallurgy`, **`kindling`**. |
+| **Kittens retrieval** | **CLONE THE SOURCE.** `github.com/nuclear-unicorn/kittensgame`, pinned at **`c52985b`** (2026-08-04). Three lookups multiple rounds recorded as dead — `XP_PER_SECOND`, `factoryAutomation`, the production-category census — fell to single greps against a clone. **grep.app silently drops its repo filter; raw fetches get summarised away. Do not use them.** Pin the revision in every citation: line numbers drift. |
+| **`XP_PER_SECOND` — CLOSED** | `js/village.js:3228`, `baseSkillXP = 0.01`/tick = **0.05/s** at 5 ticks/s. RR's 0.5 is **×10 the source**. With the 18,200 threshold (×2.02 harder), **time-to-top-rank makes RR ×4.95 EASIER** — the ledger's headline HARDER row is backwards and v0.60 Part 7 re-rates it by the product. `XP_CAP 25,556` is stale against an 18,200 top rank; the ratio-preserving figure is **40,446**. |
+| **The bot's job list** | `sim/simcore.mjs` `want` is an ordered list, one assignment per call, early `return`. **Shares ahead of `tinkerer` sum to 1.06 of a population of 1.00, and no job defines `max()` — the last entry is unreachable by construction.** The v0.59.1 report's "there is no tinkerer policy" is wrong; the policy is at `:760`. **Any job appended to the end of that list is dead code.** |
 | Machine note | **This container has `nproc` = 2.** A three-seed 2,500-year ensemble needs the box to itself (~68 min wall). Check `nproc` before planning concurrency. **Background jobs die when a turn is interrupted — launch long runs with `setsid`.** |
 
 **The cycle table was six rounds stale before v0.58.1 and is corrected here.** It had been
@@ -100,6 +103,168 @@ save/load only). RR's is `w.jx[w.j] += dt` — **1 xp per second worked, Challen
 hours of single-job work**. The rank *thresholds* are already close to source in shape and
 exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
 interim labelled UNVERIFIED — do not invent a citation.
+
+## v0.60 — the analyzer's verification pass
+
+**Verified from a fresh checkout at the `v0.59.1` tag, from disk.**
+
+**Reproduces.** Thirty suites: **1,573 assertions passed, 0 failed.** Parity ledger exact —
+**226 rows: PARITY 63, EASIER 41, HARDER 2, UNVERIFIED 120.** `VERSION v0.59.1`.
+
+**Every v0.59 spec part shipped, checked by grep.** The Scholarship cap family is gone
+(`SCHOLAR_CAPS`, `SCHOLAR_LINE`, `scholarMult`, `scholarCapNames` all zero hits;
+`capFamilyOf()` returns only `exempt`/`masonry`/null); the Granary migration is deleted and
+`granary` is a live id; the charge guard is gone and `gainRenown(empowered ? base * CHARGE_BONUS
+: base)` is unconditional; `RENOWN_DEED_RATE` is **1.00**; the trickle is a flat **0.007** gated
+on `callToArms`; `TRADE_RENOWN 1`; `ARCHIVE_RATIO_LINE` sums **0.06** and is consumed as
+`1 + count("observatory") * archiveRatioTotal()`; `ASTROLABE_LINE`/`ASTROLABE_MULT 1.5` carry
+`annotatedIndex` → academy and `livingLibrary` → hexLab; the `test-v581` §21 fixture zeroes both
+resources before baselining.
+
+**A near-miss worth recording as method.** I almost filed **Part 4 (Convergence) as unshipped**:
+the printed readout is still keyed `convergenceAtSparks` and computed at the Sparks milestone.
+It shipped — `sim/simcore.mjs:1383–1388` captures `convergenceAtUnlock` at the gate and
+`sim/pacing.mjs:826` is what the pass condition reads. **Grepping the consumer rather than the
+label is what caught it**, and it is exactly the failure mode the standing instruction names.
+
+### Two suites die without failing, and every "0 failures" line in the round is wrong about them
+
+**`test-v38` aborts at assertion 21 of 27; `test-v45` aborts at 43 of 59. Twenty-two authored
+assertions never execute.** Both die by exception rather than by a failing `check()`, so the
+counts are arithmetically true and materially misleading.
+
+- **`tests/test-v38.mjs:251`** — `ReferenceError: CAMP_MAX_CHARGES is not defined`. The predicate
+  is fine; the **message template** interpolates a game constant that lives in the browser page
+  (`index.html:6634`) and does not exist in Node scope. **The suite dies formatting a string.**
+- **`tests/test-v45.mjs:396`** — `const NEW = ["kindling"]`, then `byId[id].cost.knowledge` at
+  `:408`. **v0.59.1 note 3 deleted `kindling`.** §7 of that report re-pointed twelve assertions
+  for the ladder count moving 37 → 36 and missed this one, because it is not a count.
+
+**This is a new defect class and it deserves a ruling: a suite that dies is not a suite that
+fails.** §21 covers a test that measures a baseline it did not reset; this is its sibling. v0.60
+Part 1 ships a `SUITE-END asserted=/passed=/failed=` trailer and makes a non-zero exit fail the
+round even at `failed=0`.
+
+### The bot's tinkerer policy exists — the report's diagnosis is wrong, and the real cause is general
+
+The v0.59.1 report states *"the bot has no tinkerer policy at all. `manageJobs()` never staffs
+one, in any round, at any population."* **It is at `sim/simcore.mjs:760`:**
+`if (count("refinery") >= 1) want.push(["tinkerer", 0.05]);`
+
+The measurement — zero tinkerers ever — is right. The cause is the loop: **`want` is an ordered
+priority list, one assignment per call, with an early `return`**, so the last entry is reached
+only when every earlier entry is simultaneously at or above its share. **Those shares sum to
+1.06 of a population of 1.00** in both branches, and **no RR job defines `max()`**, so the
+`continue` that could skip a saturated job never fires. **The tinkerer is unreachable by
+construction, and so is any job appended to the end of that list.**
+
+**Two rounds have now drawn a balance conclusion from an artefact of list order** — v0.57 Part 4
+for farmers, and note 7 here. v0.60 Part 2 asserts `Σ shares ≤ 1.0` and changes the loop to pick
+the job furthest below its share.
+
+### `XP_PER_SECOND` IS FOUND, and it inverts the rank ladder's verdict
+
+**Open since v0.55, across a documented list of dead retrieval routes. Closed in one grep
+against a local clone.** `js/village.js:3228`:
+
+```js
+var baseSkillXP = game.workshop.get("internet").researched
+    ? Math.max(this.getKittens() * hgSkillModifier / 10000, 0.01) : 0.01;
+var skillXP = (baseSkillXP + game.getEffect("skillXP")) * times;
+```
+
+**0.01 XP per tick**, unconditionally before the Internet upgrade — and the `frequency`
+machinery above it is a performance optimisation that preserves the rate exactly (`frequency` is
+1 below 100 kittens; the block early-returns unless `ticks % frequency === 0`; then
+`times = frequency`). **At 5 ticks/s the source rate is 0.05 XP/s. RR's 0.5 is ten times it.**
+
+**The consequence is that the ledger's headline HARDER row is backwards:**
+
+| | Kittens | RR | |
+|---|---|---|---|
+| top-rank threshold | 9,000 | 18,200 | ×2.02 harder |
+| XP rate | **0.05/s** | 0.50/s | ×10.00 faster |
+| **time to top rank** | **50.00 h** | **10.11 h** | **RR is ×4.95 FASTER** |
+
+The rank ladder has been ledgered **HARDER, "the largest single parity divergence in the game"**
+for two rounds on a threshold measured with the rate unknown. **It is EASIER by a factor of
+five.** The ledger's own row anticipated this — *"a 102% threshold debt at an unverified rate is
+one unknown multiplied by another"* — and recording the dead routes is what made it findable the
+moment the method changed. **Re-rate by the product, not by either half.**
+
+**And `XP_CAP` went stale in the same place.** 25,556 was derived at v0.56 as Kittens' cap ratio
+`20001/9000 = 2.22233` applied to a top rank of **11,500**. Note 11 moved the top rank to
+**18,200** and the cap did not follow: **25,556/18,200 = 1.404×** against the source's 2.222×.
+The ratio-preserving figure is **40,446**.
+
+### `factoryAutomation` retrieved: RR matches none of its three numbers
+
+`js/workshop.js:1240–1250` (`effects: {}`, science 10,000 + gear 25) and the Steamworks'
+`action()` at `js/buildings.js:1309–1318`:
+
+| | Kittens | RR (`index.html:3409–3410`) |
+|---|---|---|
+| trigger | `value ≥ maxValue × (1 − 0.02)` = **98%** | `AUTOMATION_TRIGGER = 0.95` |
+| share | `min(0.02 × (copies + 1), 0.90)` of the **stockpile** | `AUTOMATION_SHARE 0.05` × copies of the **ceiling**, unbounded |
+
+**The trigger and the share are the same constant in the source**; RR split them into two
+unrelated numbers. RR is ~2× the source at five copies (25% vs 12%) and unbounded past twenty
+where the source caps at 90%.
+
+### The mana boost census: the source has five production categories, not one
+
+`game.js:3409–3440` is the whole production stack, and **Kittens' Law is literally this code** —
+`getEffect` sums within a named category, categories multiply against each other:
+`<res>JobRatio` (additive onto village production), then `<res>GlobalRatio`, `<res>Ratio`,
+`<res>RatioReligion`, `<res>SuperRatio`.
+
+**A full census of `js/*.js` at `c52985b`: `<res>GlobalRatio` has TWO declarations in the entire
+game** — starchart 0.30 and unicorns 0.25. `<res>SuperRatio` has one (coal 0.20). `<res>Ratio`'s
+268 declarations are keyed by **building/mechanism** (`barnRatio` Σ4.35, `warehouseRatio` Σ1.80),
+not by resource.
+
+RR's `boosts.mana` is **Σ 0.75** in one accumulator applied to buildings, jobs and converter
+outputs alike. **Against the only category with the same scope it is 2.5–3× the source's
+largest, and no Kittens resource has a stacked global production category at all.** Against the
+source's *job* lines it is unremarkable (catnip Σ0.80 over two rungs) — **so the magnitude is
+fine and the scope is not.** The v0.59.1 report's re-rating to EASIER is right; its stated
+reason, *"Kittens does have global `<res>Ratio` upgrades"*, points at the **buildings** category
+by mistake. The citation should be `game.js:3430` and the two-member census.
+
+**The deeper item, named now:** RR has one `boosts` accumulator where the source has five
+categories, so RR **cannot express "job-scoped" and "global" as different things at all**. That
+is a structural divergence in its own right.
+
+### The crystal arithmetic does not close, and nobody has decomposed it
+
+Note 7 has been sized twice against the wrong quantity. **RR's converter block applies
+`convMult` and `boosts` to outputs and nothing to inputs** (`index.html:5345`), so the
+Manufactory's burn is flat per copy while the Refinery's yield rides the whole stack. **But 41
+Refineries at `crystals: 0.02` is 0.82/s of base output, and `convMult` (~2.7–4) times
+`boosts.crystals` does not multiply that into the reported 559/s.** Either a crystal faucet is
+unenumerated or a multiplier is far larger than it reads. **v0.60 Part 3 ships the `track()`
+decomposition first and forbids touching `MANUFACTORY_FUEL` until 559/s is attributed.**
+
+The source's anchor for when the sizing does happen: **`oilWell` `oilPerTickBase: 0.02` against
+`calciner` `oilPerTickCon: -0.024`** — a primary sink burns 1.2× what a primary faucet makes,
+per copy. **Kittens has the same input-flat/output-multiplied asymmetry**; its production
+multiplier is ×3.70 (`calcinerRatio` Σ2.70). **If RR's is two orders of magnitude, the
+out-of-parity item is RR's conversion multiplier stack, not the fuel constant.**
+
+### Method: clone the Kittens source
+
+**Three lookups that multiple prior rounds recorded as dead fell to single greps against a local
+clone of `nuclear-unicorn/kittensgame` at `c52985b`** — `XP_PER_SECOND`, `factoryAutomation`, and
+the production-category census. **Pin the revision in every citation:** the Golden Spire block
+earlier rounds cited as `js/buildings.js:1929–1931` is `:1964–1966` at this revision, same code.
+This also reframes the 120 UNVERIFIED rows: much of that is not unverifiable, it is unattempted
+under a retrieval method that no longer applies. v0.60 Part 8 triages them.
+
+### Not measured this round
+
+**The three-seed ensemble was launched at the start of the session and had not finished at
+hand-off.** Every Era-3 and milestone figure in the v0.60 spec is v0.59.1's own and is labelled
+as such. Budget 75–90 minutes.
 
 ## v0.59 — the analyzer's verification pass
 
