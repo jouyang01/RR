@@ -3,6 +3,7 @@
 // existing assertion may move.
 import { chromium } from "playwright";
 import fs from "fs";
+import { suiteEnd } from "./_suite-end.mjs";
 const FILE = new URL("../index.html", import.meta.url).href;
 const SHOTS = new URL("./shots", import.meta.url).pathname;
 const TABS = ["settlement", "village", "lore", "crafting", "wilds", "trade", "targon", "champions"];
@@ -213,4 +214,5 @@ const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromi
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail ? 1 : 0);

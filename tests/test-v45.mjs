@@ -1,6 +1,7 @@
 // test-v45 — BUILDER SPEC v0.45 pass conditions, plus Jerry's three directives.
 // Every assertion here is a Part 9 condition or a directive, stated as a measurement.
 import { chromium } from "playwright";
+import { suiteEnd } from "./_suite-end.mjs";
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errors = [];
@@ -393,9 +394,20 @@ const lad = await page.evaluate(() => {
   // Falconry; Coinage was the second retirement the spec's 18-slot table required), each
   // with its Discovery re-homed onto a surviving tech. Kindling survives, re-priced into
   // Era 3. The assertions below now measure that the retirements were clean.
-  const NEW = ["kindling"];
+  // v0.60 PART 1.1 — THIS SUITE DIED HERE, at assertion 43 of 59, losing 16 authored assertions
+  // and still reporting "0 failed". `NEW = ["kindling"]` then `byId[id].cost.knowledge` on a tech
+  // v0.59.1 note 3 DELETED, so the lookup returned undefined and the suite threw.
+  //
+  // v0.59.1 §7 re-pointed twelve assertions for the ladder moving 37 -> 36 and missed this one,
+  // because it is not a count — it is a LOOKUP. `kindling` moves to RETIRED, which is exactly
+  // what that list is for, and `retiredUpgradesKept` below then asserts the thing that actually
+  // matters about the deletion: its Discovery `bankedCoals` survived and was re-homed.
+  // NEW is empty because no tech was ADDED this round; the surrounding rung assertions are
+  // written to hold vacuously on an empty set rather than being deleted.
+  const NEW = [];
   const RETIRED = ["chorale", "lapidary", "cartwright", "poroHusbandry",
-                   "baronsTribute", "shimmerworks", "chronometry", "coinage", "falconry"];
+                   "baronsTribute", "shimmerworks", "chronometry", "coinage", "falconry",
+                   "kindling"];
   const byId = {}; TECHS.forEach(t => byId[t.id] = t);
   const reqs = new Set(TECHS.map(t => t.req).filter(Boolean));
   const sci = TECHS.filter(t => t.cost.knowledge);
@@ -422,13 +434,20 @@ const lad = await page.evaluate(() => {
     era3: sci.filter(t => t.cost.knowledge >= 20000).length
   };
 });
-check("the one surviving branch tech is present", lad.present === 1, String(lad.present));
+// RE-POINTED v0.60 Part 1.1. These three measured `kindling` — the one branch tech that survived
+// v0.46's cull — and v0.59.1 note 3 deleted it. THEY NEVER RAN AFTER THAT, because the lookup
+// that fed them threw first, so they have been silently absent rather than failing. NEW is now
+// empty, and an assertion over an empty set must say what it means: **no branch tech survives**,
+// and the properties that were being checked OF the survivor (leaf, on an existing rung) hold
+// vacuously and are stated as such rather than deleted, so re-adding a branch tech re-arms them.
+check("no branch tech survives the v0.46 cull — kindling was the last and v0.59.1 note 3 retired it",
+  lad.present === 0 && lad.leaves === 0 && lad.onExistingRung === 0,
+  `${lad.present} present, ${lad.leaves} leaves, ${lad.onExistingRung} on a rung`);
 check("...the seven retired ones are gone", lad.retiredGone);
 check("...and every retired branch's Discovery survives on an existing tech",
   lad.retiredUpgradesKept);
-check("...it is a LEAF — the req of nothing", lad.leaves === 1, String(lad.leaves));
-check("...and sits exactly ON an existing rung (a genuine tie)", lad.onExistingRung === 1, String(lad.onExistingRung));
-check("...and each opens exactly one upgrade", lad.unlocksExactlyOne);
+check("...and each opens exactly one upgrade (vacuous while NEW is empty, re-arms on the next add)",
+  lad.unlocksExactlyOne);
 check("cost still rises monotonically along every prerequisite chain",
   lad.monotonic.length === 0, lad.monotonic.join(", "));
 check("median cost-sorted step lands in Kittens' ×1.10–1.20 band",
@@ -487,4 +506,5 @@ check("no console errors across the whole suite", errors.length === 0, errors.sl
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail ? 1 : 0);

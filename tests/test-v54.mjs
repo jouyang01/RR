@@ -7,6 +7,7 @@
 // v0.54 §7 with its superseding directive.
 import { chromium } from "playwright";
 import fs from "fs";
+import { suiteEnd } from "./_suite-end.mjs";
 const FILE = new URL("../index.html", import.meta.url).href;
 const SRC = fs.readFileSync(new URL("../index.html", import.meta.url).pathname, "utf8");
 // STANDING-RULINGS §8: strip comments before grepping source, or a source-shape assertion
@@ -460,4 +461,5 @@ check("regression — poroRatio is still unbounded and `audience` still carries 
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail ? 1 : 0);

@@ -19,6 +19,7 @@
 //   * applyOfflineProgress() takes an optional callback, because above CHUNK_MIN_DAYS the
 //     replay is asynchronous by design. Large-gap checks await it.
 import { chromium } from "playwright";
+import { suiteEnd } from "./_suite-end.mjs";
 let pass = 0, fail = 0;
 const check = (n, c, x) => { console.log((c ? "PASS " : "FAIL ") + n + (x !== undefined ? "  " + x : "")); c ? pass++ : fail++; };
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
@@ -389,4 +390,5 @@ console.log("\nHEALTHY  drift %:", JSON.stringify(parity.healthy.drift));
 console.log("STARVING drift %:", JSON.stringify(parity.starving.drift));
 console.log("STARVING live vs offline:", JSON.stringify(parity.starving.abs));
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail ? 1 : 0);

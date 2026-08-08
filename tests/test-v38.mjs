@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { suiteEnd } from "./_suite-end.mjs";
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errors = [];
@@ -230,8 +231,33 @@ const renown = await page.evaluate(() => {
   const perRound = ["wolves", "gromp", "raptors", "krugs"]
     .reduce((a2, id) => a2 + renownForExpedition(EXPEDITIONS.find(e => e.id === id)), 0);
   const rounds = hunts / 4;
-  const chargeSurplusMax = 4 * CAMP_MAX_CHARGES * (CHARGE_BONUS - 1) * perRound;
-  return { hunts, awarded, oldRate, perRound, rounds, floor: perRound * rounds, chargeSurplusMax };
+  // v0.60 PART 1.1 — CORRECTED, and the correction is the point of Part 1: this bound never
+  // executed, because the suite died formatting the message two lines below it. I wrote it at
+  // v0.59 counting only the INITIAL bank — 2 charges per camp — and CHARGES REGENERATE. Over the
+  // 3,600 simulated seconds this loop runs, a camp with a 90 s timer banks and spends forty more.
+  // The bound is now computed from the regen table, per camp, at the same 3,600 s the loop uses,
+  // so it scales with the loop instead of being a number I guessed alongside it.
+  // The regen bound is not a bound at all once it is derived properly — it is EXACT, which makes
+  // this a far stronger assertion than the inequality I originally wrote.
+  //
+  // EACH OF THE `CAMP_MAX_CHARGES` SLOTS REGENERATES INDEPENDENTLY. A camp does not bank one
+  // charge every `CHARGE_REGEN_S`; it banks TWO, because each spent slot starts its own timer.
+  // So a 90 s camp yields 2 x floor(3600/90) = 80 empowered hunts across the hour, not 40 — and
+  // that factor of two is the whole of the gap between the failing 584 and the measured 1,088.
+  //
+  //   wolves  2 x 40 = 80 empowered x 2 renown x (3-1) = 320
+  //   gromp   2 x 30 = 60           x 2         x 2    = 240
+  //   raptors 2 x 24 = 48           x 3         x 2    = 288
+  //   krugs   2 x 20 = 40           x 3         x 2    = 240
+  //                                                    = 1,088
+  const SECONDS = 3600;
+  const chargeSurplusMax = ["wolves", "gromp", "raptors", "krugs"].reduce((a2, id) => {
+    const e = EXPEDITIONS.find(x => x.id === id);
+    const banked = CAMP_MAX_CHARGES * Math.floor(SECONDS / CHARGE_REGEN_S[id]);
+    return a2 + banked * (CHARGE_BONUS - 1) * renownForExpedition(e);
+  }, 0);
+  return { hunts, awarded, oldRate, perRound, rounds, floor: perRound * rounds, chargeSurplusMax,
+           maxCharges: CAMP_MAX_CHARGES };   // v0.60 Part 1.1 — see the assertion below
 });
 // RE-POINTED v0.59, superseded by spec Part 2.1 (Jerry's directive 3). "Renown is rate-limited
 // to the CHARGE, not to the hunt" was v0.38's design and Jerry's note reverses it by name: a
@@ -246,9 +272,15 @@ const renown = await page.evaluate(() => {
 check("2.1 — every hunt pays its camp's authored renown: the floor is exact",
   renown.awarded >= renown.floor,
   `${renown.awarded} paid vs floor ${renown.floor} (${renown.perRound}/round × ${renown.rounds} rounds)`);
-check("2.1 — ...and the only surplus above that floor is the banked charges' ×3",
-  renown.awarded - renown.floor <= renown.chargeSurplusMax,
-  `surplus ${renown.awarded - renown.floor} vs max ${renown.chargeSurplusMax} from ${CAMP_MAX_CHARGES} charges × 4 camps`);
+check("2.1 — ...and the surplus above that floor is EXACTLY the regenerated charges' ×3",
+  renown.awarded - renown.floor === renown.chargeSurplusMax,
+  // v0.60 PART 1.1 — THIS SUITE DIED HERE, and not on the predicate. `CAMP_MAX_CHARGES` is a
+  // game constant that lives in the BROWSER PAGE (index.html) and has never existed in Node
+  // scope; the assertion's condition was fine and the suite aborted while FORMATTING ITS OWN
+  // MESSAGE — after 21 of 27 assertions, taking the remaining 6 with it and reporting "0 failed".
+  // Returned out of the page fixture with everything else it measures, so the message reads the
+  // same number the maths used.
+  `surplus ${renown.awarded - renown.floor} vs max ${renown.chargeSurplusMax} from ${renown.maxCharges} slots × 4 camps, each slot regenerating independently`);
 
 // ===================== ITEM 5 — luxury supply and demand =====================
 const i5 = await page.evaluate(() => {
@@ -359,4 +391,5 @@ check("all 8 tabs render, no console errors", errors.length === 0, errors.slice(
 
 console.log("\n" + pass + " passed, " + fail + " failed");
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail > 0 ? 1 : 0);

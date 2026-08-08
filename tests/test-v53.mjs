@@ -10,6 +10,7 @@
 // the two.
 import { chromium } from "playwright";
 import fs from "fs";
+import { suiteEnd } from "./_suite-end.mjs";
 const FILE = new URL("../index.html", import.meta.url).href;
 const SRC = fs.readFileSync(new URL("../index.html", import.meta.url).pathname, "utf8");
 const SIM = fs.readFileSync(new URL("../sim/simcore.mjs", import.meta.url).pathname, "utf8");
@@ -421,4 +422,5 @@ check("regression — every building still produces at least one generated Effec
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail ? 1 : 0);

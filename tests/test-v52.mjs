@@ -4,6 +4,7 @@
 // too — a deleted rule that leaves its assertion behind is a rule that still exists.
 import { chromium } from "playwright";
 import fs from "fs";
+import { suiteEnd } from "./_suite-end.mjs";
 const FILE = new URL("../index.html", import.meta.url).href;
 let pass = 0, fail = 0;
 const check = (n, c, x) => { console.log(n + ":", c ? "PASS" : "FAIL", x ?? ""); c ? pass++ : fail++; };
@@ -282,4 +283,5 @@ check("5.1 — ...and job assignment is NOT gated on it", p35.jobsUngated);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail ? 1 : 0);

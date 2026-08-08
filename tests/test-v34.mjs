@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { suiteEnd } from "./_suite-end.mjs";
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errors = [];
@@ -308,4 +309,5 @@ check("all 8 tabs render, no console errors", errors.length === 0, errors.slice(
 
 console.log("\n" + pass + " passed, " + fail + " failed");
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail > 0 ? 1 : 0);

@@ -647,6 +647,26 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
       Object.entries(sc.delivered).map(([k, v]) => `${k} ×${v}`).join("  "));
   }
 }
+// ---- v0.60 PART 3.1 — THE CRYSTAL DECOMPOSITION, PRINTED AT EVERY MILESTONE ----
+// The spec's Part 3 refuses to size the Manufactory's burn a third time against a number nobody
+// has attributed. This is that attribution: every labelled contributor to the crystal rate, its
+// magnitude, and its share of GROSS production — sinks listed separately rather than netted
+// invisibly against the faucets.
+["sparks", "hexcore", "icathia", "final"].forEach(k => {
+  const c = r.snaps && r.snaps[k] && r.snaps[k].crystals;
+  if (!c) return;
+  console.log(`\nCRYSTAL DECOMPOSITION @${k}: net ${c.net}/s = gross ${c.gross}/s ${c.drain}/s drain`);
+  console.log(`  ${c.refineries} refineries (base ${c.refineryPerCopyBase}/s each) · ` +
+    `${c.manufactories} manufactories (burn ${c.manufactoryBurnPerCopy}/s each, FLAT) · ` +
+    `${c.tinkerers} tinkerers · ${c.augmentChambers} augment chambers`);
+  c.terms.forEach(t => console.log(`     ${String(t.amt).padStart(12)}/s  ${String(t.pctOfGross + "%").padStart(8)}  ${t.label}`));
+  if (c.mults.length) console.log("     multipliers applied to all of the above: " +
+    c.mults.map(m => `${m.label} x${m.mult}`).join(", "));
+  const sum = c.terms.filter(t => t.amt > 0).reduce((a, t) => a + t.pctOfGross, 0);
+  console.log(`     faucet shares sum to ${sum.toFixed(2)}% of gross` +
+    (Math.abs(sum - 100) < 0.5 ? " — fully attributed" : " — NOT FULLY ATTRIBUTED, a contributor is unlabelled"));
+});
+
 // v0.50 Part 5 — what a PLAYER could run, rather than what the bot did.
 ["sparks", "hexcore", "icathia"].forEach(k => {
   const ct = r.snaps && r.snaps[k] && r.snaps[k].cheapestTrade;

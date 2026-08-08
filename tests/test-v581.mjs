@@ -7,6 +7,7 @@
 // BUILD REPORT §8 from the three-seed ensemble — a suite cannot assert a 2,500-year median.
 import { chromium } from "playwright";
 import { readFileSync } from "fs";
+import { suiteEnd } from "./_suite-end.mjs";
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -668,4 +669,5 @@ check("no console errors across the whole suite", errors.length === 0, errors.sl
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail ? 1 : 0);

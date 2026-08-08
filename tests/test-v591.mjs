@@ -5,6 +5,7 @@
 // against `docs/specs/rr-devnotes-v0.59.1.md` line by line.
 import { chromium } from "playwright";
 import { readFileSync } from "fs";
+import { suiteEnd } from "./_suite-end.mjs";
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
 const page = await browser.newPage({ viewport: { width: 430, height: 900 } });   // note 2's own narrow case
@@ -304,8 +305,14 @@ check("§2 — the notes artefact is CONSUMED: moved to docs/specs/, gone from t
   try { readFileSync(new URL("../dev-notes-build.md", import.meta.url)); } catch (e) { rootGone = true; }
   return archived && rootGone;
 })());
-check("§3 — no pending analyzer spec was consumed: the repo root has none to consume", (() => {
-  try { readFileSync(new URL("../current-build-spec.md", import.meta.url)); return false; } catch (e) { return true; }
+// RE-POINTED v0.60, same class as test-v59's root-spec check. This asserted the repo root was
+// EMPTY of a spec — true when v0.59.1 shipped and false the moment the v0.60 analyzer pushed one.
+// What OFF-CYCLE-PROTOCOL §3 forbids is an off-cycle round CONSUMING a pending spec, and the
+// durable evidence of that is on disk: v0.59.1 archived its own DEV NOTES, and the spec that was
+// pending at the time (v0.59's) was archived by v0.59 rather than by this round.
+check("§3 — v0.59.1 consumed DEV NOTES, not a spec: both artefacts are archived where they belong", (() => {
+  const has = p2 => { try { readFileSync(new URL(p2, import.meta.url)); return true; } catch (e) { return false; } };
+  return has("../docs/specs/rr-devnotes-v0.59.1.md") && has("../docs/specs/rr-analyzer-v059-spec.md");
 })());
 // The ledger enumerates by ID, so the rows are matched on the ids and on the phrases the
 // standing-divergence rows actually carry — one probe per note, so a note that ships without
@@ -325,4 +332,5 @@ check("no console errors across the whole suite", errors.length === 0, errors.sl
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail ? 1 : 0);

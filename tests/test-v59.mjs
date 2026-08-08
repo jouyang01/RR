@@ -7,6 +7,7 @@
 // values are in BUILD REPORT §6.
 import { chromium } from "playwright";
 import { readFileSync } from "fs";
+import { suiteEnd } from "./_suite-end.mjs";
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }).catch(() => chromium.launch());
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -639,14 +640,27 @@ check("v0.59 was an INTEGER round because it had an analyzer spec, and the schem
   })(), version);
 check("...and the footer renders from the constant",
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1));
-check("the consumed v0.59 spec is archived under docs/specs/ and gone from the repo root", (() => {
-  let archived = false, rootGone = false;
+// RE-POINTED v0.60 — and this is the SEVENTH assertion of this class the project has unpicked,
+// so the class is worth naming rather than the instance: **"file X is absent" is a
+// version-pinned assertion in disguise.** It is true only until the next round legitimately
+// creates X. This one asserted the repo root held NO spec; v0.60's analyzer then pushed one,
+// exactly as the cycle requires.
+//
+// The durable property is the one OFF-CYCLE-PROTOCOL §3 actually states: a consumed spec is
+// MOVED to docs/specs/, never copied and left behind. So: v0.59's spec is archived, and whatever
+// sits at the root is not v0.59's.
+check("the consumed v0.59 spec is archived, and the repo root does not still hold it", (() => {
+  let archived = false, rootIsV059 = false;
   try { readFileSync(new URL("../docs/specs/rr-analyzer-v059-spec.md", import.meta.url)); archived = true; } catch (e) {}
-  try { readFileSync(new URL("../current-build-spec.md", import.meta.url)); } catch (e) { rootGone = true; }
-  return archived && rootGone;
+  try {
+    const root = readFileSync(new URL("../current-build-spec.md", import.meta.url), "utf8").slice(0, 4000);
+    rootIsV059 = /BUILDER SPEC v0\.59\b/.test(root);
+  } catch (e) { /* absent is also correct — that is the between-rounds state */ }
+  return archived && !rootIsV059;
 })());
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
+suiteEnd(import.meta.url, pass, fail);
 process.exit(fail ? 1 : 0);

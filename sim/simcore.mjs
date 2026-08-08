@@ -39,6 +39,12 @@ export async function runSim(page, years, seed = 1) {
     const yearNow = () => S.tick / TICKS_PER_YEAR;
 
     const milestones = {};
+    // v0.60 Part 2 — the share budget, and the last normalised list the bot actually used.
+    // 0.85 leaves 0.15 of the population for farmers. `test-v60` asserts Σ ≤ 1.0 from THIS
+    // array rather than from a restated table, so the invariant is checked against the thing
+    // the bot ran on.
+    const JOB_SHARE_BUDGET = 0.85;
+    let lastWantShares = null;
     // v0.59 Part 4 — see manageTargon(). Declared beside the milestones because they are the
     // same kind of thing: a value captured once, the first time a gate opens.
     let convergenceAtUnlock = null, convergenceWorshipAtUnlock = null;
@@ -324,6 +330,51 @@ export async function runSim(page, years, seed = 1) {
             if (withAll[rr] > 0) o.heldOverCap[rr] = +((S.res[rr] || 0) / withAll[rr]).toFixed(3);
           }
           return o;
+        })(),
+        // ---- v0.60 PART 3.1 — THE CRYSTAL DECOMPOSITION, AND NO SIZING ----
+        //
+        // Note 7 has been sized TWICE against a number nobody decomposed. v0.59.1 took the
+        // Manufactory's burn x6 and moved crystals-at-cap from 95.5% to 95.9%; the report
+        // concluded "the burn is too small by two orders of magnitude" from `20 x 0.12 = 2.4`
+        // against a late-game 559/s. **That 559/s has never been attributed to anything.**
+        //
+        // And reading the code says it cannot come from where the report assumed: 41 Refineries
+        // at `crystals: 0.02` per copy is 0.82/s of base output, and the conversion multiplier
+        // stack times the crystal boosts does not turn 0.82 into 559. Either a faucet is
+        // unenumerated or a multiplier is far larger than it reads.
+        //
+        // `computeRates(bdRes)` already records every labelled contribution to a rate — the
+        // machinery the tooltips use. This captures it for CRYSTALS at every milestone, with
+        // each contributor's magnitude and its share of the total, so the next sizing argument
+        // starts from an attribution instead of an assumption. **MANUFACTORY_FUEL IS NOT
+        // TOUCHED THIS ROUND** (spec pass condition 7); this Part is the instrument only.
+        crystals: (() => {
+          const rr = computeRates("crystals");
+          const bd = (rr._bd || []).slice();
+          const net = rr.crystals || 0;
+          const terms = bd.filter(e => e.amt !== undefined)
+            .map(e => ({ label: e.label, amt: +e.amt.toFixed(6) }))
+            .sort((a2, b2) => Math.abs(b2.amt) - Math.abs(a2.amt));
+          const mults = bd.filter(e => e.mult !== undefined)
+            .map(e => ({ label: e.label, mult: +e.mult.toFixed(4) }));
+          const gross = terms.filter(t => t.amt > 0).reduce((a2, t) => a2 + t.amt, 0);
+          const drain = terms.filter(t => t.amt < 0).reduce((a2, t) => a2 + t.amt, 0);
+          return {
+            net: +net.toFixed(4), gross: +gross.toFixed(4), drain: +drain.toFixed(4),
+            // share of GROSS, so the shares of the faucets sum to 100% and the sinks are
+            // reported separately rather than being netted invisibly against them.
+            terms: terms.map(t => ({ ...t, pctOfGross: gross ? +(100 * t.amt / gross).toFixed(2) : 0 })),
+            mults,
+            refineries: count("refinery"), manufactories: count("manufactory"),
+            tinkerers: (S.jobs && S.jobs.tinkerer) || 0,
+            augmentChambers: count("augmentChamber"),
+            manufactoryFuel: MANUFACTORY_FUEL,
+            // the two per-copy figures the spec says must be compared ON THE SAME FOOTING:
+            // the Refinery's output is multiplied, the Manufactory's input is flat.
+            refineryPerCopyBase: (() => { const b2 = BUILDINGS.find(x => x.id === "refinery");
+              return b2 && b2.convert && b2.convert.output ? (b2.convert.output.crystals || 0) : 0; })(),
+            manufactoryBurnPerCopy: MANUFACTORY_FUEL * (S.upgrades.pressureRegulators ? MANUFACTORY_FUEL_CUT : 1)
+          };
         })(),
         // ---- v0.57 PART 5: the Scholarship census, the same one v0.56 did for storage ----
         // v0.56 found the instrument holds only 3 of the 5 STORAGE rungs through most of a run,
@@ -759,12 +810,55 @@ export async function runSim(page, years, seed = 1) {
       if (S.techs.ritesOfTargon) want.push(["acolyte", 0.18]);
       if (count("refinery") >= 1) want.push(["tinkerer", 0.05]);
 
+      // ====================================================================================
+      // v0.60 PART 2 — THE TINKERER WAS UNREACHABLE BY CONSTRUCTION, AND SO IS ANY JOB
+      // APPENDED TO THE END OF THIS LIST.
+      //
+      // The policy has existed since the Refinery shipped. It never fired, and v0.59.1's report
+      // concluded "the bot has no tinkerer policy at all" — the measurement was right and the
+      // diagnosis was wrong. The cause is the two lines that used to be below this comment:
+      // an ORDERED list, ONE assignment per call, and an early `return` on the FIRST job found
+      // below its share. The last entry is reached only when every earlier entry is
+      // simultaneously at or above its share — and the shares ahead of `tinkerer` sum to 1.06
+      // of a population of 1.00, so that never happens. No RR job defines `max()`, so the
+      // `continue` that could skip a saturated job never fired either.
+      //
+      // TWO ROUNDS HAVE NOW DRAWN A BALANCE CONCLUSION FROM AN ARTEFACT OF LIST ORDER —
+      // v0.57 Part 4 for farmers, and v0.59.1 note 7 for tinkerers. Both fixes shipped a number;
+      // neither fixed the mechanism. Both halves of the structural fix ship here.
+      //
+      // (1) NORMALISE, so the invariant is true BY CONSTRUCTION rather than by hand-tuning.
+      //     A budget of 0.85 leaves 0.15 of the population for farmers, who are staffed by the
+      //     winter projection above and by the leftover below. Scaling preserves the RELATIVE
+      //     priorities the shares encode while making Σ ≤ 1.0 something a future round cannot
+      //     break by appending a job — the normaliser absorbs it. THAT is why this is done in
+      //     code rather than by editing six literals: hand-tuned numbers drift the first time
+      //     somebody adds a job, which is precisely the history above.
+      //
+      // (2) PICK THE JOB FURTHEST BELOW ITS SHARE, not the first one below it. This is the fix
+      //     that makes ORDER STOP MATTERING PERMANENTLY. With a deficit rule, a job at the end
+      //     of the list competes on how far behind it is, so appending an entry can never again
+      //     produce dead code. Ties keep list order, so the shares still express priority where
+      //     two jobs are equally starved.
+      // ====================================================================================
+      const total = want.reduce((a2, w) => a2 + w[1], 0);
+      if (total > JOB_SHARE_BUDGET) {
+        const k = JOB_SHARE_BUDGET / total;
+        for (const w of want) w[1] = w[1] * k;
+      }
+      lastWantShares = want.map(w => [w[0], +w[1].toFixed(6)]);   // returned in the run result
+
+      let bestJob = null, bestDeficit = 0;
       for (const [job, share] of want) {
         const j = JOBS.find(x => x.id === job);
-        if (j.max && (S.jobs[job] || 0) >= j.max()) continue;
-        if ((S.jobs[job] || 0) < Math.floor(pop * share)) { assignJob(job, 1); return; }
+        const have = S.jobs[job] || 0;
+        if (j.max && have >= j.max()) continue;
+        const deficit = Math.floor(pop * share) - have;
+        if (deficit > bestDeficit) { bestDeficit = deficit; bestJob = job; }
       }
-      // anything left over goes to farming
+      if (bestJob) { assignJob(bestJob, 1); return; }
+      // anything left over goes to farming — and with Σ ≤ 0.85 this is now REACHABLE, which it
+      // was not before: a list summing to 1.06 always had somebody below their share.
       if (idleCount() > 0) assignJob("farmer", 1);
     }
 
@@ -1615,6 +1709,8 @@ export async function runSim(page, years, seed = 1) {
       milestones,
       // v0.59 Part 4: the two Convergence figures, captured at the unlock rather than at Sparks.
       convergenceAtUnlock, convergenceWorshipAtUnlock,
+      // v0.60 Part 2: the normalised job shares the bot actually allocated against.
+      jobShares: lastWantShares, jobShareBudget: JOB_SHARE_BUDGET,
       snaps,
       samples,
       campRuns,

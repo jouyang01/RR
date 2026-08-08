@@ -260,7 +260,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.59.1";
+var VERSION = "v0.60";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -2662,8 +2662,9 @@ var UPGRADES = [
   // and not a bug report from Jerry.
   { id: "automatedWorkshop", name: "The Automated Workshop", cost: { crystals: 900, scaffold: 120, beam: 200 }, tech: "hexdraulics",
     lore: "Nobody is quite sure who is operating it. Everyone has decided not to ask.",
-    effect: "When Timber or Ore stands at " + Math.round(AUTOMATION_TRIGGER * 100) + "% of its ceiling, each Manufactory " +
-            "turns the overflow into Support Beams and Stone Slabs instead of letting it spill."},
+    effect: "When Timber or Ore stands at " + Math.round(automationTrigger() * 100) + "% of its ceiling, the " +
+            "Manufactories turn the overflow into Support Beams and Stone Slabs instead of letting it spill — " +
+            Math.round(AUTOMATION_BASE * 100) + "% of the pile per copy, to a " + Math.round(AUTOMATION_CAP * 100) + "% ceiling."},
   { id: "piltovanCranes", name: "Piltovan Cranes", cost: { beam: 120, gear: 40 }, tech: "hexdraulics",
     lore: "Lift it once, properly.",
     effect: "Scaffold craft cost 40 → 28 beams."},
@@ -3202,7 +3203,30 @@ function policyGlobalBonus() {
 //   moved trade, storage and the faith curve, and inventing an XP rate on top of that would
 //   make none of them measurable. See BUILD REPORT §6.
 // ============================================================================
-var XP_PER_SECOND = 0.5;
+// ============================================================================
+// v0.60 PART 7 — FOUND. `XP_PER_SECOND` HAS BEEN UNVERIFIED FOR FIVE ROUNDS AND IT IS
+// `js/village.js:3228` (nuclear-unicorn/kittensgame @ c52985b), read from a local clone:
+//
+//     var baseSkillXP = game.workshop.get("internet").researched
+//                       ? Math.max(this.getKittens() * hgSkillModifier / 10000, 0.01) : 0.01;
+//     var skillXP = (baseSkillXP + game.getEffect("skillXP")) * times;
+//
+// **The base increment is 0.01 per tick, unconditionally, before the Internet upgrade.** The
+// `times`/`frequency` machinery above it is a performance optimisation that PRESERVES the rate
+// exactly — `frequency` is 1 below 100 kittens, the block early-returns unless
+// `ticks % frequency === 0`, and then `times = frequency`, so the average is 0.01/tick at every
+// population. Kittens ticks 5/s and `TICK_MS = 200` is exact tick parity, so:
+//
+//     THE SOURCE RATE IS 0.05 XP/s. RR SHIPPED 0.50 — TEN TIMES THE SOURCE.
+//
+// The five recorded dead retrieval routes all predate cloning the repository; three lookups this
+// project had written off fell to single greps against a clone. That is the retrieval lesson and
+// it is in the handoff.
+//
+// JERRY'S RULING, v0.60 note 4: "Change the EXP ratio to match kittens. We want the top rank to
+// be reached in about 50-75 hours." Both halves ship, and the second forced a decision the first
+// does not settle on its own — see RANKS below for the arithmetic.
+var XP_PER_SECOND = 0.05;   // js/village.js:3228 — 0.01/tick x 5 ticks/s, exact source parity
 // The spec's pass condition states 25,556; the exact ratio-match is 11,500 x 20,001 / 9,000 =
 // 25,556.833, which ROUNDS to 25,557 and FLOORS to 25,556. The spec's figure is the floor, so
 // the floor ships. The difference is one point of experience against a 25,556-point ceiling —
@@ -3229,8 +3253,41 @@ var RANKS = [
   // same +18.75% Kittens grants at 9,000 (a 27.8% parity debt recorded in the ledger). At
   // 18,200 that debt becomes 102%. This is a DELIBERATE, Jerry-directed divergence and it is
   // re-rated HARDER in docs/PARITY-LEDGER.md rather than left looking like parity.
-  { id: "grandmaster", name: "Grandmaster", xp: 10200, bonus: 0.16 },
-  { id: "challenger",  name: "Challenger",  xp: 18200, bonus: 0.1875 }
+  //
+  // ==========================================================================================
+  // v0.60 PART 7 / JERRY'S NOTE 4 — 10,200 AND 18,200 REVERT TO 7,500 AND 11,500, AND THIS NOTE
+  // SUPERSEDES NOTE 11 ABOVE. It is not a correction of note 11; it is a later directive whose
+  // target the note 11 figures cannot meet.
+  //
+  // THE ARITHMETIC, which is what makes it unambiguous. With the rate now at the source's
+  // 0.05 XP/s (see XP_PER_SECOND), time to the top rank is `threshold / 0.05 / 3600` hours:
+  //
+  //     18,200 (note 11's figure)      -> 101.1 hours   OUTSIDE Jerry's 50-75 band
+  //      9,000 (Kittens' own ladder)   ->  50.0 hours   the band's very edge
+  //     11,500 (RR's pre-note-11 top)  ->  63.9 hours   THE CENTRE OF THE BAND
+  //
+  // A 50-75 hour band at 0.05/s IS a top threshold between 9,000 and 13,500, and 11,500 is the
+  // only figure in that window this project has ever shipped. So the top rank returns to it.
+  //
+  // GRANDMASTER GOES WITH IT, and not for symmetry — for monotonicity. Note 11 doubled two GAPS:
+  // Master->GM 2,700 -> 5,400 and GM->Challenger 4,000 -> 8,000. Keeping GM at 10,200 while
+  // Challenger returns to 11,500 would leave a 5,400 gap followed by a 1,300 gap, i.e. the
+  // hardest rung on the ladder followed by the easiest. Reverting both restores the 2,700/4,000
+  // shape the rest of the ladder is built on.
+  //
+  // AND IT CLOSES `XP_CAP`'s STALENESS FOR FREE. The spec's Part 7.2 records that XP_CAP was
+  // derived from a top rank of 11,500 and never followed note 11 to 18,200, so the parity ratio
+  // had silently fallen from 2.222x to 1.404x and the ratio-preserving figure was 40,446. With
+  // the top rank back at 11,500 the SHIPPED constant is correct by construction — it is still
+  // literally `Math.floor(11500 * 20001 / 9000)` — and nothing needs re-deriving.
+  //
+  // WHAT THIS COSTS, stated because Jerry may want it back: note 11's steeper top-end grind is
+  // gone. Holding 18,200 inside a 50-75 hour band would need a rate of ~0.084/s, which is not
+  // Kittens' rate and so cannot satisfy "match kittens". The two halves of note 4 pick 11,500
+  // between them; there is no figure that keeps both note 11 and note 4.
+  // ==========================================================================================
+  { id: "grandmaster", name: "Grandmaster", xp: 7500,  bonus: 0.16 },
+  { id: "challenger",  name: "Challenger",  xp: 11500, bonus: 0.1875 }
 ];
 var RANK_COLOR = { bronze: "#8C6239", silver: "#9FB2BF", gold: "#C89B3C", platinum: "#4E9A94",
   emerald: "#2FA36B", diamond: "#4FA8D8", master: "#9A5BC4", grandmaster: "#C0392B", challenger: "#E8D8A0" };
@@ -3406,8 +3463,39 @@ var MANUFACTORY_PARCHMENT = 0.005;        // 48.2 B — Jerry's figure, verbatim
 // ceiling per game-year per Manufactory is an RR-ORIGINAL magnitude and is ledgered UNVERIFIED
 // rather than dressed up as parity. It is deliberately small: the point is that a full barn
 // stops wasting, not that automation out-produces a crafter.
-var AUTOMATION_TRIGGER = 0.95;            // fires at 95% of the ceiling — the source's threshold
-var AUTOMATION_SHARE = 0.05;              // RR-ORIGINAL magnitude: 5% of the ceiling per copy, per year
+// v0.60 PART 5 — `factoryAutomation` RETRIEVED FROM SOURCE, AND RR WAS WRONG ON ALL THREE OF ITS
+// NUMBERS. v0.59.1 shipped the SHAPE from a wiki-level description and said plainly that the
+// share was RR-original and UNVERIFIED. Cloning the source settles it in one grep.
+//
+// `js/workshop.js:1240-1250` — `factoryAutomation` carries `effects: {}`; the whole mechanism is
+// the Steamworks' `action()` at `js/buildings.js:1309-1318` (revision c52985b):
+//
+//     var baseAutomationRate = 0.02;
+//     var automationRate = Math.min(baseAutomationRate * (self.on + 1), 0.9);
+//     var consumedQuantity = consumedResource.value * automationRate;
+//     numberOfCrafts: isAllowed && consumedResource.value >= consumedResource.maxValue * (1 - baseAutomationRate)
+//
+// THREE DIFFERENCES, and the first is the elegant one RR had split apart:
+//
+//   trigger  Kittens `value >= maxValue * (1 - 0.02)` = 98%   RR had 0.95, an unrelated literal
+//   share    `min(0.02 * (copies + 1), 0.90)`, SUB-LINEAR     RR had 0.05 * copies, LINEAR and
+//            and hard-CAPPED at 90%                            UNBOUNDED — 100% at twenty copies
+//   base     the current STOCKPILE (`value`)                   RR used the CEILING
+//
+// **`baseAutomationRate` IS BOTH THE TRIGGER AND THE SHARE.** One constant drives both, which is
+// why RR's two independent literals could not be made consistent by tuning either.
+//
+//   copies      1     2     5     10     20     44
+//   Kittens   4.0%  6.0% 12.0%  22.0%  42.0%  90.0% (cap)
+//   RR was    5.0% 10.0% 25.0%  50.0% 100.0% 220.0%
+//
+// The BASE difference (ceiling vs stockpile) is minor in practice because the trigger only fires
+// within 2% of the ceiling — said rather than fixed silently — but it is fixed anyway, because
+// "minor" is an argument for not worrying, not an argument for staying wrong.
+var AUTOMATION_BASE = 0.02;               // js/buildings.js:1309 — drives the trigger AND the share
+var AUTOMATION_CAP = 0.90;                // js/buildings.js:1311 — Math.min(..., 0.9)
+function automationTrigger() { return 1 - AUTOMATION_BASE; }                       // 98%
+function automationShare(n) { return Math.min(AUTOMATION_BASE * (n + 1), AUTOMATION_CAP); }
 // input -> output, at the ordinary craft price, exactly as the recipes charge it.
 var AUTOMATION_PAIRS = [{ from: "timber", to: "beam" }, { from: "ore", to: "stoneSlab" }];
 var DRAKE_CAP = { infernal: 0.5, ocean: 0.6, mountain: 0.6, cloud: 1.0, hextech: 0.6 };
@@ -6238,19 +6326,20 @@ function manufactoryYear() {
   var n = count("manufactory");
   if (!n) return;
   var caps = computeCaps(), made = [];
+  // v0.60 Part 5: the share is a function of COPIES with a hard cap, and the budget is a share of
+  // the STOCKPILE — both the source's, both driven by the one constant.
+  var share = automationShare(n);
   AUTOMATION_PAIRS.forEach(function (pair) {
     var cap = caps[pair.from];
-    // ONLY AT THE CEILING. This is the whole of the source's behaviour and the reason the
-    // effect is bounded: below 95% it does nothing at all, so it can never compete with a
-    // player who is actually spending their timber.
-    if (!(cap > 0) || (S.res[pair.from] || 0) < cap * AUTOMATION_TRIGGER) return;
+    // ONLY AT THE CEILING. This is the whole of the source's behaviour and the reason the effect
+    // is bounded: below the trigger it does nothing at all, so it can never compete with a player
+    // who is actually spending their timber.
+    if (!(cap > 0) || (S.res[pair.from] || 0) < cap * automationTrigger()) return;
     var cr = CRAFTS.find(function (c) { return c.out === pair.to; });
     if (!cr) return;
     var price = craftCostOf(cr.id)[pair.from];
     if (!(price > 0)) return;
-    // The budget is a share of the CEILING, not of the stock, so it does not compound with
-    // itself as the ceiling and the stock converge.
-    var budget = Math.min(S.res[pair.from], cap * AUTOMATION_SHARE * n);
+    var budget = (S.res[pair.from] || 0) * share;
     var times = Math.floor(budget / price);
     if (times < 1) return;
     var before = S.res[pair.to] || 0;
