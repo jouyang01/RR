@@ -284,6 +284,40 @@ check("the consumed v0.60 spec is archived under docs/specs/, and the root does 
     } catch (e) {}
     return archived && !rootIsV060;
   })());
+// ============================================================================
+// PART 7 ADDENDUM — the ladder comparison this round got WRONG on the first pass.
+// The first draft of the re-rated ledger row stated a rung-for-rung threshold match below the
+// top (`100 → 100`, `500 → 500`, …). It cannot be true: RR's ladder has NINE rungs and Kittens'
+// has SEVEN, so no such mapping exists. It was caught by test-v59's own rung-by-rung assertion
+// failing on the rewritten row — which is the second time this round that an OLD suite caught a
+// NEW mistake, and the argument for rule 10 (re-point, never delete) in one line.
+// These assertions pin the SHAPE of the corrected comparison, not its prose.
+const LADDER = await page.evaluate(() => RANKS.map(r => [r.xp, r.bonus]));
+check("7 — RR's ladder has nine rungs to Kittens' seven, so no rung-for-rung threshold map exists",
+  LADDER.length === 9, `${LADDER.length} rungs`);
+check("7 — the two ladders share exactly three bonus values: 0, +12.5% and +18.75%",
+  (() => {
+    const K = [0, 0.0125, 0.025, 0.045, 0.075, 0.125, 0.1875];
+    const shared = K.filter(k => LADDER.some(([, b]) => Math.abs(b - k) < 1e-12));
+    return shared.length === 3 && Math.abs(shared[1] - 0.125) < 1e-12 && Math.abs(shared[2] - 0.1875) < 1e-12;
+  })());
+check("7 — matched BY BONUS, RR is harsher at every Kittens rung EXCEPT +12.5%, where it is easier",
+  (() => {
+    const K = [[100, 0.0125], [500, 0.025], [1200, 0.045], [2500, 0.075], [5000, 0.125], [9000, 0.1875]];
+    const ratios = K.map(([kx, kb]) => LADDER.find(([, b]) => b >= kb - 1e-12)[0] / kx);
+    return ratios.slice(0, 5).every((r, i) => i === 4 ? r < 1 : r > 1) &&
+           Math.abs(ratios[4] - 0.96) < 0.005 && Math.abs(ratios[5] - 1.278) < 0.005;
+  })());
+check("7 — and the ledger states the correction rather than silently repairing the row",
+  /NINE rungs and Kittens' has SEVEN/.test(LEDGER) && /matched on the bonus/i.test(LEDGER) &&
+  /the one rung where RR is EASIER/.test(LEDGER));
+check("7 — top rung: 11,500 at 0.05 XP/s is 63.9 real hours, the centre of Jerry's 50-75 band",
+  (() => {
+    const top = LADDER[LADDER.length - 1][0], rate = 0.05;
+    const h = top / rate / 3600;
+    return top === 11500 && h > 50 && h < 75 && Math.abs(h - 63.9) < 0.05;
+  })());
+
 check("no console errors across the whole suite", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 console.log(`\n${pass} passed, ${fail} failed`);
