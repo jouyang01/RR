@@ -427,3 +427,37 @@ down gets quietly re-proposed by the next spec.
   because every wanderer skill bonus now accrues ten times slower for the whole run. If that is
   too slow, **the lever is the thresholds, not the rate** — the rate now has a line number.
 - ~~**"Hold the line on Mana."**~~ — **note 5, HELD.** No mana constant moved this round.
+
+## v0.61 — Jerry's four dev notes, all actioned (one of them a HOLD)
+
+- ~~**"When Festival is active, it should show up as a buff similar to Hand of Baron and Crest of
+  Cinders."**~~ — **note 1, and the chip already existed and could never fire.** The line tested
+  `S.festivalUntil`, the WALL-CLOCK field — and v0.58 note 12 made the festival TICK-denominated
+  so offline catch-up expires it at the right game-time, setting `S.festivalUntil = 0`
+  explicitly. **Every festival held from v0.58 onward was invisible.** Worse, `test-v59` asserted
+  it and PASSED for two rounds, because it grepped the source for the literal string rather than
+  holding a festival and reading the banner. **A grep asserts that somebody wrote the code; it
+  does not assert that the code runs.** Now reads `festivalActive()` and counts down in SEASONS,
+  the unit the festival is actually denominated in.
+- ~~**"Early EXP rate is okay. Can ignore analyzer there."**~~ — **note 2, HELD, and it overrides
+  the round's largest proposed change.** The v0.61 spec's Part 2 would have re-priced the low
+  rungs so RR's ladder crossed each Kittens bonus at the source's XP — the first rung is ×3.50
+  (RR asks 350 where Kittens asks 100), which is 1 h 57 against 36 minutes for a player's first
+  skill bonus. **Nothing ships. The ladder is asserted UNCHANGED**, because a hold that is not
+  asserted is a hold the next spec re-proposes. The measurement stays on the record.
+- ~~**"Let's have more (not all) of the discoveries cost knowledge."**~~ — **note 3.** 10 of 78
+  Discoveries carried a knowledge component — 13% — against a source whose workshop upgrades
+  essentially always cost science plus materials. **32 of 79 now, 41%.** The amount derives from
+  the tech's own rung (`K / 10`) so a re-homed Discovery reprices itself; the SET is chosen by a
+  stated rule — **a Discovery takes knowledge when it is a METHOD, not when it is an OUTFIT or a
+  FACILITY** — which is why the axe, saw, storage and housing lines are exempt, and why
+  everything post-Sparks is exempt here and takes crystals instead. **No Discovery is taxed twice
+  for being late.**
+- ~~**"Combine Deep Cartography and Champion's Regiment into 1 research that unlocks both
+  discoveries."**~~ — **note 4.** Two `callToArms` children, each costing knowledge alone, each
+  unlocking exactly one Discovery — a ladder with a landing on it. They become **The Vanguard
+  Doctrine** (both Discoveries are about PREPARING a deed: drill the champions, map the route) at
+  **45,000**, the centre of the only window a bridge tech can occupy: above the dearer of the two
+  it replaces (35,000) and below the first Sparks child (50,000). **The player saves 18,000
+  knowledge and part of it moves to the leaves**, where note 3 puts 4,500 on each Discovery.
+  §30: both retired ids are reserved until v1.0, and a save holding either is credited the merge.
