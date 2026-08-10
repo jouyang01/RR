@@ -41,7 +41,16 @@ rests on it.**
 | 9 | Barn / Warehouse / Harbor storage against Kittens | **3** |
 | 10 | Marus Omegnum devotion cap → 200, and less devotion/s | **4.4** |
 | 11 | Festival tooltip lists the renown reward | **6.2** |
-| 12 | Mount Targon banner: golden halo instead of the moon | **6.3** |
+| 12 | Mount Targon banner — **corrected**: remove the SQUARE moon on the peak, **keep the crescent** | **6.3** |
+
+**And this round's four follow-up changes:**
+
+| change | Part |
+|---|---|
+| Targon: the square moon on the peak goes, the side crescent stays | **6.3 — corrected in place** |
+| Jarvan's lead reaches all jobs at 6%; passive starts at 15% | **6a** |
+| Crest of Cinders → red glow on the workshop anvil and hammer | **6.4** |
+| Crest of Insight → blue lights around the lore bookshelves and torches | **6.5** |
 
 ---
 
@@ -353,7 +362,7 @@ code pays.**
 
 ---
 
-## Part 6 — Three presentation notes (dev notes 6, 11, 12)
+## Part 6 — Five presentation notes (dev notes 6, 11, 12, and the two Crest banners)
 
 ### 6.1 The morale tooltip (dev note 6)
 
@@ -370,19 +379,154 @@ one-at-a-time rule — **and not the 25 renown v0.61 added.** **Add it, reading 
 v0.61's trade tooltip does. **A payout shipped without its tooltip is exactly what dev note 1 was
 about two rounds running.**
 
-### 6.3 Mount Targon's banner (dev note 12)
+### 6.3 Mount Targon's banner — CORRECTED (dev note 12, re-scoped)
 
-`index.html:9898–9910` draws a pixel crescent, added at **v0.58.1 note 37 on Jerry's own
-instruction** (*"the moon should be off to the side and be a crescent"*). **This note reverses
-that**, and both should be cited at the site so the next reader does not restore the moon.
+**My first reading of this note was wrong and Jerry has corrected it. The crescent stays.**
 
-**Ship: remove the crescent, draw a golden halo around the peak** — a ring, drawn as pixels the way
-the crescent is (two discs, the inner one in the sky colour, biting the ring out of the outer),
-with a slight shine cycling on the same frame counter the stars use so it breathes with the scene
-rather than sitting static.
+There are **two** pale objects in this scene and the spec conflated them:
 
-**Pass conditions:** no crescent remains; a halo is drawn centred on the summit; it animates off the
-existing frame counter; **the v0.58.1 note and this one are both cited at the site.**
+| what | where | disposition |
+|---|---|---|
+| the **crescent moon**, off to the right at `(212, 26)` radius 11, clear of the silhouette | `index.html:9898–9906`, added at v0.58.1 note 37 on Jerry's own instruction | **KEEP — do not touch it** |
+| an **8 × 4 filled rectangle** sitting directly above the summit, drawn in `PAL.text` | `index.html:9913` — `px(cx - 4, groundY - 28, 8, 4, PAL.text)` | **REMOVE — this is the "square moon"** |
+
+**That one line is the whole of the complaint.** It is a flat rectangle at this resolution, which
+is exactly why it reads as a square moon rather than as the peak's own light the old comment
+claimed it was.
+
+**Ship:**
+
+1. **Delete `px(cx - 4, groundY - 28, 8, 4, PAL.text)` at `index.html:9913`.** Nothing else in the block moves.
+2. **Keep `drawCrescent(212, 26, 11)` exactly as it is**, and **leave the v0.58.1 note 37 comment
+   in place** — it is still the live reason the crescent exists.
+3. **Draw the golden halo around the peak** in the square's place: a ring centred on the summit,
+   drawn as pixels the way the crescent is (two discs, the inner one in the sky colour biting the
+   ring out of the outer), with a slight shine cycling off the same `f` counter the stars use.
+4. **Mind the light shaft.** `px(cx - 2, 0, 4, groundY - 28, PAL.goldBright)` (`:9915`) already pulses on
+   `0.3 + 0.3·|sin(f·0.3)|` and rises from the summit through where the square was. **The halo
+   must read with that beam, not fight it** — offset its shine phase, or the two will strobe
+   together and look like a fault.
+
+**Pass conditions:** the 8×4 `PAL.text` rectangle is gone; `drawCrescent(212, 26, 11)` is
+**asserted unchanged**, including its position and radius; a halo is drawn centred on the summit
+and animates off the existing frame counter; the light shaft still renders and its phase is
+distinct from the halo's; **both the v0.58.1 note and this correction are cited at the site**, so
+no future round restores the square or removes the crescent.
+
+### 6.4 Crest of Cinders changes the workshop banner (new)
+
+`SCENES.crafting` (`index.html:9821–9841`) draws the forge procedurally: a pulsing gold forge bed,
+a three-tier **anvil** (`px(cx-9, groundY-8, 18, 4)`, `px(cx-4, groundY-11, 8, 3)`,
+`px(cx-2, groundY-14, 4, 3)`), and a **hammer** on a six-frame swing
+(`px(cx+6, groundY+hy, 3, 11)` handle, `px(cx+3, groundY+hy-4, 9, 5)` head) that throws sparks on
+`phase === 3`.
+
+**When `simNow() < S.cinderUntil`, give the anvil and hammer a faint red glow.** The buff flag is
+already read this way elsewhere (`index.html:5689`, `var cinderUp = simNow() < S.cinderUntil`), so
+use the same expression rather than a second source of truth.
+
+- **Faint means faint.** A soft red halo behind those five rectangles, alpha well under the forge
+  bed's own `0.5 + 0.35·|sin|` — the forge is the bright thing in this scene and the crest should
+  tint it, not outshine it.
+- **Drive it off `f`**, like everything else on this canvas, and **do not sync it to the hammer's
+  six-frame cycle** — a glow that pulses exactly with the swing reads as part of the animation
+  rather than as a state.
+- **The scene must be correct on the frame the buff expires.** `draw()` runs on a 220 ms interval
+  and reads state fresh each frame, so this needs no invalidation — **assert it by expiring the
+  crest and re-reading the canvas**, not by grepping for the branch.
+
+### 6.5 Crest of Insight changes the lore banner (new)
+
+`SCENES.lore` (`index.html:9794–9820`) draws a teal/purple halo behind the crystal ball and five
+rising motes. **The bookshelves and lamps are sprites**, drawn by `drawLoreSprites()`
+(`index.html:9626`) on the separate `#scene-sprites` canvas at
+`leftX = 0.20·w − sw/2` and `rightX = 0.80·w − sw/2`, with a lamp just outside each shelf.
+
+**When `simNow() < S.insightUntil`, float small blue lights around the bookshelves and the lamps.**
+
+- **Take the positions from the sprite function's own geometry** — the same `leftX` / `rightX` /
+  `shelfY` expressions — rather than hard-coding coordinates. The shelves are placed as a fraction
+  of width and will move if the canvas resizes; a second set of literals would drift.
+- **Blue, and distinct from what is already there.** The existing motes alternate `PAL.teal` and
+  `PAL.goldBright`; the crest's lights should be a colder blue so a player can tell the buff from
+  the ambient animation at a glance.
+- **Decide the layer deliberately and say which.** The procedural scene draws on `ctx` and the
+  shelves on `spriteCtx` above it, so lights drawn in `SCENES.lore` sit **behind** the shelves.
+  "Floating around" reads better with some in front — **if they should be in front, they belong in
+  `drawLoreSprites()`**, and the report should state the choice rather than let the layering be
+  incidental.
+- **Same expiry property as 6.4**, asserted the same way.
+
+**Pass conditions for 6.4 and 6.5:** both read their buff from the same `simNow() < S.xUntil`
+expression the rest of the file uses; both are asserted by **holding the buff, reading the canvas,
+expiring it and reading again** — not by grepping for the code, which is precisely how the festival
+chip passed for two rounds while never firing (v0.61 §3); the lore lights derive their positions
+from the sprite geometry; the chosen layer is stated; neither glow is synced to an existing
+animation cycle.
+
+---
+
+## Part 6a — Jarvan reaches every job, at half the rate (new)
+
+**Two changes, and the first is a coverage fix rather than a nerf.**
+
+### 6a.1 The leader bonus applies to all eight jobs
+
+`villageMult` (`index.html:5795`) carries `JARVAN_VILLAGE_LEAD = 0.12` — and the job table it
+feeds reaches **three of the eight assignable jobs**:
+
+```js
+var jobMult = {
+  farmer:     hoeMult() * villageMult,
+  woodcutter: axeMult() * villageMult,
+  miner:      villageMult,
+  arcanist:   1 + (S.upgrades.arcaneFocus ? 0.50 : 0),
+  tinkerer:   S.upgrades.facetedCuts ? 1.25 : 1,
+  loremaster: 1
+};
+```
+
+**`loremaster`, `arcanist`, `tinkerer` get nothing from it, and `jungler` and `acolyte` are not in
+the table at all.** A settlement running a knowledge or devotion economy gets no value from
+Demacia's Standard whatsoever, which is not what "every worker in the village produces 12% more"
+says.
+
+**Ship: `JARVAN_VILLAGE_LEAD 0.12 → 0.06`, applied to all eight jobs.**
+
+**Predict the sign before running, because it is not obvious.** The bot's shares put roughly half
+the workforce in farmer/woodcutter/miner, so the weighted effect is about `0.12 × 0.55 ≈ 0.066`
+today against `0.06 × 1.00 = 0.06` after — **roughly neutral in total output and materially
+different in shape.** Jarvan stops being a food-and-timber leader and becomes a flat settlement
+leader, which is what his lead text has always claimed.
+
+**Leave the building clause alone.** `villageMult` also multiplies `b.group === "Village"`
+production (`:5579`). The note is about jobs a wanderer can hold; **the building term is a separate
+effect and halving it was not asked for.** Say so in the report rather than letting it ride on the
+same constant — if one constant now drives two scopes, split it.
+
+### 6a.2 The passive starts at 15%, not 25%
+
+`index.html:1528` — `passive: { key: "xp", base: 25, desc: "Demacian Command: wanderers earn
+experience 25% faster" }` → **`base: 15`**.
+
+**The description string carries a hard-coded 25 and must be generated from the constant**, not
+edited alongside it. This project has now had three separate defects from a literal drifting away
+from the number it describes — v0.59's renown tooltips, v0.61's `petriciteResonators`, and the
+festival chip. **A second literal is a third one waiting.**
+
+**And Part 2's knee audit reaches this.** `champPassive("xp")` feeds
+`XP_PER_SECOND * (1 + champPassive("xp") / 100)` (`:6461`), which is **not** a `BOOST_LIMIT`
+family, so it is delivered in full — but v0.61 §9.3 measured Jarvan at level 10 delivering
+**×1.97**, against Kittens' 20-Academy `skillXP` line at **×2.00**. **At base 15 that becomes
+≈×1.58**, so the 2%-coincidence parity row from v0.61 stops being true. **Re-rate that ledger row
+in the same round the constant moves** — this is the §2.1-of-v0.59.1 rule, and it has already
+caught this project once.
+
+**Pass conditions:** `JARVAN_VILLAGE_LEAD = 0.06` reaching **all eight** jobs, asserted job by job
+from the `JOBS` list rather than by naming three; the building clause's scope stated and
+unchanged; `base: 15` with the description **generated**, asserted to match the constant; the
+Jarvan-vs-Academy ledger row re-rated with the new ×1.58 figure; population, morale band and
+Era 3 reported, since the lead now touches every job.
 
 ---
 
@@ -511,7 +655,10 @@ prediction scored.
 4. **Part 7** — the crystal sink on the right footing. **The round's second-largest number.**
 5. **Part 1** — the trade guard measurement, and the ceiling decision that follows it.
 6. **Part 10** — the spread decomposition. **Long pole; it needs the ensemble.**
-7. **Parts 6, 8, 9** — presentation, the §31 correction, the ledger finish. No game numbers move.
+7. **Part 6a** — Jarvan. One constant and one coverage fix, but it touches every job, so it wants
+   a clean slice rather than riding along with Part 3's storage change.
+8. **Parts 6, 8, 9** — the five presentation notes, the §31 correction, the ledger finish. No game
+   numbers move.
 
 ### Operational
 
@@ -541,7 +688,9 @@ sizing any ceiling. Strip comments before grepping. **Clone Kittens; pin `c52985
 | 16 | Noxus | plumes 100; `firstTrade` reported |
 | 17 | Scuttler, Gromp | both gated on `empowered`; descriptions match payouts; spawns/year before and after |
 | 18 | Tooltips | morale sentence cut; festival lists renown from the constant |
-| 19 | Targon banner | halo, animated, both notes cited |
+| 19 | Targon banner | the 8×4 `PAL.text` square gone; **`drawCrescent(212, 26, 11)` asserted UNCHANGED**; halo animated off `f`; phase distinct from the light shaft; both notes cited |
+| 19a | Crest banners | Cinders → red glow on anvil and hammer; Insight → blue lights from the sprite geometry; **both asserted by holding, reading, expiring and re-reading the canvas**, never by grep; layer choice stated |
+| 19b | Jarvan | `JARVAN_VILLAGE_LEAD 0.06` on **all eight** jobs, asserted from `JOBS`; building clause scope stated; `base: 15` with a **generated** description; the Academy ledger row re-rated to ×1.58 |
 | 20 | Crystal sink | burn on the same footing as the yield, 1.2× anchor cited; **time-at-cap < 70% on a seed, or the failure reported** |
 | 21 | §31 | amended with the fourteen-step chain and the retraction; **nothing collapsed** |
 | 22 | UNVERIFIED | **0**, or every survivor carries its failed query; split scored |
@@ -558,6 +707,7 @@ sizing any ceiling. Strip comments before grepping. **Clone Kittens; pin `c52985
 | s2: mana rung deleted | **+5 to +25** | unchanged | Σ1.00 → Σ0.75 restores full delivery but removes a member; net small |
 | s3: storage re-based | **+40 to +140** | may widen | **the round's largest single term** — timber, ore and gold ceilings all fall |
 | s4: festival + Marus + camps | **+10 to +60** | | a real provisions cost late, and a devotion cut reaching `catReligion` |
+| s4a: Jarvan | **−10 to +20** | | roughly neutral in total output by construction; the shape change is the point, not the level |
 | s5: crystal sink on the yield's footing | **+30 to +120** | | the first crystal change with the faucet's own scaling |
 | s6: trade ceiling decision | **−60 to +20** | | sign depends on whether the guard binds |
 | **shipped** | **1,250–1,500** | **report against ×1.30** | |
@@ -601,7 +751,7 @@ family loop; `:5424` and `:5365` — the shrine morale term and `MORALE_SHRINE_L
 Shaco's refund and `SHACO_REFUND_CHANCE 0.20`; `:7411` — `runExpeditionBulk`; `:4352` — Noxus
 `plumes 120`; `:4041` — the Scuttler spawn with no charge test; `:4029` and `:4023` — Gromp's
 stray poro and its description; `:8059` — the morale tooltip sentence; `:8925` — the festival
-tooltip's effects array; `:9898–9910` — the pixel crescent and its v0.58.1 citation; `:6678–6688`
+tooltip's effects array; `:9898–9906` — the pixel crescent, **kept**; `:9913` — the 8×4 `PAL.text` square above the summit, **the object dev note 12 is actually about**; `:9915` — the pulsing light shaft; `:9821–9841` — the crafting scene's anvil and hammer; `:9794–9820` and `:9626–9652` — the lore scene and `drawLoreSprites()`'s shelf and lamp geometry; `:5795` and `:1618` — `villageMult` reaching three of eight jobs and `JARVAN_VILLAGE_LEAD 0.12`; `:1528` — Jarvan's `base: 25` and its hard-coded description; `:6678–6688`
 — the Aurelion Sol star shard.
 
 **Measurements taken this session:** all 32 suites re-run from disk and parsed from their own

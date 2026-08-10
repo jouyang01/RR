@@ -108,6 +108,45 @@ hours of single-job work**. The rank *thresholds* are already close to source in
 exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
 interim labelled UNVERIFIED — do not invent a citation.
 
+### v0.62 spec revised — the Targon note corrected, and three new changes
+
+**I read dev note 12 wrong and Jerry corrected it. There are TWO pale objects in the Targon scene
+and I conflated them:**
+
+- **`index.html:9898–9906` — the crescent moon**, off to the right at `(212, 26)` radius 11, clear
+  of the mountain, added at v0.58.1 note 37 on Jerry's own instruction. **KEEP. My first draft told
+  the builder to delete it.**
+- **`index.html:9913` — `px(cx - 4, groundY - 28, 8, 4, PAL.text)`**, an 8×4 filled rectangle
+  sitting directly above the summit. **THIS is the "square moon", and it is the whole of the
+  note.** It reads as a square because at this resolution it is one.
+
+The golden halo goes in the square's place, and it has to share the frame with the pulsing light
+shaft at `:9915` — **offset the phases or the two will strobe together.**
+
+**Three further changes, all researched against the shipped code:**
+
+- **Jarvan (Part 6a).** `villageMult` (`:5795`) reaches **three of the eight assignable jobs** —
+  farmer, woodcutter, miner. `loremaster`, `arcanist` and `tinkerer` get nothing from Demacia's
+  Standard and `jungler` and `acolyte` are not in the job table at all, so a knowledge or devotion
+  settlement gets no value from him whatsoever. **`JARVAN_VILLAGE_LEAD 0.12 → 0.06` applied to all
+  eight** is roughly neutral in total output — about `0.12 × 0.55` today against `0.06 × 1.00`
+  after — and materially different in shape. His passive goes `base: 25 → 15` (`:1528`), **and the
+  description string carries a hard-coded 25 that must be generated**, which is the third
+  literal-drift defect this project has had. **v0.61 rated Jarvan PARITY-of-magnitude against
+  Kittens' 20-Academy `skillXP` line on a ×1.97-vs-×2.00 coincidence; at base 15 that becomes
+  ≈×1.58 and the row must be re-rated in the same round.**
+- **Crest of Cinders → the workshop banner (6.4).** `SCENES.crafting` (`:9821–9841`) draws the
+  anvil and hammer procedurally; a faint red glow keys off the same `simNow() < S.cinderUntil`
+  expression used at `:5689`.
+- **Crest of Insight → the lore banner (6.5).** The bookshelves and lamps are **sprites** drawn by
+  `drawLoreSprites()` (`:9626`) on a separate canvas, so the lights must take their positions from
+  that function's own `leftX` / `rightX` geometry and **the layer has to be chosen deliberately** —
+  drawn in the scene they sit behind the shelves.
+
+**Both Crest changes are asserted by holding the buff, reading the canvas, expiring it and reading
+again — never by grep.** That is the v0.61 §3 lesson: the festival chip's assertion grepped for a
+string and passed for two rounds while the feature never fired.
+
 ## v0.62 — the analyzer's verification pass
 
 **Verified from a fresh checkout at the `v0.61` tag, from disk.**
