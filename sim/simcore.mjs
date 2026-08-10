@@ -376,6 +376,38 @@ export async function runSim(page, years, seed = 1) {
             manufactoryBurnPerCopy: MANUFACTORY_FUEL * (S.upgrades.pressureRegulators ? MANUFACTORY_FUEL_CUT : 1)
           };
         })(),
+        // ---- v0.61 PART 1: the convMult readout, term by term ----
+        // Two rounds mis-diagnosed this stack because it is a product of six factors and nobody
+        // could name them. v0.60 §2 reported "×19.77 converter-side" against Kittens' one
+        // additive ×3.70 -- but ×19.77 was `convMult × (1 + boosts.crystals)`, TWO categories
+        // multiplied against ONE. This block names every factor, its value, its cap and what
+        // KIND of thing it is, for both the worked and the autoprod shape, so the like-for-like
+        // comparison never has to be reconstructed from prose again.
+        convMult: (() => {
+          const shape = (isAuto) => {
+            const bd = convMultBreakdown(isAuto);
+            return {
+              product: +bd.product.toFixed(4),
+              terms: bd.terms.map(t => ({
+                label: t.label, value: +t.value.toFixed(4), kind: t.kind,
+                cap: t.cap === undefined ? null : +t.cap.toFixed(4),
+                atCap: t.cap !== undefined && Math.abs(t.value - t.cap) < 1e-9,
+                members: t.members || null
+              }))
+            };
+          };
+          return {
+            worked: shape(false), autoprod: shape(true),
+            // the like-for-like line: RR's three conversion Discoveries against calcinerRatio.
+            discoverySigma: +convDiscoveryTotal().toFixed(4),
+            discoveryMult: +(1 + convDiscoveryTotal()).toFixed(4),
+            discoveryHeldCount: CONV_DISCOVERY_LINE.filter(u => S.upgrades[u[0]]).length,
+            calcinerRatioMult: 3.70,   // js/buildings.js @ c52985b, Sigma 2.70 across three upgrades
+            // the OTHER factor v0.60 folded in, reported separately so the two are never
+            // multiplied together and called one category again.
+            boostsCrystals: +((computeRates("crystals")._boosts || {}).crystals || 0).toFixed(4)
+          };
+        })(),
         // ---- v0.57 PART 5: the Scholarship census, the same one v0.56 did for storage ----
         // v0.56 found the instrument holds only 3 of the 5 STORAGE rungs through most of a run,
         // so the fully-stacked table it shipped was never exercised. The Scholarship line is the
@@ -412,7 +444,17 @@ export async function runSim(page, years, seed = 1) {
                       sigmaHeld: +ARCHIVE_RATIO_LINE.reduce((a, u) => a + (owned[u[0]] ? u[1] : 0), 0).toFixed(4),
                       sigmaFull: +ARCHIVE_RATIO_LINE.reduce((a, u) => a + u[1], 0).toFixed(4),
                       observatories: count("observatory"),
-                      archiveSliceMult: +(1 + count("observatory") * archiveRatioTotal()).toFixed(4),
+                      // v0.61 PART 7 — `archiveRatioTotal()` is gone with the single-pairing
+                      // model that assumed all three upgrades aimed at the Archive. There are
+                      // three DISTINCT pairings now, so the census reports each target's own
+                      // amplifier and names which scaler feeds it.
+                      archiveSliceMult: +(1 + knowledgeAmpFor("archive")).toFixed(4),
+                      academySliceMult: +(1 + knowledgeAmpFor("academy")).toFixed(4),
+                      academies: count("academy"),
+                      ampPairings: KNOWLEDGE_AMP_LINE.map(u => ({
+                        id: u.id, ratio: u.ratio, scaler: u.scaler, target: u.target,
+                        held: !!owned[u.id], scalerCount: count(u.scaler),
+                        contributes: +(owned[u.id] ? u.ratio * count(u.scaler) : 0).toFixed(4) })),
                       astrolabeHeld: Object.keys(ASTROLABE_LINE).filter(u => owned[u]),
                       astrolabeMult: ASTROLABE_MULT };
           // The delivered figure is now measured on KNOWLEDGE -- the resource the line actually
@@ -641,11 +683,35 @@ export async function runSim(page, years, seed = 1) {
             else if (tight && !(S.res[rr] >= cp * 0.6)) surplusPer[rr] = `hold ${held} of a TIGHT cap ${Math.round(cp)} = ${(100 * held / cp).toFixed(0)}%, needs 60%`;
             else surplusPer[rr] = "ok";
           });
+          // v0.61 PART 6.3 — THE BINDING CHECK dev note 11 actually asks for. Jerry's point is
+          // that the PROVISIONS CEILING should limit how many caravans can be sent at once, and
+          // "a cost that only bites at Icathia is not a limiter". So the measurement is: how
+          // many caravans does the ceiling ALLOW, and how many does the current stock allow?
+          // If `capAllows` is large, 5,000 is not binding and the report says so with the
+          // figure that would be.
+          const provCap = caps.provisions || 0, provHeld = S.res.provisions || 0;
+          const provCost = c.provisions || 0;
+          // v0.61 PART 6.1 — the trade-yield category, term by term, so a composition change is
+          // never again reported as one number nobody can decompose (Part 1's lesson).
+          const ytPer = {};
+          FACTIONS.forEach(f => { ytPer[f.id] = +tradeYieldMult(f.id).toFixed(4); });
           return { route: cheapest.id, cost: c, affordable: binding.length === 0, binding,
                    surplusOk: tradeSurplusOk(c), surplusPer,
                    vigorPerSec: +vps.toFixed(3),
                    vigorPerGameYear: +(vps * SEC_PER_GAME_YEAR).toFixed(1),
-                   tradesPerGameYear: c.vigor ? +((vps * SEC_PER_GAME_YEAR) / c.vigor).toFixed(2) : null };
+                   tradesPerGameYear: c.vigor ? +((vps * SEC_PER_GAME_YEAR) / c.vigor).toFixed(2) : null,
+                   provisions: {
+                     cost: provCost, cap: Math.round(provCap), held: Math.round(provHeld),
+                     capAllows: provCost ? Math.floor(provCap / provCost) : null,
+                     heldAllows: provCost ? Math.floor(provHeld / provCost) : null,
+                     // the figure that WOULD bind: a cost that lets at most ~3 caravans out of a
+                     // full larder is a limiter; anything past that is flavour.
+                     costThatWouldBindAt3: Math.round(provCap / 3)
+                   },
+                   yieldTerms: tradeYieldTerms(cheapest.id).map(t => ({ label: t.label, amt: +t.amt.toFixed(4) })),
+                   yieldMult: +tradeYieldMult(cheapest.id).toFixed(4),
+                   yieldPerFaction: ytPer,
+                   caravansOnCheapest: caravanCount(cheapest.id) };
         })(),
         shrines: count("shrine"),
         // v0.45 Part 8 — the aggregate champion multiplier across every line it reaches

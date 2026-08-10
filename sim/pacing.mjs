@@ -667,6 +667,48 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
     (Math.abs(sum - 100) < 0.5 ? " — fully attributed" : " — NOT FULLY ATTRIBUTED, a contributor is unlabelled"));
 });
 
+// ---- v0.61 PART 1 — THE convMult READOUT, TERM BY TERM, AT EVERY MILESTONE ----
+// A product with six factors that nobody can name is how this got two rounds of wrong diagnosis.
+// Every factor is named with its value, its cap, and WHAT KIND OF THING IT IS -- because the
+// parity question is not any individual number, it is that Kittens composes conversion strength
+// as ONE additive category and RR composes it as three multiplicative ones plus a transient.
+["sparks", "hexcore", "icathia", "final"].forEach(k => {
+  const cm = r.snaps && r.snaps[k] && r.snaps[k].convMult;
+  if (!cm) return;
+  console.log(`\nCONVMULT DECOMPOSITION @${k}: worked x${cm.worked.product} · autoprod x${cm.autoprod.product}`);
+  ["worked", "autoprod"].forEach(shape => {
+    console.log(`  ${shape}:`);
+    cm[shape].terms.forEach(t => {
+      const capStr = t.cap === null ? "" : `  (cap x${t.cap}${t.atCap ? " — AT CAP" : ""})`;
+      console.log(`     x${String(t.value).padEnd(8)} ${t.label.padEnd(46)} [${t.kind}]${capStr}`);
+      if (t.members) t.members.forEach(mm =>
+        console.log(`            ${mm[2] ? "held" : "  — "}  +${mm[1]}  ${mm[0]}`));
+    });
+  });
+  // THE LIKE-FOR-LIKE LINE. This is the comparison v0.60 got wrong by folding two categories
+  // into one figure, and it is printed on its own so it cannot be conflated again.
+  console.log(`  LIKE-FOR-LIKE upgrade line: RR ${cm.discoveryHeldCount}/3 Discoveries, ` +
+    `Sigma ${cm.discoverySigma} -> x${cm.discoveryMult}  vs  Kittens calcinerRatio Sigma 2.70 -> x${cm.calcinerRatioMult}` +
+    `  =  RR at ${(100 * cm.discoveryMult / cm.calcinerRatioMult).toFixed(0)}% of the source`);
+  console.log(`  NOT the same category: boosts.crystals is +${cm.boostsCrystals} and multiplies ` +
+    `OUTSIDE convMult. v0.60's "x19.77 converter-side" was convMult x (1 + boosts.crystals) -- ` +
+    `two categories -- compared against ONE Kittens category. See BUILD REPORT v0.61 s1.`);
+});
+
+// ---- v0.61 PART 7 — THE KNOWLEDGE AMPLIFIER, PAIRING BY PAIRING ----
+// Three DISTINCT pairings now (Academies->Archive, Observatories->Archive, Observatories->
+// Academy) where all three used to feed one line. The prediction is that the Academy->Archive
+// term is the largest in practice because RR builds more academies than observatories; this is
+// what scores that prediction.
+["sparks", "hexcore", "icathia", "final"].forEach(k => {
+  const sc = r.snaps && r.snaps[k] && r.snaps[k].scholarship;
+  if (!sc || !sc.ampPairings) return;
+  console.log(`\nKNOWLEDGE AMPLIFIER @${k}: archive x${sc.archiveSliceMult} · academy x${sc.academySliceMult}` +
+    `  (${sc.academies} academies, ${sc.observatories} observatories, Sigma ${sc.sigmaFull} across three upgrades)`);
+  sc.ampPairings.forEach(u => console.log(
+    `     ${u.held ? "held" : "  — "}  ${u.id.padEnd(18)} ${u.ratio} x ${String(u.scalerCount).padStart(3)} ${u.scaler.padEnd(12)} -> ${u.target.padEnd(8)} = +${u.contributes}`));
+});
+
 // v0.50 Part 5 — what a PLAYER could run, rather than what the bot did.
 ["sparks", "hexcore", "icathia"].forEach(k => {
   const ct = r.snaps && r.snaps[k] && r.snaps[k].cheapestTrade;
@@ -677,6 +719,22 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
   // v0.58 Part 3: affordable and will-actually-trade are different questions — print the second one.
   if (ct.surplusPer) console.log(`     bot's surplus rule: ${ct.surplusOk ? "SATISFIED" : "REFUSED"} — ` +
     Object.entries(ct.surplusPer).map(([k2, v2]) => `${k2}: ${v2}`).join("  |  "));
+  // v0.61 PART 6.3 — the binding check dev note 11 asks for, stated as a caravan count.
+  if (ct.provisions && ct.provisions.cost) {
+    const pv = ct.provisions;
+    console.log(`     PROVISIONS COST ${pv.cost}: ceiling ${pv.cap} allows ${pv.capAllows} caravans at once, ` +
+      `stock ${pv.held} allows ${pv.heldAllows} — ` +
+      (pv.capAllows !== null && pv.capAllows <= 3 ? "BINDING" :
+       `NOT BINDING (a cost of ~${pv.costThatWouldBindAt3} would bind at 3 caravans here)`));
+  }
+  // v0.61 PART 6.1 — the trade-yield category, term by term. One ADDITIVE category now, uncapped,
+  // per js/diplomacy.js:744-747; RR previously composed four multiplicative categories with two
+  // hard ceilings (+100% docks, +60% embassy).
+  if (ct.yieldTerms) {
+    console.log(`     TRADE YIELD x${ct.yieldMult} = 1 + ` +
+      ct.yieldTerms.map(t => `${t.amt} (${t.label})`).join(" + ") +
+      `   [${ct.caravansOnCheapest} caravans on this route]`);
+  }
 });
 const gap = (a, b) => (m[a] !== undefined && m[b] !== undefined) ? +(m[b] - m[a]).toFixed(1) : undefined;
 const chemToHex = gap("chemtech", "hexcore");
