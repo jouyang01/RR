@@ -232,9 +232,15 @@ check("10 docks give +20%, not +150%", Math.abs(i11.ten - 1.20) < 0.001, `×${i1
 // The argument and the measurement are at `tradeYieldMult` in index.html. **Four multiplicative
 // categories with two ceilings became ONE additive category with one — strictly closer to the
 // source than what RR had.** The asymptote moves +100% -> +300%.
-check("the DOCK's own ceiling is gone; one ceiling remains, on the whole additive category",
-  i11.huge <= 4.0 && i11.huge > 3.9 &&
-  !/var docks = limitedDR\(/.test(RAWSRC),
+// RE-POINTED v0.62, superseded by PART 1 — `TRADE_YIELD_LIMIT` is REMOVED and v0.61's
+// justification for it is WITHDRAWN. Kittens has the same trade cycles and the same
+// base-resource craft; what bounds them is a per-trade tax in resources the cycle does not
+// produce, and RR already had it. **Measured: 15.6 sustainable trades/game-year at Sparks, 47.1
+// at Hexcore, bound by VIGOR.** The yield category is one ADDITIVE, UNCAPPED sum, which is
+// `js/diplomacy.js:744-747` exactly and what dev note 8 asked for at v0.61.
+check("the trade yield category is ADDITIVE and UNCAPPED, exactly as the source sums it",
+  i11.huge > 1000 &&
+  !/var docks = limitedDR\(/.test(RAWSRC) && !/var TRADE_YIELD_LIMIT/.test(RAWSRC),
   `×${i11.huge.toFixed(3)} at absurd counts (was +100%, now the category ceiling at +300%)`);
 
 // ============= ITEMS 12-16 — spec lists these as outstanding; verify shipped =============

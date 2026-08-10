@@ -203,10 +203,25 @@ const swept = await page.evaluate(() => ({
     return computeCaps().provisions;
   })(),
   festivalAtTen: (function () { S.pop = 10; return festivalCost().provisions; })(),
+  // v0.62 PART 4.3 — the per-head terms, which still take the sweep the provisions term left.
+  festivalCultureAtTen: (function () { S.pop = 10; return festivalCost().culture; })(),
+  festivalVigorAtTen: (function () { S.pop = 10; return festivalCost().vigor; })(),
   arrivalThresholdInSource: null
 }));
 check("7 — the bare storage floor is 2,000 (200 × 10)", swept.baseCap === 2000, String(swept.baseCap));
-check("7 — the festival is 60 × pop (6 × 10)", swept.festivalAtTen === 600, String(swept.festivalAtTen));
+// RE-POINTED v0.62, superseded by PART 4.3 / DEV NOTE 3 (Jerry): "the Festival's provisions cost
+// should be higher." **The cost is no longer denominated in population.** It had the same defect
+// v0.61 Part 6.3 found in the trade provisions cost — population plateaus near 200 while the
+// provisions CEILING grows x11.3 from Sparks to Icathia, so the festival cost 15% of the ceiling
+// at Sparks and 1.3% at Icathia. It is `FESTIVAL_PROVISION_PCT x computeCaps().provisions` now.
+// **What this line guarded — that the sweep's x10 reached the festival — is asserted against the
+// CULTURE and VIGOR terms, which are still per-head and did take the sweep.**
+check("7 — the festival's per-head terms took the sweep (30 × pop culture, 10 × pop vigor)",
+  swept.festivalCultureAtTen === 300 && swept.festivalVigorAtTen === 100,
+  `culture ${swept.festivalCultureAtTen}, vigor ${swept.festivalVigorAtTen}`);
+check("7 — ...and the PROVISIONS term is a fraction of the ceiling, not of population",
+  /FESTIVAL_PROVISION_PCT \* \(computeCaps\(\)\.provisions/.test(CODE) &&
+  !/provisions: Math\.round\(60 \* Math\.max\(1, S\.pop\)\)/.test(CODE));
 check("7 — the arrival threshold moved with the sweep, at BOTH sites",
   (CODE.match(/S\.res\.provisions > 80/g) || []).length === 2 &&
   !/S\.res\.provisions > 8\b/.test(CODE),

@@ -651,8 +651,14 @@ check("8.8 SCOPE — FESTIVAL_MUSHROOMS / FESTIVAL_PLUME_SHARE are read in festi
   const stray = (outside.match(/FESTIVAL_MUSHROOMS|FESTIVAL_PLUME_SHARE/g) || []);
   return stray.length === 0;
 })(), "no reference outside festivalCost() other than the declaration");
+// RE-POINTED v0.62: **`noxusPlumes` leaves this list, and only that.** v0.59 note 8's SCOPE
+// property — that the festival's mushroom and plume cut touched the FESTIVAL COST and nothing
+// else — is unchanged and is what the six remaining figures still guard. The Noxus route's plume
+// price moved at v0.62 PART 5.2 on Jerry's dev note 5 ("Noxus Raptor Plume trade cost -> 100"),
+// which is a different note by the same author, and pinning it here would make this assertion
+// fail every time anyone re-prices that route for any reason.
 check("8.8 SCOPE — ...and note 8 moved NO other mushroom or plume price in the game",
-  feel.luxScope.noxusPlumes === 120 && feel.luxScope.jessedHawks === 120 &&
+  feel.luxScope.jessedHawks === 120 &&
   feel.luxScope.beastLore.plumes === 30 && feel.luxScope.beastLore.mushrooms === 40 &&
   feel.luxScope.harvestRites === 400 && feel.luxScope.shaco === 60 && feel.luxScope.twitch === 90 &&
   /12–18 Raptor Plumes/.test(feel.luxScope.raptorYield),

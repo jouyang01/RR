@@ -101,8 +101,14 @@ const d4 = await page.evaluate(() => {
   return { without, withAbyss, isFn: typeof e.yield === "function",
            dropGate: /S\.techs\.abyss/.test(e.run.toString()) };
 });
-check("4 — the stray poro is hidden until Abyssal Cartography, and shown after it",
-  !/stray poro/.test(d4.without) && /stray poro/.test(d4.withAbyss),
+// RE-POINTED v0.62, superseded by PART 5.4 / DEV NOTE 8 (Jerry): "Gromp: honeyflower on a charge
+// run, not a stray poro." The drop is gated on `campEmpowered` now — as the Rift Scuttler is in
+// 5.3, so both charge camps read the same way — and it pays the honeyfruit event's own grant.
+// **The yield line moved in the same edit**, which is the property this assertion has always
+// guarded: the string names what the code actually pays, and it is checked against the LIVE
+// branch text rather than against a literal, so the next reword cannot desync it either.
+check("4 — the charge-run drop is hidden until Abyssal Cartography, and shown after it",
+  !/honeyfruit/.test(d4.without) && /honeyfruit/.test(d4.withAbyss),
   `without: ${d4.without}  |  with: ${d4.withAbyss}`);
 check("4 — ...and the tooltip now matches the gate the run itself uses",
   d4.isFn && d4.dropGate);

@@ -404,10 +404,27 @@ const loop = await page.evaluate(() => {
   const G = (avgFrom(dem.run) / dem.cost.timber) * (avgFrom(pil.run) / pil.cost.steel) *
             (transmuteYield() / TRANSMUTE_COST) * maxM * maxM;
   S.buildings = {}; S.caravans = {}; S.upgrades = {}; S.policies = {}; S.champs = {}; S.leader = null;
-  return { maxM: +maxM.toFixed(3), G: +G.toFixed(3) };
+  // v0.62 PART 1 — the TAX is what bounds this cycle; the yield category is uncapped, as the
+  // source's is. Gold and vigor come from outside every resource cycle.
+  const SECY = 4 * 100 * 10 * 0.2;
+  const rr2 = computeRates(), dc2 = tradeCost(dem);
+  const byG2 = dc2.gold ? (rr2.gold || 0) * SECY / dc2.gold : Infinity;
+  const byV2 = dc2.vigor ? (rr2.vigor || 0) * SECY / dc2.vigor : Infinity;
+  return { maxM: +maxM.toFixed(3), G: +G.toFixed(3),
+           tradesPerYear: +Math.min(byG2, byV2).toFixed(1),
+           bindingTax: byG2 < byV2 ? "gold" : "vigor",
+           taxBinds: isFinite(Math.min(byG2, byV2)) };
 });
-check("regression: the trade circuit still loses timber at the maximum stack",
-  loop.G < 0.8, `G = ${loop.G} at max M = ${loop.maxM}`);
+// RE-POINTED v0.62, superseded by PART 1 — `TRADE_YIELD_LIMIT` is REMOVED and v0.61's
+// justification for it is WITHDRAWN. Kittens has the same trade cycles and the same
+// base-resource craft; what bounds them is a per-trade tax in resources the cycle does not
+// produce, and RR already had it. **Measured: 15.6 sustainable trades/game-year at Sparks, 47.1
+// at Hexcore, bound by VIGOR.** The yield category is one ADDITIVE, UNCAPPED sum, which is
+// `js/diplomacy.js:744-747` exactly and what dev note 8 asked for at v0.61.
+check("regression: the trade cycle is still tax-bounded, not yield-capped (v0.62 Part 1)",
+  loop.taxBinds && loop.tradesPerYear < 200,
+  `${loop.tradesPerYear} sustainable trades/game-year bound by ${loop.bindingTax}; ` +
+  `yield-only G = ${loop.G} at max M = ${loop.maxM} — a CAPPED resource at its ceiling, not unbounded resources`);
 
 await reset();
 const rt = await page.evaluate(() => {

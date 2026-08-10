@@ -382,7 +382,7 @@ export async function runSim(page, years, seed = 1) {
         // throwing most of their stack away, and the number that reaches a player is the button
         // text -- so this is an instrument for a correctness bug, not a curiosity.
         knee: (() => {
-          const k = computeRates()._knee || {};
+          const k = computeRates("mana")._knee || {};   // any bdRes: the knee map is family-wide
           const out = {};
           for (const f in k) out[f] = { ...k[f] };
           // the member-by-member view, so a family past its knee can be attributed

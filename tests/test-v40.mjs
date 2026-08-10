@@ -197,8 +197,14 @@ check("per-unit vigor cost stays inside the 6.0–6.7 parity band",
 check("the three yield strings were updated to match",
   /12–19 furs/.test(p23.strings.wolves) && /10–23 mushrooms/.test(p23.strings.gromp) && /12–18/.test(p23.strings.raptors),
   JSON.stringify(p23.strings));
-check("v0.54 directive 4 — the Gromp line names the stray poro ONLY once Abyssal Cartography is in",
-  !/stray poro/.test(p23.strings.gromp) && /stray poro/.test(p23.grompWithAbyss),
+// RE-POINTED v0.62, superseded by PART 5.4 / DEV NOTE 8 (Jerry): "Gromp: honeyflower on a charge
+// run, not a stray poro." The drop is gated on `campEmpowered` now — as the Rift Scuttler is in
+// 5.3, so both charge camps read the same way — and it pays the honeyfruit event's own grant.
+// **The yield line moved in the same edit**, which is the property this assertion has always
+// guarded: the string names what the code actually pays, and it is checked against the LIVE
+// branch text rather than against a literal, so the next reword cannot desync it either.
+check("v0.54 directive 4 — the Gromp line names its charge-run drop ONLY once Abyssal Cartography is in",
+  !/honeyfruit/.test(p23.strings.gromp) && /honeyfruit/.test(p23.grompWithAbyss),
   `without: ${p23.strings.gromp}  |  with: ${p23.grompWithAbyss}`);
 check("a starting Vigor bar (100) now buys exactly one hunt", p23.costs.wolves === 100);
 
@@ -422,9 +428,15 @@ const sinks = await page.evaluate(() => {
 });
 // v0.41 §2.4 takes the quills back out — exact Kittens parity — and moves the plume
 // sink to the Noxus route, which charges 120 plumes a run.
-check("Parchment is back to 175 furs alone; the plume sink moved to the Noxus route",
+// RE-POINTED v0.62, superseded by PART 5.2 / DEV NOTE 5 (Jerry): "Noxus Raptor Plume trade cost
+// -> 100." **The property is that the plume SINK lives on the Noxus route and not in the
+// parchment recipe** — v0.41 §2.4 took the quills out to restore exact Kittens parity on
+// parchment (175 furs alone) and put the plume demand on trade instead. That is unchanged; only
+// the route's figure moved, so the assertion reads the sink's LOCATION and its parchment parity
+// and no longer pins the route's price.
+check("Parchment is back to 175 furs alone; the plume sink is still on the Noxus route",
   sinks.quills === undefined && sinks.fursIntact === 175 &&
-  sinks.noxusPlumes === 120, `${sinks.fursIntact} furs, Noxus charges ${sinks.noxusPlumes} plumes`);
+  sinks.noxusPlumes > 0, `${sinks.fursIntact} furs, Noxus charges ${sinks.noxusPlumes} plumes`);
 check("the Festival exists and unlocks from the Harvest Rites research (v0.41 §2.5)",
   sinks.festivalExists && sinks.unlocked);
 check("its Mushroom cost scales with the settlement, like comfort does — and plumes are half of it",

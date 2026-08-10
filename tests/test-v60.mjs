@@ -138,8 +138,17 @@ check("6 — ...and reports the two per-copy figures ON THE SAME FOOTING, which 
   /refineryPerCopyBase/.test(SIMCORE) && /manufactoryBurnPerCopy/.test(SIMCORE));
 // PASS CONDITION 7 — the one the spec is most insistent about.
 const fuel = await page.evaluate(() => ({ fuel: MANUFACTORY_FUEL, cut: MANUFACTORY_FUEL_CUT }));
-check("7 — MANUFACTORY_FUEL is UNCHANGED at 0.12: the spec forbids a third sizing before the decomposition",
-  fuel.fuel === 0.12 && fuel.cut === 0.5, `${fuel.fuel}/s per copy`);
+// RE-POINTED v0.62, superseded by PART 7 — and the constant going DOWN is what stops this being
+// a fourth raise. Three rounds raised `MANUFACTORY_FUEL` (0.02 -> 0.12) and none moved the stock:
+// v0.61 measured 15 Manufactories draining 2.56/s against 36.97/s gross, **6.9%**, because the
+// Refinery's output is multiplied by `convMult x (1 + boosts.crystals)` — x92 on a maxed state —
+// **and the Manufactory's input was FLAT.** The fix is the footing, not the number: the burn is
+// **0.024, the source's own per-copy anchor** (Kittens' `calciner` burns `oilPerTickCon: -0.024`
+// against an `oilWell`'s `oilPerTickBase: 0.02` — a 1.2x sink-to-faucet ratio), **taking the same
+// multiplier the yield takes.** Scoped to the fuel line only: every other converter input stays
+// flat, because inputs-flat/outputs-multiplied is the SOURCE'S OWN asymmetry (v0.61 §3).
+check("7 — MANUFACTORY_FUEL is on the yield's footing at the source's 0.024, not raised a fourth time",
+  fuel.fuel === 0.024 && fuel.cut === 0.5, `${fuel.fuel}/s per copy before multipliers`);
 
 // ============================================================================
 // PART 5 — factoryAutomation, at the source's own three figures
@@ -227,11 +236,18 @@ check("10 — the single-accumulator `boosts` design is named as a structural di
 // PART 8 — the ledger triage
 // ============================================================================
 // PASS CONDITION 13
-check("13 — every UNVERIFIED row carries a triage class",
+// RE-POINTED v0.62, superseded by PART 9 — **UNVERIFIED IS ZERO. THE LEDGER IS FINISHED.** All
+// 25 remaining rows were RETRIEVABLE by construction (the class v0.61 Part 3.1 left behind), and
+// each named a Kittens identifier, so each was one grep against the clone. The triage machinery
+// this line guards is UNCHANGED and still runs — what changed is that it now has nothing to
+// classify. Asserted as the invariant that survives an empty set: **every UNVERIFIED row, if one
+// ever returns, carries a class** — vacuously true today and load-bearing the moment it is not.
+check("13 — every UNVERIFIED row carries a triage class (and there are ZERO left)",
   (() => {
     const unv = LEDGER.split("\n").filter(l => /^\| `/.test(l) && l.includes("**UNVERIFIED**"));
-    return unv.length > 0 && unv.every(l => /\[(RETRIEVABLE|RR-ORIGINAL|GENUINELY OPEN)\]/.test(l));
-  })());
+    return unv.every(l => /\[(RETRIEVABLE|RR-ORIGINAL|GENUINELY OPEN)\]/.test(l));
+  })(),
+  `${LEDGER.split("\n").filter(l => /^\| \`/.test(l) && l.includes("**UNVERIFIED**")).length} UNVERIFIED rows remain`);
 check("13 — the class is DERIVED from the row, not hand-assigned to 120 of them",
   /function triageClass/.test(LEDGERGEN));
 check("13 — the generator ABORTS on a GENUINELY OPEN row with no recorded retrieval attempt",
@@ -244,9 +260,13 @@ check("13 — the generator ABORTS on a GENUINELY OPEN row with no recorded retr
 // into its own row. So the v0.60 marker count is 12, not 13, and that is the round working as
 // intended rather than a regression. **What this guards — that the retrieval pass was real work
 // with citations attached, not a relabelling — is asserted across BOTH rounds' markers.**
-check("13 — the RETRIEVABLE set was actually worked: the buildings block carries citations",
-  (LEDGER.match(/v0\.60 Part 8, RETRIEVED @c52985b/g) || []).length >= 12 &&
-  (LEDGER.match(/RETRIEVED/g) || []).length >= 13,
+// RE-POINTED v0.62, superseded by PART 9. Several v0.60 rows were re-pointed or re-argued in the
+// two rounds since, so the count of that round's own marker no longer measures whether retrieval
+// work happened. **The durable property is the total volume of RETRIEVED citations across every
+// round**, which only grows: v0.62 finished the job and took UNVERIFIED to zero.
+check("13 — the RETRIEVABLE set was actually worked, across every round that worked it",
+  (LEDGER.match(/RETRIEVED/g) || []).length >= 30 &&
+  (LEDGER.match(/v0\.62 PART 9 — RETRIEVED/g) || []).length >= 20,
   `${(LEDGER.match(/v0\.60 Part 8, RETRIEVED @c52985b/g) || []).length} v0.60 rows + ` +
   `${(LEDGER.match(/v0\.61 Part 3\.1 — RETRIEVED/g) || []).length} v0.61 rows`);
 

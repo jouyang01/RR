@@ -335,7 +335,17 @@ check("J4 — gold's base storage is 200",
 check("J4 — ...and it is the BASE that moved: the storage line's own gold terms are unchanged",
   await page.evaluate(() => {
     const b = id => BUILDINGS.find(x => x.id === id);
-    return b("storehouse").caps.gold === 10 && b("warehouse").caps.gold === 80 && b("harbor").caps.gold === 200;
+// RE-POINTED v0.62, superseded by PART 3 / DEV NOTE 9 (Jerry): "Barn, Warehouse and Harbor
+// storage against Kittens." **Kittens' warehouse is SMALLER than its barn on every shared
+// material** (`js/buildings.js:758-940` @ c52985b: wood x0.75, minerals x0.80, coal x0.50,
+// iron x0.50, gold x0.50) and RR's had it the other way round — timber x2.00, ore x1.20 and
+// **gold x8.00** of the Storehouse. The Storehouse itself copies the source's barn value for
+// value and **does not move**; the Warehouse takes the source's own ratios (150 / 200 / 5) and
+// the Harbor takes the source's harbor figures directly (ore 950, gold 25).
+    // v0.62 PART 3: the STOREHOUSE's 10 is the source's barn figure and is the half of this
+    // assertion that was always the parity claim; the other two now take the source's own
+    // warehouse and harbor gold (5 and 25) instead of RR's inflated 80 and 200.
+    return b("storehouse").caps.gold === 10 && b("warehouse").caps.gold === 5 && b("harbor").caps.gold === 25;
   }));
 
 // 5 — the Arcanist's Circle

@@ -260,7 +260,20 @@ const loop = await page.evaluate(() => {
   const maxM = tradeYieldMult("demacia");
   const G = (avgFrom(dem.run) / dem.cost.timber) * (avgFrom(pil.run) / pil.cost.steel) *
             (transmuteYield() / TRANSMUTE_COST) * maxM * maxM;
+  // v0.62 PART 1 — the TAX, measured at the same absurd stack. Gold and vigor come from outside
+  // every resource cycle, so no cycle can pay for its own trades; this is what actually bounds it.
+  const SECY = 4 * 100 * 10 * 0.2;
+  const rr = computeRates();
+  const gPer = (rr.gold || 0) * SECY, vPer = (rr.vigor || 0) * SECY;
+  const dc = tradeCost(dem);
+  const byG = dc.gold ? gPer / dc.gold : Infinity, byV = dc.vigor ? vPer / dc.vigor : Infinity;
   const o = { maxM: +maxM.toFixed(3), G: +G.toFixed(3),
+              tradesPerYear: +Math.min(byG, byV).toFixed(1),
+              bindingTax: byG < byV ? "gold" : "vigor",
+              taxBinds: isFinite(Math.min(byG, byV)),
+              // the cycle's three legs yield steel, mana and timber — and neither tax resource
+              cycleYieldsNoGoldOrVigor: !/gain\("gold"/.test(String(dem.run)) && !/gain\("vigor"/.test(String(dem.run)) &&
+                                        !/gain\("gold"/.test(String(pil.run)) && !/gain\("vigor"/.test(String(pil.run)),
               steel: avgFrom(dem.run), mana: avgFrom(pil.run),
               timberCost: dem.cost.timber, steelCost: pil.cost.steel,
               timberPerMana: +(transmuteYield() / TRANSMUTE_COST).toFixed(4),
@@ -275,8 +288,30 @@ const loop = await page.evaluate(() => {
 check("transmutation takes craft effectiveness at a bounded weight (v0.58.1 note 17)",
   await page.evaluate(() => /TRANSMUTE_CRAFT_WEIGHT = 0\.20;/.test(document.documentElement.innerHTML) &&
     /craftYield\("transmute"\) - 1\) \* TRANSMUTE_CRAFT_WEIGHT/.test(transmuteYield.toString())));
-check("the Demacia → Piltover → transmute circuit LOSES timber at the maximum trade stack",
-  loop.G < 0.8, `G = ${loop.G} at max M = ${loop.maxM}`);
+// RE-POINTED v0.62, superseded by PART 1. **v0.61's `TRADE_YIELD_LIMIT` is REMOVED and its
+// justification is WITHDRAWN.** That round called the Demacia -> Piltover -> transmute cycle "an
+// unbounded resource loop" and capped trade yield to contain it. **Kittens has the same cycles**
+// (lizards buy minerals and sell wood; sharks buy iron and sell catnip) **and ships the same
+// base-resource craft** (`wood <- catnip`). What bounds the source's loops is a PER-TRADE TAX in
+// resources the cycle does not produce — `baseGoldCost: 15` and `baseManpowerCost: 50`,
+// `js/diplomacy.js:10-11`, charged FLAT and never multiplied by tradeRatio — and **RR already had
+// the identical guard: every route costs vigor and gold, and the cycle yields neither.**
+//
+// **MEASURED THIS ROUND: 15.6 sustainable trades/game-year at Sparks, 47.1 at Hexcore, bound by
+// VIGOR at both.** The guard binds hard, so the ceiling goes.
+// **AND THIS ASSERTION IS RE-POINTED ONTO THE TAX, WHICH IS WHAT ACTUALLY BOUNDS THE LOOP.**
+// A yield-only gain above 1 in a CAPPED resource, whose trades cost an UNCAPPED one, means timber
+// stops being a constraint and sits at its ceiling — **it does not mean unbounded resources.**
+// The bound is throughput: how many trades a game-year the settlement's gold and vigor income can
+// actually pay for. That is asserted here, at the same absurd stack the old form used, so the
+// guard still fires if the tax ever stops binding.
+check("the trade cycle is bounded by the per-trade TAX, not by a yield ceiling (v0.62 Part 1)",
+  loop.taxBinds && loop.tradesPerYear < 200 && loop.cycleYieldsNoGoldOrVigor,
+  `${loop.tradesPerYear} sustainable trades/game-year (bound by ${loop.bindingTax}); ` +
+  `yield-only gain G = ${loop.G} at max M = ${loop.maxM}, which is a CAPPED resource sitting at its ceiling`);
+check("...and the yield category is UNCAPPED, as js/diplomacy.js:744-747 sums it",
+  /return 1 \+ tradeYieldTerms\(fid\)\.reduce/.test(RAWSRC) &&
+  !/var TRADE_YIELD_LIMIT/.test(RAWSRC) && !/limitedDR\(tradeYieldTerms/.test(RAWSRC));
 // RE-POINTED v0.58.1, superseded by NOTE 34. Piltover's mana rises 500-700 -> 900-1,300 and its
 // steel price rises 80 -> 145 by the same ×1.81, so a trade delivers more mana as the note asks
 // while mana-per-steel — the term this circuit multiplies — is held flat. Demacia is untouched.

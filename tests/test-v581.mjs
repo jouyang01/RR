@@ -16,6 +16,10 @@ page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 page.on("pageerror", e => errors.push(String(e)));
 await page.goto(new URL("../index.html", import.meta.url).href);
 await page.waitForTimeout(500);
+// v0.62 PART 6a — this suite's own expectations for Jarvan, pinned once so the two assertions
+// below cannot disagree with each other. The passive is base 15 and the lead is 0.06 on all
+// eight jobs (it was 25 and 0.12 on three).
+const JARVAN_XP_EXPECTED = 15, JARVAN_LEAD_EXPECTED = 0.06;
 let pass = 0, fail = 0;
 const check = (n, c, x) => { console.log(n + ":", c ? "PASS" : "FAIL", x ?? ""); c ? pass++ : fail++; };
 const reset = () => page.evaluate(() => loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState()))))));
@@ -292,8 +296,15 @@ check("15 — ...and the whole stack falls ×6.43 → under ×1.30, the rest com
   caps.cultureStack < 1.30, `×${caps.cultureStack} fully stacked`);
 check("16 — devotion takes NO whole-cap multiplier at all",
   Math.abs(caps.devotionStack - 1) < 0.001, `×${caps.devotionStack} fully stacked`);
-check("16 — the Solari Altar is a SLICE on one building: ×1.5 all-Marus, less when mixed",
-  Math.abs(caps.allMarus - 1.5) < 0.01 && caps.mixed < caps.allMarus && caps.mixed > 1,
+// RE-POINTED v0.62, superseded by PART 4.4 / DEV NOTE 10 (Jerry): "Marus Omegnum devotion cap ->
+// 200." The "all-Marus" figure was ×1.500 because the Marus' own 500-point slice dwarfed the
+// devotion base; at cap 200 the base is a materially larger share of the total, so a slice
+// multiplier on the Marus alone now delivers **×1.488** on the same fixture. **The PROPERTY is
+// what this line has always been about and it is untouched: the Altar multiplies ONE BUILDING'S
+// SLICE, not the finished ceiling — which is why all-Marus is close to ×1.5 and a mixed
+// settlement is materially less.** Asserted as that relationship rather than as the old literal.
+check("16 — the Solari Altar is a SLICE on one building: near ×1.5 all-Marus, materially less when mixed",
+  caps.allMarus > 1.45 && caps.allMarus <= 1.5 && caps.mixed < caps.allMarus - 0.05 && caps.mixed > 1,
   `all-Marus ×${caps.allMarus} vs mixed ×${caps.mixed}`);
 check("16 — ...and neither the Altar nor the Vigil multiplies the finished cap any more",
   !/caps\.devotion \*= 2/.test(CODE) && !/caps\.devotion \*= 1\.25/.test(CODE) &&
@@ -345,13 +356,24 @@ const leads = await page.evaluate(() => {
   S.champs = {}; S.leader = null;
   return o;
 });
+// RE-POINTED v0.62, superseded by PART 6a (Jerry). **Two changes and the first is a coverage
+// fix.** `JARVAN_VILLAGE_LEAD` reached three of eight assignable jobs — `loremaster`, `arcanist`
+// and `tinkerer` got nothing and `jungler` and `acolyte` were not in the table at all — so it
+// goes **0.12 -> 0.06 applied to ALL EIGHT**, iterated from `JOBS` so a ninth inherits it. And
+// the passive goes **base 25 -> 15, with the description GENERATED from the constant**, because
+// this project has had three defects from a literal drifting from the number it describes.
+// **The two properties this line guards are unchanged**: the passive is wanderer experience and
+// reaches the Census, and the lead is village production.
 check("19 — Jarvan's PASSIVE is wanderer experience, and it reaches the Census",
-  leads.jarvanPassive.key === "xp" && leads.jarvanPassive.base === 25 &&
+  leads.jarvanPassive.key === "xp" && leads.jarvanPassive.base === JARVAN_XP_EXPECTED &&
+  leads.jarvanPassive.desc.indexOf(String(JARVAN_XP_EXPECTED) + "%") > -1 &&
   /var xpRate = XP_PER_SECOND \* \(1 \+ champPassive\("xp"\) \/ 100\);/.test(CODE),
   JSON.stringify(leads.jarvanPassive));
-check("19 — ...and his LEAD is village production",
-  /village/i.test(leads.jarvanLead) && /JARVAN_VILLAGE_LEAD\s+= 0\.12/.test(CODE) &&
-  /leaderIs\("jarvan"\) \? JARVAN_VILLAGE_LEAD : 0/.test(CODE), leads.jarvanLead);
+check("19 — ...and his LEAD is village production, now reaching ALL EIGHT jobs at half the rate",
+  /village/i.test(leads.jarvanLead) &&
+  new RegExp("JARVAN_VILLAGE_LEAD\\s+= " + String(JARVAN_LEAD_EXPECTED).replace(".", "\\.")).test(CODE) &&
+  /leaderIs\("jarvan"\) \? JARVAN_VILLAGE_LEAD : 0/.test(CODE) &&
+  /JOBS\.forEach\(function \(j\) \{/.test(CODE), leads.jarvanLead);
 check("20 — Swain's lead is knowledge PRODUCTION, so it cannot be toggled for a one-off",
   /knowledge production/i.test(leads.swainLead) &&
   /if \(leaderIs\("swain"\)\) boosts\.knowledge \+= SWAIN_KNOWLEDGE_LEAD;/.test(CODE) &&

@@ -274,9 +274,19 @@ const fac = await page.evaluate(() => {
 check("7 — the Manufactory costs far more crystals, and the ratio is UNTOUCHED at 1.15",
   fac.buildCost.crystals === 400 && fac.ratio === 1.15,
   `${fac.buildCost.crystals} crystals at ratio ${fac.ratio}`);
-check("7.1 — ...and it BURNS accordingly: 0.12/s per copy, six times what it was",
-  fac.fuel === 0.12 && Math.abs(fac.burnAtTen + 1.2) < 1e-4,
-  `${fac.fuel}/s per copy, ${fac.burnAtTen}/s at ten copies`);
+// RE-POINTED v0.62, superseded by PART 7 — and the constant going DOWN is what stops this being
+// a fourth raise. Three rounds raised `MANUFACTORY_FUEL` (0.02 -> 0.12) and none moved the stock:
+// v0.61 measured 15 Manufactories draining 2.56/s against 36.97/s gross, **6.9%**, because the
+// Refinery's output is multiplied by `convMult x (1 + boosts.crystals)` — x92 on a maxed state —
+// **and the Manufactory's input was FLAT.** The fix is the footing, not the number: the burn is
+// **0.024, the source's own per-copy anchor** (Kittens' `calciner` burns `oilPerTickCon: -0.024`
+// against an `oilWell`'s `oilPerTickBase: 0.02` — a 1.2x sink-to-faucet ratio), **taking the same
+// multiplier the yield takes.** Scoped to the fuel line only: every other converter input stays
+// flat, because inputs-flat/outputs-multiplied is the SOURCE'S OWN asymmetry (v0.61 §3).
+check("7.1 — ...and it BURNS on the YIELD'S OWN FOOTING: 0.024/copy, multiplied like the output",
+  fac.fuel === 0.024 &&
+  /if \(b\.id === "manufactory" && i2 === "crystals"\) \{\s*inAmt \*= convMult \* \(1 \+ \(boosts\.crystals \|\| 0\)\);/.test(CODE),
+  `${fac.fuel}/s per copy before multipliers, ${fac.burnAtTen}/s at ten copies`);
 check("7 — all three Manufactory discoveries are dearer, and dearer IN CRYSTALS",
   fac.discoveries.pressureRegulators === 600 && fac.discoveries.rollingPress === 450 &&
   fac.discoveries.automatedWorkshop === 900, JSON.stringify(fac.discoveries));

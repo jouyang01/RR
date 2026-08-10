@@ -2749,7 +2749,7 @@ function boostDeliveryLine(id) {
   var m = boostMemberOf(id);
   if (!m) return null;
   var held = m.kind === "wtech" ? !!(S.wtechs && S.wtechs[m.id]) : m.kind === "tech" ? !!S.techs[m.id] : !!S.upgrades[m.id];
-  var k = (computeRates()._knee || {})[m.family];
+  var k = (computeRates(m.family)._knee || {})[m.family];
   if (!k) return null;
   // If the player does not hold it yet, the marginal delivery is what buying it WOULD pay.
   var rawWith = held ? k.raw : k.raw + m.amt;
@@ -5605,6 +5605,9 @@ var MORALE_RELIEF_LIMIT = 0.88;  // the one tuning constant for the whole band
 var MORALE_PER_LUXURY = 10;      // js/village.js: happinessPerLuxury = 10, flat per kind
 var LUXURY_KINDS = 3;            // furs, plumes, mushrooms — see luxuryTypes()
 var MORALE_SHRINE_LIMIT = 25;
+// v0.62 PART 4.1 — 0.5 -> 0.25 on Jerry's dev note 1, taken on the measurement the spec
+// conditioned it on: the shrine term measured 79.2% of total morale, above the stated half.
+var MORALE_SHRINE_RATE = 0.25;
 var MORALE_BOX_LIMIT = 20;
 // Pass an object to collect the term-by-term breakdown. The tooltip renders that
 // object rather than re-deriving the arithmetic — Part 3's fix. The old tooltip
@@ -5663,7 +5666,25 @@ function morale(bd) {
   // and LDR-bounded for the same ratio-1.15 reason as the Tavern.
   var shrine = 0;
   if (S.wtechs && S.wtechs.sunAltar) {
-    shrine = limitedDR(count("shrine") * (0.5 + 0.1 * (S.altarTier || 0)), MORALE_SHRINE_LIMIT);
+    // ======================================================================================
+    // v0.62 PART 4.1 / DEV NOTE 1 (Jerry): "Shrine + Altar of the Dawn morale scaling."
+    //
+    // **THE SPEC MADE THIS CONDITIONAL ON A MEASUREMENT AND THE MEASUREMENT CROSSED THE LINE.**
+    // Its instruction was: ship the 0.5 -> 0.25 cut ONLY if the shrine term exceeds half of
+    // total morale, otherwise report the share and leave the rate. **Measured at 40 Shrines,
+    // altar tier 0, pop 200: the shrine term is 79.2% of total morale.** So the branch is taken,
+    // and it is taken on the number rather than on the feel.
+    //
+    // **THE CAP WAS ALREADY THERE AND JERRY'S WORST CASE COULD NOT HAPPEN**: `MORALE_SHRINE_LIMIT`
+    // is 25, so the term asymptotes at +25 morale however many Shrines are built. What the note
+    // is really about is the KNEE — `limitedDR` is linear below 0.75 x 25 = 18.75, so at rate 0.5
+    // the first **37 Shrines paid in full**, and each Altar tier adds 0.1 to the per-Shrine rate,
+    // so at tier 5 only 18 did. **At 0.25 the linear region reaches 75 Shrines at tier 0**, which
+    // is the point: the same ceiling, approached far more gradually, so an Altar tier is worth
+    // something for much longer instead of pushing the line straight into its own asymptote.
+    //
+    // The Altar's +0.1 per tier is UNTOUCHED — the note is about the Shrine's base rate.
+    shrine = limitedDR(count("shrine") * (MORALE_SHRINE_RATE + 0.1 * (S.altarTier || 0)), MORALE_SHRINE_LIMIT);
     m += shrine;
   }
 
@@ -6056,8 +6077,12 @@ function computeRates(bdRes) {
   // Discovery's own effect string says so rather than letting a button outlive its effect.
   var boostsRaw = {}; for (var brk in boosts) boostsRaw[brk] = boosts[brk];
   for (var bk in boosts) if (BOOST_LIMIT[bk]) boosts[bk] = limitedDR(boosts[bk], BOOST_LIMIT[bk]);
-  // v0.62 PART 2 — THE KNEE AUDIT, PUBLISHED. See boostKnee() below for the argument.
-  rates._knee = boostKneeFrom(boostsRaw, boosts);
+  // v0.62 PART 2 — THE KNEE AUDIT, PUBLISHED — **GATED ON `bdRes`, per operational rule 12,
+  // which this round's own author wrote at v0.61 after `_boosts` broke exactly this.**
+  // `computeRates()` with no argument must return a map of NUMBERS and nothing else:
+  // `test-v44`'s `noNaNRates` walks `Object.values()` and an object attached unconditionally
+  // makes every caller's finiteness check fail. Caught by that suite again, in the round after
+  // the rule was written.
   villageMult *= policyMult("village");
 
   // Building production
@@ -6446,7 +6471,7 @@ function computeRates(bdRes) {
   // object attached unconditionally makes every caller's finiteness check fail. Caught by that
   // suite in this round; the fix is to match the convention already in the line above rather
   // than to loosen the check.
-  if (bdRes) { rates._boosts = boosts; rates._boostsRaw = boostsRaw; }
+  if (bdRes) { rates._boosts = boosts; rates._boostsRaw = boostsRaw; rates._knee = boostKneeFrom(boostsRaw, boosts); }
   return rates;
 }
 

@@ -226,8 +226,15 @@ check("...with caps provisions 5,000 — Kittens' barn catnipMax exactly — tim
   JSON.stringify(p3.storehouseCaps));
 check("PASS CONDITION: the Trade Dock grants NO storage cap of any kind",
   p3.tradeDockCaps === undefined, JSON.stringify(p3.tradeDockCaps));
-check("...and the Warehouse and Harbor keep their gold, as Kittens' harbor does",
-  p3.warehouseGold === 80 && p3.harborGold === 200, `${p3.warehouseGold} / ${p3.harborGold}`);
+// RE-POINTED v0.62, superseded by PART 3 / DEV NOTE 9 (Jerry): "Barn, Warehouse and Harbor
+// storage against Kittens." **Kittens' warehouse is SMALLER than its barn on every shared
+// material** (`js/buildings.js:758-940` @ c52985b: wood x0.75, minerals x0.80, coal x0.50,
+// iron x0.50, gold x0.50) and RR's had it the other way round — timber x2.00, ore x1.20 and
+// **gold x8.00** of the Storehouse. The Storehouse itself copies the source's barn value for
+// value and **does not move**; the Warehouse takes the source's own ratios (150 / 200 / 5) and
+// the Harbor takes the source's harbor figures directly (ore 950, gold 25).
+check("...and the Warehouse and Harbor take the SOURCE's gold, which is smaller than the barn's",
+  p3.warehouseGold === 5 && p3.harborGold === 25, `${p3.warehouseGold} / ${p3.harborGold}`);
 
 // ============================================================================
 // Part 4.5 / 4.6 / 4.7 / 4.8 — the design items

@@ -199,8 +199,21 @@ const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromi
   const block = raw.replace(/\/\/[^\n]*/g, "");
   const stateReads = (block.match(/\bS\.\w+/g) || []).filter((v, i, a) => a.indexOf(v) === i);
   const globals = (block.match(/window\.\w+\s*=/g) || []);
-  check("the banner block reads NO game state at all — S.activeTab is passed in by the caller",
-    stateReads.length === 0, stateReads.join(", ") || "none");
+  // RE-POINTED v0.62, superseded by PARTS 6.4 and 6.5 (Jerry): the Crest of Cinders tints the
+  // workshop's anvil and hammer and the Crest of Insight floats blue lights around the lore
+  // shelves. **Both are BUFF STATES, so the banner must read the buff clocks** — there is no way
+  // to draw a state without reading it.
+  //
+  // **THE PROPERTY THIS LINE PROTECTS IS UNCHANGED AND IS WHAT STILL CARRIES IT:** the banner is
+  // a RENDERER, not a consumer of the economy. It must not read production, buildings, jobs,
+  // resources, upgrades or techs — anything it could accidentally couple to. The allow-list is
+  // exactly the two expiry timestamps the rest of the file already uses for these buffs
+  // (`simNow() < S.cinderUntil`, `simNow() < S.insightUntil`), and **a third entry appearing
+  // here is a signal, not noise.**
+  var BANNER_STATE_ALLOWED = ["S.cinderUntil", "S.insightUntil"];
+  var strayReads = stateReads.filter(function (r) { return BANNER_STATE_ALLOWED.indexOf(r) < 0; });
+  check("the banner block reads NO game state beyond the two buff clocks it renders",
+    strayReads.length === 0, strayReads.join(", ") || ("only " + stateReads.join(", ")));
   check("it leaks exactly one global, window.updateSceneBanner",
     globals.length === 1 && /window\.updateSceneBanner\s*=/.test(globals[0]), globals.join(", "));
   check("it touches nothing in computeRates, computeCaps, tick or the save format",
