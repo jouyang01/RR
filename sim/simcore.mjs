@@ -376,6 +376,24 @@ export async function runSim(page, years, seed = 1) {
             manufactoryBurnPerCopy: MANUFACTORY_FUEL * (S.upgrades.pressureRegulators ? MANUFACTORY_FUEL_CUT : 1)
           };
         })(),
+        // ---- v0.62 PART 2: THE KNEE AUDIT, every family, every milestone ----
+        // `limitedDR` is linear only below 0.75*L. v0.61 found the mana line sitting EXACTLY on
+        // that knee and nobody had asked the same question of the other six families. Two are
+        // throwing most of their stack away, and the number that reaches a player is the button
+        // text -- so this is an instrument for a correctness bug, not a curiosity.
+        knee: (() => {
+          const k = computeRates()._knee || {};
+          const out = {};
+          for (const f in k) out[f] = { ...k[f] };
+          // the member-by-member view, so a family past its knee can be attributed
+          out._members = BOOST_MEMBERS.map(m => ({
+            id: m.id, family: m.family, amt: m.amt,
+            held: m.kind === "wtech" ? !!(S.wtechs && S.wtechs[m.id])
+                : m.kind === "tech"  ? !!S.techs[m.id] : !!S.upgrades[m.id],
+            deliveredFrac: +boostDelivery(m.family, (k[m.family] || {}).raw || 0, m.amt).toFixed(4)
+          }));
+          return out;
+        })(),
         // ---- v0.61 PART 1: the convMult readout, term by term ----
         // Two rounds mis-diagnosed this stack because it is a product of six factors and nobody
         // could name them. v0.60 §2 reported "×19.77 converter-side" against Kittens' one
@@ -708,6 +726,37 @@ export async function runSim(page, years, seed = 1) {
                      // full larder is a limiter; anything past that is flavour.
                      costThatWouldBindAt3: Math.round(provCap / 3)
                    },
+                   // ==================================================================
+                   // v0.62 PART 1 — THE TAX, AND IT IS THE BOUND NOBODY HAD QUOTED.
+                   // v0.61 §5.2 called the trade->transmute cycle "an unbounded resource loop"
+                   // and shipped TRADE_YIELD_LIMIT to contain it. **Kittens has the same
+                   // cycles** — lizards buy minerals and sell wood, sharks buy iron and sell
+                   // catnip — and ships the one craft whose output is a base resource
+                   // (`wood <- catnip`). What bounds the source's loops is a PER-TRADE TAX in
+                   // resources the cycle does not produce: `baseGoldCost: 15` and
+                   // `baseManpowerCost: 50` (js/diplomacy.js:10-11), charged FLAT at :885-886
+                   // and never multiplied by tradeRatio. **RR already has the identical guard**
+                   // — every route costs vigor and gold, and the cycle yields steel, mana and
+                   // timber and neither of those. This measures whether it binds.
+                   tax: (() => {
+                     const SEC = 4 * 100 * 10 * (200 / 1000);
+                     const rr = computeRates();
+                     const goldPerYear = (rr.gold || 0) * SEC, vigorPerYear = (rr.vigor || 0) * SEC;
+                     const gCost = c.gold || 0, vCost = c.vigor || 0;
+                     const byGold = gCost ? goldPerYear / gCost : null;
+                     const byVigor = vCost ? vigorPerYear / vCost : null;
+                     const binding = byGold === null ? "vigor" : byVigor === null ? "gold"
+                                   : byGold < byVigor ? "gold" : "vigor";
+                     return {
+                       goldPerGameYear: +goldPerYear.toFixed(1), vigorPerGameYear: +vigorPerYear.toFixed(1),
+                       goldPerTrade: gCost, vigorPerTrade: vCost,
+                       tradesByGold: byGold === null ? null : +byGold.toFixed(1),
+                       tradesByVigor: byVigor === null ? null : +byVigor.toFixed(1),
+                       sustainable: +Math.min(byGold === null ? Infinity : byGold,
+                                              byVigor === null ? Infinity : byVigor).toFixed(1),
+                       bindingTax: binding
+                     };
+                   })(),
                    yieldTerms: tradeYieldTerms(cheapest.id).map(t => ({ label: t.label, amt: +t.amt.toFixed(4) })),
                    yieldMult: +tradeYieldMult(cheapest.id).toFixed(4),
                    yieldPerFaction: ytPer,

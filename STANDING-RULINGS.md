@@ -958,6 +958,32 @@ the combined stack was ×34.5; it is now ×31.6.
 added into village production before them. **Kittens' Law as this project states it — additive
 within a category, multiplicative between — is literally the source's code.**
 
+### 31.2a **RETRACTION — the ×9.3 figure this section was written on is WRONG (v0.62 Part 8)**
+
+**The analyzer that wrote §31 has retracted its own headline comparison, and it is retracted here
+rather than quietly edited, because a ruling request that survives on a bad number is worse than
+no ruling request.**
+
+§31.3 below says RR's combined stack is *"roughly ×9 the source's single live conversion
+category."* **That compares RR's WHOLE STACK against ONE Kittens category.** It is the identical
+conflation this project has now caught three times: v0.60 reported the converter stack at ×19.77
+by multiplying two categories and comparing against one; v0.61 corrected that and then made the
+same mistake one level up.
+
+**Read in full, `game.js:3390–3540` has roughly FOURTEEN multiplicative steps**, not four —
+season, `<res>GlobalRatio`, `<res>Ratio`, `<res>RatioReligion`, `<res>SuperRatio`, the steamworks
+hack, paragon, pollution, magnetos, reactors, the Solar Revolution faith bonus, cosmic radiation,
+festival cycles and necrocracy.
+
+> **RR has about ELEVEN. RR IS NOT ARCHITECTURALLY OUT OF LINE WITH THE SOURCE — IT IS SLIGHTLY
+> UNDER.**
+
+**What survives:** the measurement of RR's own stack in §31.1, and the observation in §31.3 that
+Kittens keeps individual categories thin. **What does not survive is the conclusion that RR has
+too many categories**, and therefore the four-category proposal in §31.4 rests on a premise that
+is no longer supported. **Jerry should rule on this corrected section, not on the one v0.61
+wrote.** Nothing was collapsed at v0.61 and nothing is collapsed at v0.62.
+
 ### 31.3 The divergence is the CENSUS, not the principle
 
 In Kittens, for any given resource **one or two of those categories are live**:

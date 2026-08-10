@@ -260,7 +260,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.61";
+var VERSION = "v0.62";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -438,6 +438,22 @@ var RES = {
 // BUILDINGS — producers, storage, converters, multipliers
 // ratio tuning: 1.12 spam · 1.15 default · 1.75 power/storage
 // ============================================================
+// ============================================================================
+// v0.62 PART 4.4 / DEV NOTE 10 (Jerry): "Marus Omegnum devotion cap -> 200, and less devotion/s."
+//
+// **THE CAP IS DIRECTED: 500 -> 200.** The RATE the note leaves open ("reduce" with no figure),
+// so it is taken from the source rather than invented. **Kittens' Temple is
+// `faithPerTickBase 0.0015` = 0.0075/s, and RR's Shrine sits at that figure exactly** (v0.47
+// Part 2). Marus at 0.05/s was **6.7x one Shrine**. RR's faith curve runs
+// Shrine -> Chapel -> Sanctum -> Marus, so **a top tier at x4 a Shrine = 0.03/s** keeps the
+// ladder's shape and is a 40% cut.
+//
+// **REPORT THE CONVERGENCE EFFECT, because this cut reaches the global multiplier.** Marus feeds
+// devotion, devotion feeds worship through the Ascent, and worship feeds `catReligion`. If
+// Convergence at its own unlock falls below the 1% sourced floor the cut has gone too far and
+// the cap change should ship without the rate change. Measured in BUILD REPORT §6.
+var MARUS_DEVOTION = 0.03;         // 4 x the Shrine's 0.0075/s, itself Kittens' faithPerTickBase
+var MARUS_DEVOTION_CAP = 200;      // dev note 10, directed
 var BUILDINGS = [
   { id: "manaWell", name: "Mana Well", group: "Village",
     lore: "A spring where wild magic pools.", effect: "A steady trickle of mana, and somewhere to keep it.",
@@ -647,7 +663,36 @@ var BUILDINGS = [
     // The Harbor (20) and the Hexgate (400) carry the crystal ceiling, which is where Jerry
     // wants it — the Warehouse is the general material store and crystals are not a material.
     cost: { beam: 2, stoneSlab: 3 }, ratio: 1.15,
-    caps: { timber: 400, ore: 300, steel: 100, gold: 80 },
+    // ==========================================================================================
+    // v0.62 PART 3 / DEV NOTE 9 (Jerry): "Barn, Warehouse and Harbor storage against Kittens."
+    //
+    // **HIS READING OF THE SOURCE IS EXACTLY RIGHT AND RR'S STOREHOUSE IS ALREADY A FAITHFUL
+    // PORT — IT IS THIS BUILDING THAT INVERTED THE RELATIONSHIP.** Kittens per copy
+    // (`js/buildings.js:758-940` @ c52985b), warehouse against barn:
+    //
+    //     wood       200 -> 150   x0.75        minerals  250 -> 200   x0.80
+    //     coal        60 ->  30   x0.50        iron       50 ->  25   x0.50
+    //     gold        10 ->   5   x0.50        titanium    2 ->  10   x5.00  <- the one it wins
+    //
+    // **The source's warehouse is SMALLER than its barn on every shared material**, and the price
+    // shape is Jerry's own argument: the barn costs raw `wood 50`, the warehouse costs crafted
+    // `beam 1.5 + slab 2` — you build more of them and each does less.
+    //
+    // RR's Storehouse copies the barn value for value (provisions 5,000 / timber 200 / ore 250 /
+    // gold 10 against catnip 5,000 / wood 200 / minerals 250 / gold 10). **That is exact parity
+    // and it does not move.** This building had timber 400, ore 300 and gold 80 — **x2.00, x1.20
+    // and x8.00 of the Storehouse where the source runs x0.75, x0.80 and x0.50.**
+    //
+    // SHIPPED: the source's own ratios applied to RR's own Storehouse figures.
+    //     timber  400 -> 150   = 0.75 x 200, Kittens' wood ratio
+    //     ore     300 -> 200   = 0.80 x 250, Kittens' minerals ratio
+    //     gold     80 ->   5   = 0.50 x  10, Kittens' gold ratio
+    //     steel   100 -> KEPT. Steel has no Storehouse figure to take a ratio from, and the
+    //             source's warehouse WINS on the late metal (titanium x5.00). **Steel is RR's
+    //             late metal and the Warehouse keeping it is the source's own shape**, not an
+    //             exemption. Argued in the ledger rather than left as a silent survivor.
+    // ==========================================================================================
+    caps: { timber: 150, ore: 200, steel: 100, gold: 5 },
     capsIf: { upgrade: "chemtechSilos", caps: { provisions: 750 } } },
   // v0.47 Part 1.4(c): the Harbor costs gear 20, and gear is Smelting-gated. At tech
   // "trade" (1,200) it was visible one rank before its input existed.
@@ -661,7 +706,13 @@ var BUILDINGS = [
     // hulls at anchor and it is already Smelting-gated, so it was the one storage tier asking
     // for none of the metal its own tech unlocks. It also gives steel a second lumpy sink,
     // which §24 says is the thing steel was short of.
-    cost: { stoneSlab: 50, gear: 20, beam: 30, steel: 40 }, ratio: 1.15, caps: { provisions: 2500, timber: 700, ore: 500, steel: 150, gold: 200, mana: 150, crystals: 20 } },
+    cost: { stoneSlab: 50, gear: 20, beam: 30, steel: 40 }, ratio: 1.15, // v0.62 PART 3 / DEV NOTE 9 — the Harbor is MOSTLY FAITHFUL and had two outliers. RR's
+    // provisions 2,500 / timber 700 / steel 150 match Kittens' harbor `catnip 2500 / wood 700 /
+    // iron 150` exactly (`js/buildings.js:905-940`). **`ore 500` against the source's
+    // `minerals 950` was LOW, and `gold 200` against the source's `gold 25` was 8x HIGH — the
+    // same gold inflation the Warehouse carried.** Both take the source's figure directly;
+    // mana and crystals are RR-original and stay.
+    caps: { provisions: 2500, timber: 700, ore: 950, steel: 150, gold: 25, mana: 150, crystals: 20 } },
   { id: "archive", name: "Archive", group: "Industry",
     lore: "What survived the wars, shelved.", effect: "Somewhere to keep what you know, and scholars who gather it faster.",
     cost: { timber: 40, mana: 50 }, ratio: 1.15, caps: { knowledge: 250 }, boost: { knowledge: 0.10 } },
@@ -1186,7 +1237,7 @@ var BUILDINGS = [
     // the golden city at the summit should be earned by the climb, not by masonry. 1,500 is
     // just past Kittens' own 1,000-worship Solar Revolution gate (STANDING-RULINGS, the
     // Convergence anchor), so it lands one step beyond the source's only sited faith threshold.
-    cost: { gold: 800, ore: 400, steel: 60, crystals: 40, culture: 150 }, ratio: 1.15, prod: { devotion: 0.05 }, caps: { devotion: 500 },
+    cost: { gold: 800, ore: 400, steel: 60, crystals: 40, culture: 150 }, ratio: 1.15, prod: { devotion: MARUS_DEVOTION }, caps: { devotion: MARUS_DEVOTION_CAP },
     unlock: function (s) { return count("sanctum") >= 3 && (s.worship || 0) >= 1500; } }
 ];
 
@@ -1485,6 +1536,12 @@ var TECHS = [
 //   settlement-wide power no building or wanderer can replicate. Swapping is
 //   free and instant; deciding WHO is the point.
 // ============================================================
+// v0.62 PART 6a.2 — Jarvan's passive text, GENERATED from the constant it describes. Declared
+// above `var CHAMPS` because it is called while that array literal is built (operational rule 11).
+var JARVAN_XP_PASSIVE = 15;
+function jarvanPassiveDesc() {
+  return "Demacian Command: wanderers earn experience " + JARVAN_XP_PASSIVE + "% faster";
+}
 var CHAMPS = [
   { id: "shaco", name: "Shaco", cls: "Assassin", cost: { plumes: 60 },
     passive: { key: "camp", base: 15, desc: "Ambush: camp yields +15%" },
@@ -1525,7 +1582,16 @@ var CHAMPS = [
   //   and passive were pointing at unrelated systems; now the pair is one idea — a settlement
   //   that works harder and learns faster under a standard.
   { id: "jarvan", name: "Jarvan IV", cls: "Fighter", cost: { steel: 300 },
-    passive: { key: "xp", base: 25, desc: "Demacian Command: wanderers earn experience 25% faster" },
+    // v0.62 PART 6a.2 — base 25 -> 15, and **the description is GENERATED from the constant.**
+    // This project has now had three separate defects from a literal drifting away from the
+    // number it describes — v0.59's renown tooltips, v0.61's `petriciteResonators`, and the
+    // festival chip that grepped green for two rounds. A second literal is a third one waiting.
+    //
+    // AND THE LEDGER MOVES WITH IT. v0.61 §9.3 rated Jarvan PARITY-of-magnitude against Kittens'
+    // 20-Academy `skillXP` line on a 2% coincidence: x1.97 against x2.00. **At base 15 that
+    // becomes about x1.58, so the coincidence is gone and the row is re-rated in the same round
+    // the constant moves** — the §2.1-of-v0.59.1 rule, which has already caught this project once.
+    passive: { key: "xp", base: JARVAN_XP_PASSIVE, desc: jarvanPassiveDesc() },
     lead: "Demacian Standard — every worker in the village produces 12% more",
     flavor: "A prince without a throne still stands like one.",
     skill: "Cataclysm — walls rise where he plants his standard" },
@@ -1615,7 +1681,10 @@ var CHAMPS = [
 // them at once and a magic number in six different functions is how the next round moves five.
 // ============================================================================
 var SHACO_REFUND_CHANCE   = 0.20;   // note 24
-var JARVAN_VILLAGE_LEAD   = 0.12;   // note 19 — the lead his passive vacated
+// v0.62 PART 6a.1 — 0.12 -> 0.06, and the halving is paid for by COVERAGE: the lead reached
+// three of eight jobs and now reaches all eight. Weighted against the bot's own shares that is
+// roughly 0.066 -> 0.060, near-neutral in total output and a different shape.
+var JARVAN_VILLAGE_LEAD   = 0.06;   // note 19 — the lead his passive vacated; v0.62 6a.1 halved for all-job scope
 var SWAIN_KNOWLEDGE_LEAD  = 0.25;   // note 20 — a FLOW effect, so it cannot be toggled for free
 var CAITLYN_TRADE_RENOWN  = 5;      // note 21 — her lead, ADDED to TRADE_RENOWN since v0.59 Part 2.3
 // v0.59 PART 2.3 — the baseline every leader gets for a completed caravan. One constant so the
@@ -2594,31 +2663,12 @@ function scholarDesc(id, numeral, flavour) {
 var LEYLINE_MANA_BOOST = 0.30;
 var TRUE_ICE_MANA_BOOST = 0.20;
 // ============================================================================
-// v0.61 PART 8 / DEV NOTE 3 (Jerry, revised by his own follow-up): "More mana multipliers, one
-// costing hextech crystals" — then: "Only one mana discovery on Sparks; the fourth goes on
-// Petricite Masonry."
-//
-// **THE REVISION WAS RIGHT AND THE FIRST DRAFT WAS WRONG.** `leylineCalibration` is ALREADY on
-// `sparks`, so putting the new rung there too would have given one tech two mana discoveries.
-// One mana discovery per tech, and Sparks keeps Leyline.
-//
-// `petricite` — PETRICITE MASONRY, 65,000 knowledge — is a good home on three counts: it is
-// comfortably after Sparks (20,000); it is the tech whose whole fiction is *stone that drinks
-// magic*; and its own price already runs through the scribal chain, so a mana rung sits with it.
-//
-// **THE ACCOUNTING TRAVELS WITH THE NUMBER.** Kittens' `<res>GlobalRatio` — the only source
-// category with RR's scope — has **TWO members in the entire game, at 0.30 and 0.25.** With
-// this rung `boosts.mana` becomes **Sigma 1.00 across FOUR members**: four against two, and the
-// largest single member is 3.3x the source's largest. That is in the ledger, not buried here.
-//
-// **THIS REVERSES THE v0.60 RULING AND THAT IS ON THE RECORD.** v0.60 §6 logged Jerry's note 5
-// as "hold the line on Mana" and left Sigma 0.75 untouched on that basis. Dev note 3 supersedes
-// it. Both notes are cited in the ledger row so a later round does not read v0.60 as current.
-//
-// **NO FOURTH MULTIPLICATIVE CATEGORY.** It lands in `boosts.mana` with the other three. That
-// accumulator being additive is the one thing about RR's mana line that is already right, and
-// Part 11 is entirely about not making that mistake anywhere else.
-var PETRICITE_MANA_BOOST = 0.25;
+// v0.61 PART 8's fourth mana rung is DELETED at v0.62 PART 4.2 on Jerry's dev note 2 ("remove
+// the fourth mana multiplier — Swain covers it"), reversing his own v0.61 dev note 3. The
+// constant and the Discovery are gone; `petriciteResonators` is a §30 RESERVED ID until v1.0 and
+// a save holding it is refunded. **`boosts.mana` is back to Sigma 0.75 across three members,
+// which is exactly its knee**, so all three deliver in full again. See the migration at
+// loadFromString() and the argument at the Discovery's former site.
 // v0.61 PART 8 — HOISTED ABOVE `var UPGRADES`, and for the reason operational rule 11 names.
 // Petricite Resonators' effect string quotes `BOOST_LIMIT.mana` so the button cannot advertise a
 // figure the ceiling will not deliver; that string is evaluated while the UPGRADES array literal
@@ -2626,6 +2676,110 @@ var PETRICITE_MANA_BOOST = 0.25;
 // load — a blank page, not an error. It has cost this project a round before.
 var BOOST_LIMIT = { devotion: 2.0, culture: 2.0, gold: 1.5, vigor: 1.0, crystals: 2.0,
                     provisions: 1.5, mana: 1.0 };
+// ============================================================================
+// v0.62 PART 2 — THE KNEE AUDIT, AND IT IS A LIVE CORRECTNESS BUG FACING THE PLAYER.
+//
+// `limitedDR(x, L)` is LINEAR only below **0.75 x L** and curves to an asymptote at L above it.
+// v0.61 found this the hard way: the mana line summed to exactly 0.75 with three members — the
+// very top of the linear region — so every member before that round was delivered in full, and
+// the fourth was the first that was not. **Nobody had asked the same question of the other six
+// families.** The answer, measured by instrumenting `limitedDR` through one `computeRates()` on
+// a fully maxed state:
+//
+//     family       L      knee    raw Sigma   delivered   % of knee   thrown away
+//     vigor       1.0     0.750     5.571       0.988        743%        82%
+//     devotion    2.0     1.500     5.024       1.938        335%        61%
+//     mana        1.0     0.750     1.465       0.935        195%        36%
+//     provisions  1.5     1.125     1.300       1.244        116%         4%
+//     crystals    2.0     1.500     1.494       1.494       99.6%         0%
+//     gold        1.5     1.125     1.031       1.031         92%         0%
+//     culture     2.0     1.500     0.387       0.387         26%         0%
+//
+// **VIGOR CARRIES A RAW SUM OF 5.571 INTO A CAP OF 1.0 AND DELIVERS 0.988.** 82% of every vigor
+// boost in the game is discarded, so a player who buys a +25% vigor upgrade receives about
+// +0.4%. Devotion discards 61%. **This is v0.61's mana finding three times over, in families
+// nobody was watching, and the part that reaches the player is the BUTTON TEXT.**
+//
+// WHAT SHIPS HERE IS THE DIAGNOSIS AND THE HONEST STRINGS, NOT A RE-BALANCE. Every one of these
+// caps was chosen long ago against a stack that has since grown past it; **raising one is a large
+// production change and STANDING-RULINGS §16 makes it Jerry's.** NO `BOOST_LIMIT` VALUE MOVES.
+//
+// **AND CRYSTALS IS 0.006 FROM ITS KNEE** — Sigma 1.494 against 1.500. The next crystal boost of
+// any size, however small, is the first that will not pay in full. That is asserted in
+// `test-v62`, so the next round that adds one trips a test rather than a player.
+// THE MEMBERS, in one table, so the number a button advertises and the number `computeRates()`
+// adds are the same object. Every prior drift defect in this project — v0.59's renown tooltips,
+// v0.61's `petriciteResonators`, the festival chip — was a literal in prose beside a literal in
+// code. `kind` says which state bag holds the flag.
+var BOOST_MEMBERS = [
+  { id: "bilgewaterContracts", family: "gold",       amt: 0.25, kind: "upgrade" },
+  { id: "mintedCoin",          family: "gold",       amt: 0.20, kind: "upgrade" },   // v0.45 Part 6 — Coinage
+  { id: "cultivation",         family: "provisions", amt: 0.10, kind: "tech"    },   // v0.52 Part 2.1, out of resRatio
+  { id: "hexresonance",        family: "mana",       amt: 0.25, kind: "upgrade" },   // v0.50 Part 1.3, out of resRatio
+  { id: "leylineCalibration",  family: "mana",       amt: LEYLINE_MANA_BOOST,  kind: "upgrade" },   // v0.59.1 note 1
+  { id: "trueIceCellars",      family: "mana",       amt: TRUE_ICE_MANA_BOOST, kind: "upgrade" },   // v0.59.1 note 6
+  { id: "resonanceCoils",      family: "crystals",   amt: 0.25, kind: "upgrade" },   // v0.54 directive 16
+  { id: "tributeReliquaries",  family: "crystals",   amt: 0.25, kind: "upgrade" },   // v0.45 Part 6
+  { id: "solariHymn",          family: "devotion",   amt: 0.25, kind: "wtech"   },
+  { id: "ritesOfInsight",      family: "knowledge",  amt: 0.10, kind: "wtech"   }
+];
+function boostMemberOf(id) {
+  for (var i = 0; i < BOOST_MEMBERS.length; i++) if (BOOST_MEMBERS[i].id === id) return BOOST_MEMBERS[i];
+  return null;
+}
+function boostKnee(family) { return 0.75 * (BOOST_LIMIT[family] || 0); }
+// The share of an ADDITIONAL raw point that a family would actually deliver at its current
+// loading — 1.0 while linear, falling toward 0 as the asymptote is approached. This is the
+// number an effect string needs: "what does the player get for the +0.25 this button adds?"
+function boostDelivery(family, raw, add) {
+  var L = BOOST_LIMIT[family];
+  if (!L) return 1;                                     // no ceiling: delivered in full
+  var before = limitedDR(raw - add, L), after = limitedDR(raw, L);
+  return add > 1e-9 ? (after - before) / add : 1;
+}
+// THE LINE A PLAYER READS, and it is why Part 2 exists. **A vigor upgrade advertising +25% while
+// paying +0.4% is a correctness bug, not a rounding note.** Computed at RENDER time — the
+// `effect:` strings are built while the UPGRADES array literal is evaluated, before `S` exists,
+// so a live delivered figure cannot live there and v0.61's `petriciteResonators` could only state
+// its ceiling in prose. This runs from the tooltip, where the state is real.
+//
+// It reports what THIS purchase adds on top of what the player already holds — the marginal
+// delivery, not the family average — because that is the number the button is promising.
+function boostDeliveryLine(id) {
+  var m = boostMemberOf(id);
+  if (!m) return null;
+  var held = m.kind === "wtech" ? !!(S.wtechs && S.wtechs[m.id]) : m.kind === "tech" ? !!S.techs[m.id] : !!S.upgrades[m.id];
+  var k = (computeRates()._knee || {})[m.family];
+  if (!k) return null;
+  // If the player does not hold it yet, the marginal delivery is what buying it WOULD pay.
+  var rawWith = held ? k.raw : k.raw + m.amt;
+  var frac = boostDelivery(m.family, rawWith, m.amt);
+  var adv = Math.round(m.amt * 1000) / 10, got = Math.round(m.amt * frac * 1000) / 10;
+  var name = RES[m.family] ? RES[m.family].name : m.family;
+  if (frac > 0.999) return "Delivers the full +" + adv + "% — the " + name.toLowerCase() +
+    " boost line is inside its ceiling" + (k.headroomToKnee < m.amt ? ", but only just" : "") + ".";
+  return "ADVERTISED +" + adv + "%, DELIVERS +" + got + "%. The " + name.toLowerCase() +
+    " boost line already sums to +" + Math.round(k.raw * 100) + "% against a +" +
+    Math.round(k.cap * 100) + "% ceiling, so " + Math.round((1 - frac) * 100) +
+    "% of this one is absorbed by diminishing returns.";
+}
+function boostKneeFrom(raw, delivered) {
+  var out = {};
+  for (var f in BOOST_LIMIT) {
+    var r = raw[f] || 0, d = delivered[f] || 0, k = boostKnee(f);
+    out[f] = {
+      cap: BOOST_LIMIT[f], knee: +k.toFixed(4),
+      raw: +r.toFixed(4), delivered: +d.toFixed(4),
+      pctOfKnee: k ? +(100 * r / k).toFixed(1) : null,
+      // the headline: what fraction of the raw sum the player never receives
+      thrownAwayPct: r > 1e-9 ? +(100 * (1 - d / r)).toFixed(1) : 0,
+      pastKnee: r > k + 1e-9,
+      // how much more raw sum this family can take before the NEXT point stops paying in full
+      headroomToKnee: +Math.max(0, k - r).toFixed(4)
+    };
+  }
+  return out;
+}
 
 var UPGRADES = [
   { id: "runicAttunement", name: "Runic Attunement", cost: { mana: 120 },
@@ -2851,26 +3005,26 @@ var UPGRADES = [
   { id: "petriciteFrames", name: "Petricite Frames", cost: { gear: 60, gold: 2000 }, tech: "hexcore", req: "ironwoodShelters",
     lore: "Petricite frames, cut to a standard nobody has to re-measure.",
     effect: ratioEffect("shelter", "petriciteFrames")},
-  // v0.61 PART 8 — the fourth mana multiplier. The crystal cost is Jerry's own ("one costing
-  // hextech crystals") and the spec's figure of 400. NOTE THE DEVIATION, because Part 10 ships a
-  // rung-scaled rule for crystal costs in the same round: K/100 at petricite's 65,000 rung would
-  // be 650, and this ships 400. The spec names 400 explicitly, so 400 ships; it is the one
-  // post-Sparks crystal figure in the game that does not follow the rule, and it is recorded in
-  // BUILD REPORT §6 rather than silently normalized.
-  // COST DEVIATION FROM THE SPEC, and the project's own audit forced it. The spec authored
-  // `{ crystals: 400, hexgear: 25 }`. **`auditCostGraph()` and `auditRawGraph()` both rejected it:
-  // hexgear is gated on `hexcore` (75,000) and this Discovery unlocks at `petricite` (65,000)**,
-  // so the player would have seen a Discovery a full rung before they could buy it. That is not
-  // a balance disagreement — it is an unbuildable item, and it is exactly the class the audit
-  // exists to refuse. `petriciteBlock` replaces it at the same count: available at this rung,
-  // and it is the stone the Discovery is named for. **The crystal component — the half that is
-  // Jerry's own note — is untouched at 400.**
-  { id: "petriciteResonators", name: "Petricite Resonators", cost: { crystals: 400, petriciteBlock: 25 }, tech: "petricite",
-    lore: "The stone drinks the spell and hums it back, a little louder each time.",
-    effect: "Adds +" + Math.round(PETRICITE_MANA_BOOST * 100) + "% to the mana production line. " +
-      "The mana Discoveries add together and the line as a whole approaches a +" +
-      Math.round(BOOST_LIMIT.mana * 100) + "% ceiling, so with the other three held this one " +
-      "delivers about half of what it adds."},
+  // ==========================================================================================
+  // v0.62 PART 4.2 / DEV NOTE 2 (Jerry): "Remove the fourth mana multiplier — Swain covers it."
+  //
+  // `petriciteResonators` shipped ONE ROUND AGO, on Jerry's own dev note 3 of v0.61, and this is
+  // a straight reversal by the same author. **Both notes are cited, here and in the ledger**,
+  // exactly as v0.61 cited the v0.60 note it reversed — a reversal that does not name what it
+  // reverses reads to a later round as a mistake being corrected rather than a decision being
+  // remade.
+  //
+  // AND IT UNDOES v0.61's OWN HALF-PAID RUNG. `boosts.mana` returns to **Sigma 0.75 across three
+  // members, which is EXACTLY the knee** (0.75 x `BOOST_LIMIT.mana` 1.0), so all three deliver in
+  // full again and the +12.5-for-+25 defect v0.61 §7.1 measured disappears with the member that
+  // caused it. **Mana now sits exactly ON its knee**: the next mana boost of any size is the
+  // first that will not pay in full. Recorded in the knee readout beside crystals, which is
+  // 0.006 from the same place.
+  //
+  // STANDING-RULINGS §30: `petriciteResonators` is a RESERVED ID until v1.0. A save holding it is
+  // REFUNDED its cost rather than silently losing it — the player paid 400 crystals and 25
+  // petricite blocks for a Discovery that no longer exists, and every prior retirement in this
+  // file that took something away refunded or kept it.
   { id: "stonecutGuild", name: "Stonecut Guild", cost: { stoneSlab: 150, gold: 800 }, tech: "petricite",
     lore: "The masons finally unionize.",
     effect: ratioEffect("storehouse", "stonecutGuild")},
@@ -2998,13 +3152,48 @@ var UPGRADES = [
 // 20,000 + titanium 15 + starchart 20). A Discovery in this game is a piece of LEARNING and
 // almost none of them were priced as one.
 //
-// THE RULE FOR THE AMOUNT: **knowledge = round(K / 10)**, where K is the knowledge price of the
-// tech the Discovery hangs off. Deriving it from the rung rather than authoring 23 literals
-// means a Discovery re-homed onto a different tech reprices itself, and a tech reprice cannot
-// leave its leaves behind. **K/10 is deliberately BELOW the source's own ratio** — Kittens'
-// workshop upgrades routinely cost a quarter to a half of a tech's science — because RR is
-// adding this to an economy that was balanced without it, and the conservative direction is the
-// one that can be raised later on a measurement.
+// THE RULE FOR THE AMOUNT: **knowledge = round(K / DISCOVERY_KNOWLEDGE_DIVISOR)**, where K is the
+// knowledge price of the tech the Discovery hangs off. Deriving it from the rung rather than
+// authoring 22 literals means a Discovery re-homed onto a different tech reprices itself, and a
+// tech reprice cannot leave its leaves behind.
+//
+// ==========================================================================================
+// v0.62 DEV NOTE 1 (Jerry): "The knowledge requirement for discoveries should be higher for the
+// discoveries that require knowledge. It should be a healthy sink for knowledge while the player
+// is ramping up their knowledge buildings to afford the next lore research."
+//
+// **DIVISOR 10 -> 1.25, i.e. K/10 becomes 0.8 x K. AN EIGHTFOLD RAISE, AND IT IS DERIVED FROM
+// THIS FILE'S OWN PRECEDENT RATHER THAN INVENTED.**
+//
+// v0.61 shipped K/10 with the reasoning that it was "deliberately BELOW the source's own ratio"
+// and could be raised later on a measurement. **This is that measurement, and it did not need
+// the source at all — RR already had ten hand-authored knowledge costs and they were never
+// anywhere near K/10:**
+//
+//     slabCutting          350 on mining        500   =  0.70 x the rung
+//     deepwaterDocks       900 on trade       1,200   =  0.75 x
+//     trappersCraft        400 on logistics     500   =  0.80 x
+//     keepingTheRolls    1,300 on songcraft   1,300   =  1.00 x
+//     beastLore          2,500 on abyss       2,000   =  1.25 x
+//     chemtechDistill.   3,000 on hextech     2,200   =  1.36 x
+//     masterOfTheHunt   12,000 on drakeLore   3,600   =  3.33 x
+//     greatLibrary      40,000 on ritesOfTargon 12,000 = 3.33 x
+//
+// **The authored band is 0.70x to 3.33x. The generated rule sat at 0.10x — an order of magnitude
+// below the game's own precedent, on the same buttons.** 0.8 x K is the LOW end of that band, so
+// the rule-generated Discoveries now cost what the hand-priced ones have always cost and nothing
+// in the file becomes an outlier in either direction.
+//
+// **WHY IT IS A SINK AND NOT A WALL, which is the half of Jerry's note that constrains it.** At
+// most THREE knowledge-carrying Discoveries sit on any one tech (trade, songcraft, ritesOfTargon
+// and hextech each have three), so a tech's leaves now cost at most 2.4 x the rung — spread over
+// three separate purchases the player makes at their own pace, against a knowledge CEILING that
+// grows with every Archive, Academy, Observatory and Hexcore Laboratory built. **That is exactly
+// the shape the note asks for: something to spend knowledge on while the buildings that raise
+// the ceiling are going up, rather than a rung that must be cleared before the next tech.**
+//
+// The four authored figures above 1.25x are LEFT ALONE, as always: they were sized deliberately
+// and re-deriving them would discard that work.
 //
 // THE RULE FOR THE SET, and Jerry said MORE, NOT ALL, so there has to be one. A Discovery takes
 // knowledge when it is a **METHOD** — a technique, a practice, a rite, a way of doing something
@@ -3021,7 +3210,7 @@ var UPGRADES = [
 //     rung in their own definitions.
 //
 // This takes the game from 10 of 78 to 35 of 78 — **13% to 45%.** More, not all.
-var DISCOVERY_KNOWLEDGE_DIVISOR = 10;
+var DISCOVERY_KNOWLEDGE_DIVISOR = 1.25;   // v0.62 dev note 1: K/10 -> 0.8 x K
 var DISCOVERY_KNOWLEDGE_SET = [
   // — methods of working the land and the wilds —
   "ironPlows", "zauniteDrills", "jessedHawks", "pastureRotation",
@@ -3768,7 +3957,11 @@ var DRAKE_PER_KILL = { infernal: 0.05, ocean: 0.06, mountain: 0.06, cloud: 0.10,
 // v0.55 Part 6: the caps were five magic numbers spread across five call sites, which is why
 // nothing could enumerate them. They are a table now, and every call site reads it.
 // v0.58.1 NOTE 48 — the Manufactory's constants, declared before BUILDINGS reads them.
-var MANUFACTORY_FUEL = 0.12;              // v0.59.1 note 7.1: 0.02 -> 0.12 crystals/s per copy, before the efficiency discovery
+// v0.62 PART 7 — 0.12 -> 0.024, and this is NOT a fourth raise: it is the source's own per-copy
+// anchor (Kittens' `calciner` burns 0.024 against an `oilWell`'s 0.02, a 1.2x sink-to-faucet
+// ratio) taking effect on the SAME MULTIPLIER FOOTING AS THE YIELD. The scaling is the change;
+// the constant going down is what stops it being a fourth raise. See the converter block.
+var MANUFACTORY_FUEL = 0.024;             // 1.2 x the Refinery's own 0.02/copy, per js/buildings.js @ c52985b
 var MANUFACTORY_FUEL_CUT = 0.5;           // 48.2 A — Pressure Regulators halve it
 var MANUFACTORY_PARCHMENT = 0.005;        // 48.2 B — Jerry's figure, verbatim
 // 48.2 C — the yearly automatic craft. One of each, once a game-year, per Manufactory.
@@ -4019,14 +4212,27 @@ var EXPEDITIONS = [
   // the same rule directive 2 of the v0.53 round applied to building tooltips.
   { id: "gromp", name: "Hunt Gromp", tech: "logistics", renown: 2,
     desc: "The great toad dozes among his mushrooms. He does not share willingly.",
+    // v0.62 PART 5.4 / DEV NOTE 8 — the yield line is GENERATED against what the code pays, and
+    // it now names honeyflower on a charge run rather than a stray poro. A stale description is
+    // how v0.59's tooltip and payout came to disagree, so the string and the branch move together.
     yield: function (s) { return "10–23 mushrooms (scales weakly with camp yields)" +
-      (s.techs.abyss ? " · rare stray poro" : ""); },
+      (s.techs.abyss ? " · a charge run may turn up honeyfruit" : ""); },
     cost: { vigor: 100 },
     run: function () {
       var shrooms = Math.round((10 + Math.floor(rerollAmt("hunt") * 14)) * campYieldMult(true));
       gain("mushrooms", shrooms);
       var msg = "Gromp is politely relocated. +" + shrooms + " mushrooms";
-      if (rerollHit("hunt") < 0.05 && S.techs.abyss) { gain("poros", 1); msg += ". A stray poro follows you home!"; }
+      // v0.62 PART 5.4 / DEV NOTE 8 (Jerry): "Gromp: honeyflower on a charge run, not a stray
+      // poro." Gated on `campEmpowered` exactly as the Scuttler is in 5.3, so both charge camps
+      // read the same way — and the payout is the honeyfruit event's own grant, not a new one,
+      // so a player who finds it here gets what the treeline banner gives.
+      if (campEmpowered > 1 && rerollHit("hunt") < 0.05 && S.techs.abyss) {
+        var hf = Math.max(30, Math.round(S.pop * CONSUMPTION * 60));
+        gain("provisions", hf);
+        S.honeyUntil = simNow() + 3 * 60 * 1000;
+        msg += ". The charge scatters a honeyflower thicket — the wanderers snack as they work (+" +
+          fmt(hf) + " provisions, consumption −20% for 3 min)";
+      }
       addLog(msg + ".", "event");
     } },
   { id: "raptors", name: "Hunt Raptors", tech: "logistics", renown: 3,
@@ -4037,7 +4243,19 @@ var EXPEDITIONS = [
       var p = Math.round((12 + Math.floor(rerollAmt("hunt") * 7)) * campYieldMult(true));
       gain("plumes", p);
       var msg = "The raptor flock is outfoxed. +" + p + " plumes";
-      if (!S.scuttlerActive && rerollHit("hunt") < 0.3) {
+      // v0.62 PART 5.3 / DEV NOTE 7 (Jerry): "Rift Scuttler only on a charge run."
+      //
+      // The spawn had NO CHARGE TEST — it fired on `rerollHit("hunt") < 0.3` on every Raptor
+      // hunt, empowered or not. `campEmpowered` is already set to `CHARGE_BONUS` for the
+      // duration of an empowered hunt (v0.59 Part 2.1 made it the renown multiplier), so the
+      // property exists and needs no new plumbing.
+      //
+      // **THE 0.3 PROBABILITY IS KEPT DELIBERATELY.** Gating alone already cuts the spawn rate
+      // to the charge cadence; changing the gate and the odds in one round would make the
+      // measurement unreadable. Scuttler spawns per game-year are reported before and after —
+      // the Scuttler pays knowledge and vigor as a percentage of cap, so this reaches two
+      // economies.
+      if (!S.scuttlerActive && campEmpowered > 1 && rerollHit("hunt") < 0.3) {
         S.scuttlerActive = true; S.scuttlerTimer = 60;
         document.getElementById("scuttler-banner").style.display = "block";
         msg += ". From the raptors' roost, your hunters spot a Scuttler surfacing!";
@@ -4351,7 +4569,10 @@ var FACTIONS = [
     } },
   { id: "noxus", name: "Noxus", motto: "Strength above all",
     family: "Metal",
-    cost: { plumes: 120, vigor: 175, gold: 68 },
+    // v0.62 PART 5.2 / DEV NOTE 5 (Jerry): "Noxus Raptor Plume trade cost -> 100." Plumes are
+    // both a luxury (they pay morale) and a hunt yield, so this loosens a limiter on two
+    // economies at once. `firstTrade` and trades-per-game-year on this route are reported.
+    cost: { plumes: 100, vigor: 175, gold: 68 },
     yieldAmt: "400-560 ore", yieldNote: "Noxian traders respect only persistence — trades can fail.",
     primaryYield: ["ore"],
     slots: [
@@ -4432,50 +4653,48 @@ var FACTIONS = [
 // as `policyMult - 1`. Converting it to an additive term rather than leaving one multiplication
 // in place is the difference between one category and two.
 // ============================================================================
-// DEVIATION FROM THE SPEC, WITH THE MEASUREMENT THAT FORCED IT. READ THIS BEFORE CHANGING IT.
+// v0.61's DEVIATION HERE — a `TRADE_YIELD_LIMIT` ceiling justified by "an INFINITE-TIMBER LOOP
+// at 133 Trade Docks" — IS WITHDRAWN AT v0.62 PART 1. The measurement it rested on was real; the
+// CONCLUSION was not. **Kittens has the same trade cycles and ships the same base-resource
+// craft**, and what bounds the source's loops is a per-trade tax in resources the cycle does not
+// produce — which RR already had and nobody had costed. The full argument, the source citations
+// and the measured sustainable trade rate are immediately below.
+// ============================================================================
+// v0.62 PART 1 — `TRADE_YIELD_LIMIT` IS REMOVED, AND v0.61's DEVIATION IS WITHDRAWN.
 //
-// The spec asks for "one additive category, UNCAPPED", which is literally the source's code.
-// **Shipped uncapped, RR grows an INFINITE-TIMBER LOOP at a reachable building count.**
+// v0.61 §5.2 called the Demacia -> Piltover -> transmute cycle "an unbounded resource loop" and
+// shipped a ceiling **the source does not have** to contain it. **THAT REASONING WAS WRONG AND
+// THE ANALYZER CAUGHT IT: Kittens has the same cycles.** Lizards buy minerals and sell wood;
+// sharks buy iron and sell catnip; nagas sell minerals; griffins sell iron — and the source ships
+// the one craft whose output is a base resource (`wood <- catnip`, `js/workshop.js`), which is
+// RR's transmute exactly.
 //
-// RR has a closed cycle Kittens does not have: **Demacia trades timber -> steel, Piltover trades
-// steel -> mana, and `transmute` converts mana back into timber.** The circuit's gain is
-// `G = (steel/timber) x (mana/steel) x (timber/mana) x tradeYieldMult^2` — the yield multiplier
-// enters TWICE, once per trade leg — and `test-v41` has asserted `G < 0.8` since v0.41 for
-// exactly this reason. **Kittens' trade has no path back to its own input, so an uncapped
-// `tradeRatio` is safe there and is not safe here.**
+// **WHAT BOUNDS THE SOURCE'S LOOPS IS NOT A YIELD CEILING. IT IS A PER-TRADE TAX IN RESOURCES
+// THE CYCLE DOES NOT PRODUCE.** `js/diplomacy.js:10-11` — `baseGoldCost: 15`,
+// `baseManpowerCost: 50` — deducted FLAT at `:885-886`, while only the race's `buys` resource
+// scales with `getTradeVolume()` and only the YIELD scales with `tradeRatio`. Gold and manpower
+// come from outside every resource cycle, so no cycle can pay for its own trades.
 //
-// MEASURED, on this build, sweeping Trade Docks with caravans at half that count:
-//     30 docks /  15 caravans -> x2.365,  G = 0.19
-//    100 docks /  50 caravans -> x4.465,  G = 0.68
-//    **133 docks /  67 caravans -> x5.465,  G = 1.013  <- BREAK-EVEN. Infinite timber past here.**
-//    200 docks / 100 caravans -> x7.465,  G = 1.89
-// **133 Trade Docks is reachable in a 2,500-year run.** This is not a balance disagreement; it
-// is an unbounded resource loop, and the project has had a guard against it for twenty versions.
+// **RR ALREADY HAD THE IDENTICAL GUARD AND NOBODY HAD COSTED IT.** Both legs charge vigor and
+// gold; the cycle yields steel, mana and timber and neither of those. **MEASURED THIS ROUND, and
+// it binds hard:**
 //
-// A MAGNITUDE FIX DOES NOT CLOSE IT, which is worth stating because the spec's own instruction
-// was "if it regresses, the fix is the magnitudes, not the composition". Cutting the Trade Dock
-// from RR's 0.02 to the source's own 0.015 per copy only moves the break-even to ~177 docks.
-// **G grows without bound at ANY positive per-copy rate, because the cycle is closed and the
-// multiplier is squared.** Only a ceiling closes it.
+//     @sparks    gold 840/game-year at 53/trade = 15.8 trades · vigor 2,104 at 135 = 15.6
+//                SUSTAINABLE RATE 15.6 trades/game-year, bound by VIGOR
+//     @hexcore   gold 4,048 at 53 = 76.4 trades · vigor 6,361 at 135 = 47.1
+//                SUSTAINABLE RATE 47.1 trades/game-year, bound by VIGOR
 //
-// SO WHAT SHIPS IS THE SPEC'S SUBSTANCE WITH ONE BOUND:
-//   * **ONE ADDITIVE CATEGORY** — docks + caravans + champion + trait + policy, summed, exactly
-//     as `js/diplomacy.js:744-747` sums them. This is the structural half of dev note 8 and it
-//     is the half the spec argues hardest for.
-//   * **ONE CEILING ON THAT CATEGORY**, replacing the TWO ceilings RR had on two of its four
-//     multiplicative categories (+100% on docks, +60% on the embassy). **This is strictly closer
-//     to the source than what RR had: four categories and two bounds becomes one category and
-//     one bound.**
-// `TRADE_YIELD_LIMIT = 3.0` asymptotes the multiplier at x4.0, against the x4.857 at which the
-// circuit breaks even — so G is bounded at ~0.54 at any stack, inside the guard's 0.8 with
-// margin, and above the old form's effective reach for every realistic stack.
+// **The loop is throughput-limited by vigor income at every milestone, exactly as the source's
+// are.** A loop gain above 1 in a CAPPED resource, whose trades cost an UNCAPPED one, means
+// timber stops being a constraint and sits at its ceiling — **it does not mean unbounded
+// resources, and v0.61's report should not have said so.**
 //
-// **IF A FUTURE ROUND WANTS THE SOURCE'S UNCAPPED FORM, IT MUST FIRST BREAK THE CYCLE** — the
-// transmute leg is the one that closes it, and it is RR-original. That is the real finding here
-// and it belongs to the transmute, not to trade.
-var TRADE_YIELD_LIMIT = 3.0;
+// So the source's shape ships as dev note 8 asked for at v0.61: **ONE ADDITIVE CATEGORY,
+// UNCAPPED.** If a future round finds the guard has stopped binding, **the fix belongs to the
+// TAX — raise the per-trade gold or vigor — not to the yield.** That is the source's own lever
+// and it leaves the yield category uncapped.
 function tradeYieldMult(fid) {
-  return 1 + limitedDR(tradeYieldTerms(fid).reduce(function (a, t) { return a + t.amt; }, 0), TRADE_YIELD_LIMIT);
+  return 1 + tradeYieldTerms(fid).reduce(function (a, t) { return a + t.amt; }, 0);
 }
 // The terms, named, because Part 1's lesson is that an unnamed product is how a stack goes two
 // rounds mis-diagnosed. Every caller that wants the number calls `tradeYieldMult`; anything that
@@ -5258,6 +5477,9 @@ var FESTIVAL_MORALE_MULT = 1.20;
 // A first festival at two or three Hearths pays ~300 gold, which against an early gold ceiling
 // of a few hundred is exactly the "boost early" the note asks for; twenty Hearths pay ~800.
 // v0.61 PART 5.2 / DEV NOTE 7 — the festival's renown grant. See holdFestival().
+// v0.62 PART 4.3 / DEV NOTE 3 — the festival's provisions price, as a fraction of the CEILING
+// rather than of population. See festivalCost().
+var FESTIVAL_PROVISION_PCT = 0.15;
 var FESTIVAL_RENOWN = 25;
 var FESTIVAL_GOLD_BASE = 250, FESTIVAL_GOLD_PER_HEARTH = 25;
 // v0.59 Part 8 note 8 — the FESTIVAL'S OWN two line items, named so the half-of relation is
@@ -5297,7 +5519,27 @@ function festivalCost() {
   // FESTIVALS ARE RR-ORIGINAL, so this is a labelled EASIER row rather than a parity move.
   return { mushrooms: Math.round(FESTIVAL_MUSHROOMS * luxuryComfort()),
            plumes: Math.round(FESTIVAL_MUSHROOMS * FESTIVAL_PLUME_SHARE * luxuryComfort()),
-           provisions: Math.round(60 * Math.max(1, S.pop)),
+           // ====================================================================================
+           // v0.62 PART 4.3 / DEV NOTE 3 (Jerry): "The Festival's provisions cost should be
+           // higher."
+           //
+           // **IT HAS THE SAME DEFECT v0.61 PART 6.3 FOUND IN THE TRADE PROVISIONS COST, AND
+           // THIS IS THE SECOND INSTANCE OF ONE BUG SHAPE.** The cost was `60 x pop`, and
+           // population PLATEAUS near 200 (§27's band is 150-220) while the provisions CEILING
+           // grows from 79,500 at Sparks to 900,338 at Icathia — **x11.3.** So the festival cost
+           // 15% of the ceiling at Sparks and **1.3% at Icathia: it stopped being a cost exactly
+           // when the player could hold the most.** A flat or population-denominated price
+           // cannot bind against a ceiling that grows an order of magnitude.
+           //
+           // **DENOMINATED IN THE CEILING, WHICH IS WHAT "A HEFTY AMOUNT" MEANS.** 0.15 x the
+           // provisions ceiling reproduces today's figure at Sparks by construction (15% of
+           // 79,500 = 11,925 against today's 12,000 at pop 200) **and holds that bite for the
+           // rest of the run** instead of decaying to a rounding error.
+           //
+           // The culture and vigor lines stay per-head: v0.58.1 note 1 made them per-head
+           // deliberately, and those two ceilings do not run away the way provisions does.
+           // ====================================================================================
+           provisions: Math.round(FESTIVAL_PROVISION_PCT * (computeCaps().provisions || 0)),
            culture: Math.round(30 * Math.max(1, S.pop)),
            vigor: Math.round(10 * Math.max(1, S.pop)) };
 }
@@ -5760,10 +6002,16 @@ function computeRates(bdRes) {
   BUILDINGS.forEach(function (b) {
     if (b.boost) for (var r in b.boost) boosts[r] = (boosts[r] || 0) + b.boost[r] * count(b.id);
   });
-  if (S.upgrades.bilgewaterContracts) boosts.gold += 0.25;
-  if (S.upgrades.mintedCoin) boosts.gold += 0.20;               // v0.45 Part 6 — Coinage
-  if (S.techs.cultivation) boosts.provisions += 0.10;       // v0.52 Part 2.1, out of resRatio
-  if (S.upgrades.hexresonance) boosts.mana += 0.25;         // v0.50 Part 1.3, out of resRatio
+  // v0.62 PART 2 — the upgrade-driven boost members are DRIVEN FROM `BOOST_MEMBERS` rather than
+  // written out here, so the table an effect string reads and the code a player experiences are
+  // the same object. This is the anti-drift pattern the axe, saw, storage and conversion lines
+  // already use, applied to the last family that was still a list of literals.
+  BOOST_MEMBERS.forEach(function (m) {
+    var held = m.kind === "wtech" ? !!(S.wtechs && S.wtechs[m.id])
+             : m.kind === "tech"  ? !!S.techs[m.id]
+             :                      !!S.upgrades[m.id];
+    if (held) boosts[m.family] += m.amt;
+  });
   // v0.59.1 NOTE 1 (Jerry): "the mana discovery should affect all mana production, not just
   // arcanists." `leylineCalibration` moves off the Arcanist job line and lands here, ADDITIVE
   // with Hexresonance because they are the same category — Kittens' Law, and the reason this
@@ -5771,15 +6019,6 @@ function computeRates(bdRes) {
   // v0.59.1 NOTE 6 (Jerry): "True Ice Cellars should not affect anything provisions related.
   // Make it a mana production enhancing discovery." It joins the same accumulator, for the same
   // reason — a third multiplicative category for one member is exactly what §19 exists to stop.
-  if (S.upgrades.leylineCalibration) boosts.mana += LEYLINE_MANA_BOOST;
-  if (S.upgrades.trueIceCellars)     boosts.mana += TRUE_ICE_MANA_BOOST;
-  // v0.61 PART 8 — the fourth member, on Petricite Masonry. Same accumulator, additive, so all
-  // four held is Sigma 1.00 and never x2.03.
-  if (S.upgrades.petriciteResonators) boosts.mana += PETRICITE_MANA_BOOST;
-  if (S.upgrades.resonanceCoils) boosts.crystals += 0.25;   // v0.54 directive 16, was hexCapacitors at 0.50
-  if (S.upgrades.tributeReliquaries) boosts.crystals += 0.25;   // v0.45 Part 6 — The Baron's Tribute
-  if (S.wtechs && S.wtechs.solariHymn) boosts.devotion += 0.25;
-  if (S.wtechs && S.wtechs.ritesOfInsight) boosts.knowledge += 0.10;
   boosts.knowledge += champPassive("knowledge") / 100;
   if (leaderIs("swain")) boosts.knowledge += SWAIN_KNOWLEDGE_LEAD;   // v0.58.1 NOTE 20
   // v0.59 Part 8 note 5: Swain's passive lands here now, on a DIFFERENT key from his lead.
@@ -5792,6 +6031,11 @@ function computeRates(bdRes) {
   boosts.crystals += affinityBonus("hexwarden") / 100;
   // v0.58.1 NOTE 19: Jarvan's lead is village production. Additive into the same village
   // category his passive used to sit in, so the two never multiply against each other.
+  // v0.62 PART 6a.1 — `villageMult` is now the BUILDING scope only. Jarvan's lead reaches jobs
+  // through the `JOBS` loop below at the same `JARVAN_VILLAGE_LEAD`; his lead is applied here for
+  // the "Village" building group as it always has been, and v0.58.1 note 19's reasoning (his lead
+  // is additive into the same category his passive used to sit in, so the two never multiply)
+  // still holds for that scope.
   var villageMult = 1 + champPassive("village") / 100 + (leaderIs("jarvan") ? JARVAN_VILLAGE_LEAD : 0);
   boosts.vigor += drakeBonus("cloud", DRAKE_CAP.cloud);
   boosts.crystals += drakeBonus("hextech", DRAKE_CAP.hextech);
@@ -5812,6 +6056,8 @@ function computeRates(bdRes) {
   // Discovery's own effect string says so rather than letting a button outlive its effect.
   var boostsRaw = {}; for (var brk in boosts) boostsRaw[brk] = boosts[brk];
   for (var bk in boosts) if (BOOST_LIMIT[bk]) boosts[bk] = limitedDR(boosts[bk], BOOST_LIMIT[bk]);
+  // v0.62 PART 2 — THE KNEE AUDIT, PUBLISHED. See boostKnee() below for the argument.
+  rates._knee = boostKneeFrom(boostsRaw, boosts);
   villageMult *= policyMult("village");
 
   // Building production
@@ -5860,6 +6106,33 @@ function computeRates(bdRes) {
     tinkerer: S.upgrades.facetedCuts ? 1.25 : 1,   // v0.45 Part 6 — Lapidary
     loremaster: 1
   };
+  // ==========================================================================================
+  // v0.62 PART 6a.1 — THE LEADER BONUS REACHES EVERY JOB, AND THIS IS A COVERAGE FIX FIRST.
+  //
+  // `villageMult` carried `JARVAN_VILLAGE_LEAD` and the table above applied it to **three of the
+  // eight assignable jobs**: farmer, woodcutter and miner. `loremaster`, `arcanist` and
+  // `tinkerer` got nothing from it, and `jungler` and `acolyte` **are not in this table at all**.
+  // A settlement running a knowledge or a devotion economy received nothing whatever from
+  // Demacia's Standard, which is not what "every worker in the village produces more" says.
+  //
+  // **SHIPPED: 0.12 -> 0.06, applied to ALL EIGHT JOBS**, iterated from `JOBS` rather than named
+  // three at a time, so a ninth job added later inherits it instead of being forgotten the way
+  // `jungler` and `acolyte` were.
+  //
+  // **THE SIGN IS NOT OBVIOUS AND THE PREDICTION IS ON THE RECORD.** The bot's shares put roughly
+  // half the workforce in farmer/woodcutter/miner, so the weighted effect was about
+  // `0.12 x 0.55 = 0.066` and is now `0.06 x 1.00 = 0.06` — **roughly neutral in total output and
+  // materially different in SHAPE.** Jarvan stops being a food-and-timber leader and becomes a
+  // flat settlement leader, which is what his lead text has always claimed.
+  //
+  // **THE BUILDING CLAUSE IS DELIBERATELY UNTOUCHED, AND ITS SCOPE IS STATED HERE BECAUSE ONE
+  // CONSTANT NOW DRIVES TWO SCOPES.** `villageMult` also multiplies `b.group === "Village"`
+  // production. Dev note 6a is about jobs a wanderer can hold; halving the building term was not
+  // asked for, so the building clause keeps `champPassive("village")` and the FULL lead. The two
+  // are separated below so neither can be changed by accident while editing the other.
+  JOBS.forEach(function (j) {
+    jobMult[j.id] = (jobMult[j.id] || 1) * (leaderIs("jarvan") ? 1 + JARVAN_VILLAGE_LEAD : 1);
+  });
   // Census: assigned Wanderers get better at their work. Their rank bonuses are
   // averaged per job, so the maths below still runs off S.jobs counts.
   var jobSkill = {};
@@ -5950,6 +6223,39 @@ function computeRates(bdRes) {
     var manaCut = S.upgrades.greyScrubbers ? 0.75 : 1;
     for (var i2 in b.convert.input) {
       var inAmt = b.convert.input[i2] * n * (i2 === "mana" ? manaCut : 1);
+      // ======================================================================================
+      // v0.62 PART 7 — A PRIMARY SINK IS PUT ON THE SAME FOOTING AS THE FAUCET IT DRAINS.
+      //
+      // **THREE ROUNDS RAISED `MANUFACTORY_FUEL` AND NONE OF THEM MOVED THE STOCK.** v0.61
+      // measured why: crystals at cap fell 96.2% -> 94.7% after a research sink, and the
+      // decomposition showed 15 Manufactories draining **2.56/s against 36.97/s gross — 6.9%**.
+      // The arithmetic is decisive: at 33.4 crystals/s over 2,500 game-years the settlement
+      // produces **66.8 million** and the research sink spends about **14,000 — 0.02%.**
+      //
+      // **THE CAUSE IS NOT THE NUMBER, IT IS THE ASYMMETRY.** The Refinery's output is
+      // multiplied by `convMult x (1 + boosts.crystals)` — measured at x92 on a maxed state —
+      // and the Manufactory's input is FLAT. A sink that does not scale with the faucet is a
+      // rounding error at every point on the curve except the one it was sized at.
+      //
+      // **THE SOURCE'S OWN ANCHOR.** Kittens' `calciner` burns `oilPerTickCon: -0.024` per copy
+      // against an `oilWell`'s `oilPerTickBase: 0.02` — **a primary sink burns 1.2x what a
+      // primary faucet makes, per copy.** RR's Refinery makes `crystals: 0.02` per copy before
+      // multipliers, so the Manufactory's per-copy burn belongs at **0.024 on the same
+      // multiplier footing as the yield.**
+      //
+      // So the fuel line — and ONLY the fuel line — takes the converter multiplier the output
+      // takes. `MANUFACTORY_FUEL` is **NOT raised a fourth time**; it goes 0.12 -> 0.024, the
+      // source's own per-copy figure, and the scaling does the rest.
+      //
+      // **SCOPED TO THE FUEL, NOT TO ALL INPUTS.** Every other converter input in the game is
+      // flat and stays flat: v0.61 §3 established that inputs-flat/outputs-multiplied is the
+      // SOURCE'S OWN asymmetry, confirmed independently at the Calciner and the Smelter, so
+      // making every input scale would be a parity regression dressed as a fix. What is being
+      // corrected here is one primary sink that was sized against one point on a x92 curve.
+      // ======================================================================================
+      if (b.id === "manufactory" && i2 === "crystals") {
+        inAmt *= convMult * (1 + (boosts.crystals || 0));
+      }
       rates[i2] -= inAmt;
       track(i2, n + "× " + b.name + " (consumes)", -inAmt);
     }
@@ -7772,6 +8078,20 @@ function loadFromString(str) {
   // STANDING-RULINGS §30: `championsRegimen` and `deepCartography` are RESERVED IDS for as long
   // as this line exists, and THIS MIGRATION RETIRES AT v1.0. Do not ship a new tech, building,
   // upgrade or resource on either id before then.
+  // v0.62 PART 4.2 / DEV NOTE 2 — Petricite Resonators is deleted one round after it shipped, on
+  // a reversal by the same author. **A save holding it is REFUNDED**, because the player paid for
+  // a Discovery that no longer exists and every prior retirement in this file either kept what
+  // was bought or gave it back. The refund is the authored price, in full: this is not a
+  // partial-value fold like the Bloomery's, because nothing was consumed and nothing was built.
+  //
+  // STANDING-RULINGS §30: `petriciteResonators` is a RESERVED ID for as long as this line exists
+  // and THIS MIGRATION RETIRES AT v1.0. Do not ship a new tech, building, upgrade or resource on
+  // that id before then.
+  if (fresh.upgrades && fresh.upgrades.petriciteResonators) {
+    fresh.res.crystals = (fresh.res.crystals || 0) + 400;
+    fresh.res.petriciteBlock = (fresh.res.petriciteBlock || 0) + 25;
+    delete fresh.upgrades.petriciteResonators;
+  }
   if (fresh.techs && (fresh.techs.championsRegimen || fresh.techs.deepCartography)) {
     fresh.techs.vanguardDoctrine = true;
   }
@@ -8056,7 +8376,7 @@ function showMoraleTooltip(el) {
   if (bd.floored) lines += '<div><span style="color:var(--gold-bright)">floor</span> morale never falls below 25%</div>';
   tt.innerHTML = '<div style="color:var(--gold-bright);font-weight:600;margin-bottom:4px">Morale · ' + m + '%</div><div class="tt-cost">' + lines +
     // v0.58 DEV NOTE 8: was "...they no longer pay morale", a sentence about a past build.
-    '</div><div class="tt-effect">Morale multiplies all worker output. Poros and True Ice are Freljord materials, and pay no morale.</div>';
+    '</div><div class="tt-effect">Morale multiplies all worker output.</div>';
   tt.style.display = "block";
   positionTooltip(el, tt);
 }
@@ -8923,9 +9243,17 @@ function renderVillage(el) {
       showTooltip(fb, { title: "Hold a Festival",
         desc: "Mushrooms, plumes and a year's worth of the larder. What a settlement of this size can spare.",
         cost: festivalCost(),
+        // v0.62 PART 6.2 / DEV NOTE 11 (Jerry): "The Festival tooltip should list the renown
+        // reward." v0.61 Part 5.2 added 25 renown to `holdFestival()` and never added it here.
+        // **READ THE CONSTANT**, as v0.61's own trade tooltip does — and note that this is the
+        // THIRD round running in which a payout shipped without its tooltip, which is what dev
+        // note 1 was about at v0.61 and what dev note 11 is about now.
+        // Gated on Call to Arms because `gainRenown()` is: a tooltip promising renown before the
+        // gate would be advertising something the code refuses to pay.
         effects: ["Morale +" + Math.round((FESTIVAL_MORALE_MULT - 1) * 100) + "% for one full game-year (400 days)",
-                  "+" + fmt(Math.round(FESTIVAL_GOLD_BASE + FESTIVAL_GOLD_PER_HEARTH * count("bardsHearth"))) + " gold in visitors' coin",
-                  "One festival at a time — the next can only start when this one is over"] });
+                  "+" + fmt(Math.round(FESTIVAL_GOLD_BASE + FESTIVAL_GOLD_PER_HEARTH * count("bardsHearth"))) + " gold in visitors' coin"]
+                 .concat(S.techs.callToArms ? ["+" + FESTIVAL_RENOWN + " renown"] : [])
+                 .concat(["One festival at a time — the next can only start when this one is over"]) });
     };
     fb.onmouseleave = hideTooltip;
   }
@@ -9127,7 +9455,12 @@ function renderLore(el) {
   el.querySelectorAll("[data-upg]").forEach(function (btn) {
     var u = UPGRADES.find(function (x) { return x.id === btn.getAttribute("data-upg"); });
     btn.onclick = function () { buyUpgrade(u.id); };
-    btn.onmouseenter = function () { showTooltip(btn, { title: u.name, desc: u.effect, cost: discCost(u.cost), flavor: u.lore }); };
+    btn.onmouseenter = function () {
+      // v0.62 PART 2 — the DELIVERED figure, appended live. See boostDeliveryLine().
+      var dl = boostDeliveryLine(u.id);
+      showTooltip(btn, { title: u.name, desc: u.effect, cost: discCost(u.cost), flavor: u.lore,
+        effects: dl ? [dl] : undefined });
+    };
     btn.onmouseleave = hideTooltip;
   });
 }
@@ -9473,6 +9806,11 @@ document.getElementById("btn-wipe").onclick = function () {
     purple: cssVar("--purple", "#9D4EDD"), green: cssVar("--green", "#08A66D"),
     red: cssVar("--red", "#BE3144"), text: cssVar("--text", "#A09B8C")
   };
+  // v0.62 PARTS 6.4 / 6.5 — the two Crest colours, taken from the BUFF CHIPS the player already
+  // associates with each state (`renderTop()` draws CREST OF CINDERS in #E8622D and CREST OF
+  // INSIGHT in #4FA8D8), so the banner and the chip speak the same visual language. `PAL.red` is
+  // the UI's danger red and would read as an error rather than as a forge.
+  var CINDER_GLOW = "#E8622D", INSIGHT_GLOW = "#4FA8D8";
 
   function clamp(n, lo, hi) { return n < lo ? lo : (n > hi ? hi : n); }
   function hexToRgb(h) {
@@ -9644,12 +9982,54 @@ document.getElementById("btn-wipe").onclick = function () {
     // small lamps standing just outside each bookshelf, flickering faster
     // than the ball's slow held pulse since a live flame reads better quick
     var lampImg = wrap(Math.floor(f / 2), 2) === 0 ? LORE_LAMP.f0 : LORE_LAMP.f1;
+    // v0.62 PART 6.5 — the lamp geometry is computed OUTSIDE the image-loaded guard, because the
+    // Crest of Insight motes below anchor to it and must not depend on whether a sprite has
+    // finished decoding. The DRAW stays guarded; the coordinates do not need to be.
+    var lw = 8 * scale, lh = 16 * scale;
+    var lampGap = 2 * scale;
+    var lampY = groundFrac * h - lh;
     if (lampImg.complete && lampImg.naturalWidth) {
-      var lw = 8 * scale, lh = 16 * scale;
-      var lampGap = 2 * scale;
-      var lampY = groundFrac * h - lh;
       spriteCtx.drawImage(lampImg, leftX - lw - lampGap, lampY, lw, lh);
       spriteCtx.drawImage(lampImg, rightX + sw + lampGap, lampY, lw, lh);
+    }
+
+    // ======================================================================================
+    // v0.62 PART 6.5 — THE CREST OF INSIGHT FLOATS BLUE LIGHTS AROUND THE SHELVES AND LAMPS.
+    //
+    // **THE LAYER IS A DELIBERATE CHOICE AND HERE IT IS.** The procedural scene draws on `ctx`
+    // and the sprites on `spriteCtx` ABOVE it, so lights drawn in `SCENES.lore` would sit
+    // BEHIND the bookshelves — which reads as a glow leaking out from behind furniture rather
+    // than as motes moving around it. "Floating around" wants some of them in FRONT, so they
+    // are drawn HERE, in the sprite pass, after the shelves and lamps.
+    //
+    // **THE POSITIONS COME FROM THIS FUNCTION'S OWN GEOMETRY** — `leftX`, `rightX`, `shelfY`,
+    // `sw`, `sh` — not from literals. The shelves are placed as a fraction of width and move
+    // when the canvas resizes; a second set of coordinates would drift the first time anyone
+    // changed the layout.
+    //
+    // **COLDER BLUE THAN ANYTHING ALREADY HERE.** The ambient motes alternate `PAL.teal` and
+    // `PAL.goldBright`; the crest's lights are the buff chip's own #4FA8D8 so a player can tell
+    // the state from the animation at a glance.
+    //
+    // Read from `simNow() < S.insightUntil`, the same expression the rest of the file uses, and
+    // asserted by holding the buff, reading the canvas, expiring it and reading again.
+    if (simNow() < S.insightUntil) {
+      var anchors = [
+        [leftX + sw * 0.5, shelfY + sh * 0.25], [leftX + sw * 0.5, shelfY + sh * 0.7],
+        [rightX + sw * 0.5, shelfY + sh * 0.25], [rightX + sw * 0.5, shelfY + sh * 0.7],
+        [leftX - lw * 0.5 - lampGap, lampY + lh * 0.4],
+        [rightX + sw + lw * 0.5 + lampGap, lampY + lh * 0.4]
+      ];
+      spriteCtx.fillStyle = INSIGHT_GLOW;
+      for (var m = 0; m < anchors.length; m++) {
+        // each mote orbits its anchor on its own phase so the six never move as one
+        var t = f * 0.11 + m * 1.7;
+        var ox = Math.cos(t) * (5 * scale), oy = Math.sin(t * 0.8) * (4 * scale);
+        spriteCtx.globalAlpha = 0.30 + 0.30 * Math.abs(Math.sin(t));
+        spriteCtx.fillRect(Math.round(anchors[m][0] + ox), Math.round(anchors[m][1] + oy),
+                           Math.max(1, Math.round(1.5 * scale)), Math.max(1, Math.round(1.5 * scale)));
+      }
+      spriteCtx.globalAlpha = 1;
     }
 
     // crystal ball, cycling its 4 pulse frames
@@ -9825,11 +10205,36 @@ document.getElementById("btn-wipe").onclick = function () {
       ctx.globalAlpha = 0.5 + 0.35 * Math.abs(Math.sin(f * 0.5));
       px(cx - 10, groundY - 3, 20, 3, PAL.gold);
       ctx.globalAlpha = 1;
+      var phase = wrap(f, 6);
+      var hy = [-24, -22, -18, -13, -18, -22][phase];
+      // ====================================================================================
+      // v0.62 PART 6.4 — THE CREST OF CINDERS TINTS THE WORKSHOP.
+      //
+      // Read from **the same expression the rest of the file reads** — `simNow() < S.cinderUntil`
+      // is how `computeRates()` tests this buff — rather than a second source of truth.
+      //
+      // **FAINT MEANS FAINT.** The forge bed is the bright thing in this scene and already runs
+      // at `0.5 + 0.35*|sin|`; the crest should TINT the metal, not outshine the fire, so the
+      // halo tops out at 0.22.
+      //
+      // **NOT SYNCED TO THE HAMMER.** The swing is a six-frame cycle; a glow pulsing exactly
+      // with it would read as part of the animation rather than as a state the player is in.
+      // It runs off `f * 0.23`, which shares no period with 6.
+      //
+      // No invalidation is needed and none is used: `draw()` runs on a 220 ms interval and reads
+      // state fresh every frame, so the scene is correct on the frame the buff expires. That is
+      // ASSERTED by expiring the crest and re-reading the canvas — not by grepping for this
+      // branch, which is precisely how v0.61 §3's festival chip passed for two rounds.
+      var cinderUp = simNow() < S.cinderUntil;
+      if (cinderUp) {
+        ctx.globalAlpha = 0.10 + 0.12 * Math.abs(Math.sin(f * 0.23));
+        px(cx - 12, groundY - 10, 24, 8, CINDER_GLOW);
+        px(cx + 1, groundY + hy - 6, 13, 9, CINDER_GLOW);
+        ctx.globalAlpha = 1;
+      }
       px(cx - 9, groundY - 8, 18, 4, mix(PAL.text, "#000000", 0.2));
       px(cx - 4, groundY - 11, 8, 3, mix(PAL.text, "#000000", 0.2));
       px(cx - 2, groundY - 14, 4, 3, mix(PAL.text, "#000000", 0.2));
-      var phase = wrap(f, 6);
-      var hy = [-24, -22, -18, -13, -18, -22][phase];
       px(cx + 6, groundY + hy, 3, 11, shade(PAL.borderGold, -10));
       px(cx + 3, groundY + hy - 4, 9, 5, mix(PAL.text, "#000000", 0.15));
       if (phase === 3) {
@@ -9910,7 +10315,42 @@ document.getElementById("btn-wipe").onclick = function () {
       pixTriangle(cx, groundY, 92, 27, mix(PAL.panel, PAL.purple, 0.24));
       pixTriangle(cx + 10, groundY, 46, 22, mix(PAL.panel, PAL.purple, 0.42));
       pixTriangle(cx, groundY - 16, 30, 10, PAL.goldBright);
-      px(cx - 4, groundY - 28, 8, 4, PAL.text);
+      // ====================================================================================
+      // v0.62 PART 6.3 / DEV NOTE 12 (Jerry), AS CORRECTED BY HIM: **the square moon on the peak
+      // goes, THE CRESCENT STAYS.**
+      //
+      // There were TWO pale objects in this scene and the first reading of the note conflated
+      // them. The **crescent** at (212, 26) above is the one v0.58.1 note 37 asked for, on
+      // Jerry's own instruction, and it is **not touched** — its comment is left in place
+      // immediately above because it is still the live reason the crescent exists.
+      //
+      // **What the note is actually about is what used to be here: `px(cx - 4, groundY - 28, 8,
+      // 4, PAL.text)` — an 8x4 FILLED RECTANGLE sitting directly above the summit.** At this
+      // resolution a flat rectangle reads as a square moon, which is exactly what it looked
+      // like, whatever the old comment claimed about it being the peak's own light. **Deleted.**
+      //
+      // In its place, a GOLDEN HALO around the peak, drawn as pixels the way the crescent is —
+      // an outer disc with an inner one in the sky colour bitten out of it, leaving a ring.
+      //
+      // **THE PHASE IS DELIBERATELY OFFSET FROM THE LIGHT SHAFT BELOW.** That beam already
+      // pulses on `0.3 + 0.3*|sin(f*0.3)|` and rises from the summit through exactly where the
+      // square was. A halo cycling on the same phase would strobe with it and read as a
+      // rendering fault rather than as two things. The halo runs at `f * 0.17` — a different
+      // rate, not merely a different offset, so the two never lock.
+      //
+      // DO NOT restore the square, and DO NOT remove the crescent. Both instructions are Jerry's
+      // and they are two different objects.
+      (function drawSummitHalo(hx, hy, outer, inner) {
+        ctx.globalAlpha = 0.35 + 0.25 * Math.abs(Math.sin(f * 0.17));
+        for (var dy = -outer; dy <= outer; dy++) {
+          for (var dx = -outer; dx <= outer; dx++) {
+            var d2 = dx * dx + dy * dy;
+            if (d2 > outer * outer || d2 < inner * inner) continue;       // the ring only
+            px(hx + dx, hy + dy, 1, 1, PAL.goldBright);
+          }
+        }
+        ctx.globalAlpha = 1;
+      })(cx, groundY - 26, 9, 6);
       ctx.globalAlpha = 0.3 + 0.3 * Math.abs(Math.sin(f * 0.3));
       px(cx - 2, 0, 4, groundY - 28, PAL.goldBright);
       ctx.globalAlpha = 1;

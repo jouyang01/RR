@@ -667,6 +667,37 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
     (Math.abs(sum - 100) < 0.5 ? " — fully attributed" : " — NOT FULLY ATTRIBUTED, a contributor is unlabelled"));
 });
 
+// ---- v0.62 PART 2 — THE BOOST_LIMIT KNEE AUDIT, EVERY FAMILY, EVERY MILESTONE ----
+// `limitedDR(x, L)` is LINEAR only below 0.75*L. A family whose raw sum has grown past its knee
+// silently discards most of every new member -- and the player is told the advertised figure.
+// This is the instrument; the effect strings are the fix; RAISING A CAP IS JERRY'S under §16.
+["sparks", "hexcore", "icathia", "final"].forEach(k => {
+  const kn = r.snaps && r.snaps[k] && r.snaps[k].knee;
+  if (!kn) return;
+  console.log(`\nBOOST KNEE AUDIT @${k}`);
+  console.log(`     ${"family".padEnd(12)} ${"cap".padStart(6)} ${"knee".padStart(7)} ${"raw Sigma".padStart(10)} ` +
+    `${"delivered".padStart(10)} ${"% of knee".padStart(10)}  thrown away`);
+  Object.keys(kn).filter(f => f[0] !== "_")
+    .sort((a, b) => (kn[b].pctOfKnee || 0) - (kn[a].pctOfKnee || 0))
+    .forEach(f => {
+      const v = kn[f];
+      console.log(`     ${f.padEnd(12)} ${String(v.cap).padStart(6)} ${String(v.knee).padStart(7)} ` +
+        `${String(v.raw).padStart(10)} ${String(v.delivered).padStart(10)} ${String(v.pctOfKnee + "%").padStart(10)}  ` +
+        `${v.thrownAwayPct}%` + (v.pastKnee ? "   <-- PAST THE KNEE" : "") +
+        (!v.pastKnee && v.headroomToKnee < 0.05 ? `   <-- ${v.headroomToKnee} FROM THE KNEE` : ""));
+    });
+  const past = Object.keys(kn).filter(f => f[0] !== "_" && kn[f].pastKnee);
+  const edge = Object.keys(kn).filter(f => f[0] !== "_" && !kn[f].pastKnee && kn[f].headroomToKnee < 0.05);
+  console.log(`     ${past.length} famil${past.length === 1 ? "y" : "ies"} past the knee` +
+    (past.length ? ` (${past.join(", ")})` : "") +
+    (edge.length ? ` · ${edge.join(", ")} within 0.05 of it — the NEXT member is the first that will not pay in full` : ""));
+  if (kn._members) {
+    const bad = kn._members.filter(m => m.held && m.deliveredFrac < 0.999);
+    if (bad.length) console.log("     members NOT delivered in full: " +
+      bad.map(m => `${m.id} (+${Math.round(m.amt * 100)}% advertised, ${Math.round(m.amt * m.deliveredFrac * 1000) / 10}% paid)`).join(", "));
+  }
+});
+
 // ---- v0.61 PART 1 — THE convMult READOUT, TERM BY TERM, AT EVERY MILESTONE ----
 // A product with six factors that nobody can name is how this got two rounds of wrong diagnosis.
 // Every factor is named with its value, its cap, and WHAT KIND OF THING IT IS -- because the
@@ -726,6 +757,16 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
       `stock ${pv.held} allows ${pv.heldAllows} — ` +
       (pv.capAllows !== null && pv.capAllows <= 3 ? "BINDING" :
        `NOT BINDING (a cost of ~${pv.costThatWouldBindAt3} would bind at 3 caravans here)`));
+  }
+  // v0.62 PART 1 — the per-trade TAX, and the sustainable rate it allows. This is the real bound
+  // on the trade cycle and it has never been quoted; v0.61's yield ceiling was justified by a
+  // loop the source also has, and the source bounds its own with exactly this tax.
+  if (ct.tax) {
+    const t = ct.tax;
+    console.log(`     TRADE TAX: gold ${t.goldPerGameYear}/game-year at ${t.goldPerTrade}/trade = ${t.tradesByGold} trades · ` +
+      `vigor ${t.vigorPerGameYear}/game-year at ${t.vigorPerTrade}/trade = ${t.tradesByVigor} trades`);
+    console.log(`       SUSTAINABLE RATE ${t.sustainable} trades/game-year, bound by ${t.bindingTax.toUpperCase()} ` +
+      `— the cycle produces steel, mana and timber and NEITHER of these`);
   }
   // v0.61 PART 6.1 — the trade-yield category, term by term. One ADDITIVE category now, uncapped,
   // per js/diplomacy.js:744-747; RR previously composed four multiplicative categories with two
