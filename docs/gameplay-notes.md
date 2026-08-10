@@ -461,3 +461,61 @@ down gets quietly re-proposed by the next spec.
   it replaces (35,000) and below the first Sparks child (50,000). **The player saves 18,000
   knowledge and part of it moves to the leaves**, where note 3 puts 4,500 on each Discovery.
   §30: both retired ids are reserved until v1.0, and a save holding either is credited the merge.
+
+## v0.62 — Jerry's twelve notes, four follow-ups, and the knowledge sink
+
+- ~~**"Shrine + Altar of the Dawn morale scaling."**~~ — **note 1, and the spec made it conditional
+  on a measurement that crossed the line.** The cap was always there (`MORALE_SHRINE_LIMIT` 25, so
+  the term asymptotes at +25 however many Shrines are built) — what the note is really about is the
+  KNEE. **Measured at 40 Shrines: the shrine term was 79.2% of total morale**, above the stated
+  half, so the base rate goes **0.5 → 0.25**. At 0.5 the first 37 Shrines paid in full; at 0.25 the
+  linear region reaches 75, so an Altar tier is worth something for far longer.
+- ~~**"Remove the fourth mana multiplier (Swain covers it)."**~~ — **note 2, reversing his own
+  v0.61 note 3 one round later, and both are cited.** `boosts.mana` returns to **Σ 0.75, exactly
+  its knee**, so all three survivors deliver in full again and v0.61's half-paid rung goes with the
+  member that caused it. §30: the id is reserved and **a save holding it is refunded.**
+- ~~**"Festival provisions cost should be higher."**~~ — **note 3, and it is the SECOND instance of
+  one bug shape.** The cost was `60 × pop` and population plateaus near 200 while the provisions
+  ceiling grows ×11.3 — so it cost 15% of the ceiling at Sparks and **1.3% at Icathia.** Now a
+  fraction of the ceiling, which reproduces today's figure at Sparks and holds the bite after it.
+- ~~**"Shaco should refund partial vigor on bulk hunts."**~~ — **note 4, and NOTHING WAS BUILT,
+  because the note was already satisfied.** `runExpeditionBulk` loops `runExpedition(id)` n times,
+  so every hunt already rolls its own refund and a ×5 hunt already refunds 0–5 fifths. **Verified
+  before building, and the distribution asserted over 400 batches rather than a single roll.**
+- ~~**"Noxus Raptor Plume trade cost → 100."**~~ — **note 5.** 120 → 100.
+- ~~**"Morale tooltip need not explain poro / true ice."**~~ — **note 6.** Cut.
+- ~~**"Rift Scuttler only on a charge run."**~~ — **note 7.** It had **no charge test at all**.
+  Gated on `campEmpowered`; the 0.3 probability kept, so the measurement stays readable.
+- ~~**"Gromp: honeyflower on a charge run, not a stray poro."**~~ — **note 8.** Gated the same way
+  so both charge camps read identically, paying the honeyfruit event's own grant, **with the yield
+  line moved in the same edit.**
+- ~~**"Barn / Warehouse / Harbor storage against Kittens."**~~ — **note 9, and his reading of the
+  source is exact.** Kittens' warehouse is SMALLER than its barn on every shared material. **RR's
+  Storehouse already copied the barn value for value and does not move**; the Warehouse had gold at
+  **×8.00** of it. Shipped at the source's own ratios: timber 150, ore 200, gold 5, steel kept.
+  Harbor ore 500 → 950 and gold 200 → 25.
+- ~~**"Marus Omegnum devotion cap → 200, and less devotion/s."**~~ — **note 10.** Cap directed;
+  the rate taken from the source rather than invented — **Kittens' Temple is 0.0075/s and RR's
+  Shrine sits at that exactly**, so a top tier at ×4 a Shrine is 0.03/s, a 40% cut.
+- ~~**"Festival tooltip lists the renown reward."**~~ — **note 11, and it is the third round running
+  in which a payout shipped without its tooltip.** Read from the constant.
+- ~~**"Mount Targon banner — remove the SQUARE moon on the peak, KEEP the crescent."**~~ — **note
+  12, as corrected by Jerry.** There were **two** pale objects and the first reading conflated them.
+  The crescent is his own v0.58.1 note 37 and is untouched; the 8×4 filled rectangle above the
+  summit is deleted and a golden halo drawn in its place, **at a different animation RATE from the
+  light shaft so the two never lock.**
+- ~~**"Crest of Cinders → red glow on the workshop anvil and hammer."**~~ — **follow-up, and it is
+  asserted BY READING THE CANVAS**, not by grepping for the branch.
+- ~~**"Crest of Insight → blue lights around the lore bookshelves and torches."**~~ — **follow-up.**
+  Drawn in `drawLoreSprites()` so they are IN FRONT of the shelves, with positions derived from
+  that function's own geometry. **The layer choice is stated rather than incidental.**
+- ~~**"Jarvan's lead reaches all jobs at 6%; passive starts at 15%."**~~ — **follow-up, and the
+  first half is a COVERAGE FIX.** The lead reached three of eight jobs — a knowledge or devotion
+  settlement got nothing from Demacia's Standard. Now all eight, iterated from `JOBS`. The passive's
+  description is **generated from the constant**, and the Academy parity row is re-rated to ×1.58
+  in the same round the constant moved.
+- ~~**"The knowledge requirement for discoveries should be higher... a healthy sink while the player
+  ramps up their knowledge buildings."**~~ — **the dev note, and the measurement did not need the
+  source.** RR's ten hand-authored knowledge costs have always run **0.70×–3.33×** their tech's
+  rung; the generated rule sat at **0.10×**. Raised to **0.8 × K**, the low end of the file's own
+  band. At most three knowledge Discoveries sit on any tech, so it is a sink and not a wall.
