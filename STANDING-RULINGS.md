@@ -929,3 +929,74 @@ session does not re-flag them:
   versions retired and **will fail against v0.52**. They live in `tests/historical/`, are shipped
   for archaeology, not for regression, and their failures are not defects. `test-v14` in
   particular asserts the Tavern, which no longer exists.
+
+## 31. A CATEGORY IS A KIND OF EFFECT, NOT AN INDIVIDUAL EFFECT — **OPEN QUESTION, ruling requested v0.61**
+
+**This section ships nothing. It exists because Jerry asked whether RR's multiplicative
+categories can be made additive, what that would do, and whether RR can keep them and still
+resemble Kittens — and because the measurement that answers him should not live only in a build
+report that the next round will not read.**
+
+### 31.1 What RR actually multiplies
+
+Measured on a state with every tech, every upgrade, every drake maxed, all ten champions at
+level 10, full worship and thirty of every monument building:
+
+| stack | terms | product |
+|---|---|---|
+| `global` | `catMonument` ×4.30 · `catReligion` ×1.195 · `catPolicy` ×1.00 · `catMeta` ×1.25 · `catBuff` ×1.00 | **×6.42** |
+| `convMult` | infernal ×1.495 · conversion Discoveries ×1.65 · overseer ×2.00 | **×4.93** |
+
+**A converter output passes through roughly eleven multiplicative factors.** Before v0.61 Part 1
+collapsed the three conversion Discoveries into one additive category, `convMult` was ×5.37 and
+the combined stack was ×34.5; it is now ×31.6.
+
+### 31.2 "Make it additive" is the wrong target, because Kittens is not additive either
+
+`game.js:3409–3440` @ `c52985b` multiplies four categories against each other —
+`<res>GlobalRatio`, `<res>Ratio`, `<res>RatioReligion`, `<res>SuperRatio` — with `<res>JobRatio`
+added into village production before them. **Kittens' Law as this project states it — additive
+within a category, multiplicative between — is literally the source's code.**
+
+### 31.3 The divergence is the CENSUS, not the principle
+
+In Kittens, for any given resource **one or two of those categories are live**:
+`<res>GlobalRatio` has **2 members in the whole game**, `<res>SuperRatio` has **1**,
+`<res>RatioReligion` has **2 keys**. For most resources the only non-empty category is
+`<res>Ratio`, and it reaches ×3.70 (`calcinerRatio`) to ×5.35 (`barnRatio`).
+
+> **RR's combined stack is roughly ×9 the source's single live conversion category. Not because
+> any RR number is large — v0.61 Part 1 measured RR's three conversion Discoveries at 45% of the
+> source's `calcinerRatio` — but because RR gives each individual upgrade, drake, champion system
+> and buff its own category. Kittens has categories that are KINDS OF EFFECT; RR has categories
+> that are INDIVIDUAL EFFECTS.**
+
+### 31.4 The move that is available, and what it would cost
+
+Grouping RR's eleven factors into four source-shaped categories — buildings/monuments, religion,
+meta/prestige, and one "upgrades and systems" category holding the conversion Discoveries, drakes
+and champion affinities additively — cuts the product about **41%**. Collapsing everything to one
+category cuts it about **80%**.
+
+- **It is a late-game change only, and that is a feature.** Early on almost every factor is 1.0,
+  so a product and a sum are the same number. The gap opens only as the stack fills. **The first
+  two hours do not move at all** — which matters, because Jerry has ruled (v0.61 dev note 2) that
+  the early game is fine as it is.
+- **It compresses the dynamic range**, which is the deeper reason Kittens *feels* different: in
+  the source, late numbers grow because you own **more buildings** (linear in count), not because
+  multipliers compound. RR currently gets both.
+- **It would lengthen Era 3, and Era 3 is already lengthening** — 785.9 → 1,172.5 over one round.
+  A 41% cut to late production plausibly puts Era 3 back inside the **1,400–2,300 band Jerry
+  retired at v0.59**, which may be welcome or may not. **It is the single largest pacing lever
+  anyone has proposed in this project.**
+
+### 31.5 What is ruled, and what is not
+
+**NOT RULED:** whether to regroup. That is Jerry's, and it should ship in a round of its own with
+the ensemble to itself, because it moves every production number in the game.
+
+**PROPOSED FOR RULING:** *a category is a kind of effect, not an individual effect, and RR targets
+four.* Until that is ruled, **no round may add a new multiplicative category** — v0.61 Part 8's
+fourth mana rung landed in the existing `boosts.mana` accumulator for exactly this reason, and
+v0.61 Part 1 removed the last multiplicative chain of discrete upgrades in the game rather than
+adding one.
