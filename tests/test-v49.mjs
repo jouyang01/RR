@@ -184,10 +184,17 @@ const lad = await page.evaluate(table => {
 }, TABLE);
 // RE-POINTED v0.59.1 — notes 3 and 4.2. The table above carries the two swapped prices and
 // has lost `kindling`; every other entry is unchanged, which is the property.
-check("all 36 tech prices unchanged, to the digit", lad.wrong.length === 0 && lad.n === 36,
-  lad.wrong.join(", ") || `36 techs`);
+// RE-POINTED v0.61, superseded by DEV NOTE 4 (Jerry): The Champions' Regimen (28,000) and
+// Deep Cartography (35,000) are MERGED into The Vanguard Doctrine (45,000), which unlocks both
+// Standing Orders and Surveyed Approaches. **The ladder goes 36 -> 35 techs.** Both retired ids
+// are RESERVED under STANDING-RULINGS §30 until v1.0. The SHAPE conditions this assertion
+// actually protects — tie count, median step, geometric step, largest single cliff — are
+// unchanged and are what still carries the check.
+check("all 35 tech prices unchanged, to the digit — apart from the two the merge retired",
+  lad.wrong.filter(w => !/championsRegimen|deepCartography/.test(w)).length === 0 && lad.n === 35,
+  lad.wrong.join(", ") || `35 techs`);
 check("the five ladder conditions still hold together",
-  lad.n === 36 && lad.ties >= 5 && lad.med >= 1.10 && lad.med <= 1.25 &&
+  lad.n === 35 && lad.ties >= 5 && lad.med >= 1.10 && lad.med <= 1.25 &&
   lad.geo >= 1.20 && lad.geo <= 1.30 && lad.max <= 3.5,
   `n=${lad.n} ties=${lad.ties} median=×${lad.med} geo=×${lad.geo} max=×${lad.max}`);
 

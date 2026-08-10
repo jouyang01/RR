@@ -278,10 +278,20 @@ const drift = await page.evaluate(() => {
   S.buildings = { archive: 20, observatory: 10 };
   const ARCH = 20 * BUILDINGS.find(b => b.id === "archive").caps.knowledge;
   const base = computeCaps().knowledge;
-  const applied = ARCHIVE_RATIO_LINE.map(([id, mult]) => {
-    S.upgrades = {}; S.upgrades[id] = true;
-    return { id, mult, expect: Math.round(ARCH * 10 * mult),
-             actual: Math.round(computeCaps().knowledge - base) };
+  // RE-POINTED v0.61, superseded by PART 7 / DEV NOTE 2. The three rungs no longer all amplify
+  // the ARCHIVE scaled by OBSERVATORIES — there are three distinct pairings now. The expected
+  // delta is therefore each rung's own `target` slice times its own `scaler` count, which is a
+  // stricter test than the old one: it would fail if a pairing were mis-wired, where the old
+  // form could only fail if a magnitude moved. The fixture stands 20 archives, 10 observatories
+  // and 15 academies so all three pairings deliver a visible, distinguishable delta.
+  S.buildings = { archive: 20, observatory: 10, academy: 15 };
+  const base2 = computeCaps().knowledge;
+  const slice = bid => (S.buildings[bid] || 0) * BUILDINGS.find(b => b.id === bid).caps.knowledge;
+  const applied = KNOWLEDGE_AMP_LINE.map(u => {
+    S.upgrades = {}; S.upgrades[u.id] = true;
+    return { id: u.id, mult: u.ratio,
+             expect: Math.round(slice(u.target) * (S.buildings[u.scaler] || 0) * u.ratio),
+             actual: Math.round(computeCaps().knowledge - base2) };
   });
   S.upgrades = {}; S.buildings = {};
   const wrong = applied.filter(a => Math.abs(a.actual - a.expect) > 1).map(a => `${a.id} ${a.actual}!=${a.expect}`);

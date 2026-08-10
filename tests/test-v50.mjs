@@ -258,10 +258,17 @@ const reg = await page.evaluate(table => {
     catchUpClean: !/renderTop\(|renderAll\(\)|updateAffordability\(\)|updateLive\(\)/.test(runCatchUp.toString())
   };
 }, TABLE);
-check("no regression — all 37 tech prices unchanged, to the digit",
-  reg.wrongPrice.length === 0 && reg.n === 36, reg.wrongPrice.join(", ") || "36 techs");   // v0.59.1 notes 3, 4.2
+// RE-POINTED v0.61, superseded by DEV NOTE 4 (Jerry): The Champions' Regimen (28,000) and
+// Deep Cartography (35,000) are MERGED into The Vanguard Doctrine (45,000), which unlocks both
+// Standing Orders and Surveyed Approaches. **The ladder goes 36 -> 35 techs.** Both retired ids
+// are RESERVED under STANDING-RULINGS §30 until v1.0. The SHAPE conditions this assertion
+// actually protects — tie count, median step, geometric step, largest single cliff — are
+// unchanged and are what still carries the check.
+check("no regression — all 35 tech prices unchanged, apart from the two the merge retired",
+  reg.wrongPrice.filter(w => !/championsRegimen|deepCartography/.test(w)).length === 0 && reg.n === 35,
+  reg.wrongPrice.join(", ") || "35 techs");   // v0.59.1 notes 3, 4.2; v0.61 dev note 4
 check("no regression — the five ladder conditions still hold together",
-  reg.n === 36 && reg.ties >= 5 && reg.med >= 1.10 && reg.med <= 1.25 &&
+  reg.n === 35 && reg.ties >= 5 && reg.med >= 1.10 && reg.med <= 1.25 &&
   reg.geo >= 1.20 && reg.geo <= 1.30 && reg.max <= 3.5,
   `n=${reg.n} ties=${reg.ties} median=×${reg.med} geo=×${reg.geo} max=×${reg.max}`);
 check("no regression — catMonument is still exactly two members",

@@ -172,8 +172,10 @@ const tree = await page.evaluate(() => {
   o.costAudit = auditCostGraph(); o.rawAudit = auditRawGraph();
   return o;
 });
-check("3 — Kindling Theory is DELETED, and the ladder is 36 techs",
-  tree.kindlingGone && tree.techCount === 36, `${tree.techCount} techs`);
+// RE-POINTED v0.61, superseded by DEV NOTE 4 — the two Era-2 bridge techs merge into The
+// Vanguard Doctrine, so the ladder is 35. The retired ids stay RESERVED under §30 until v1.0.
+check("3 — Kindling Theory is still DELETED, and the ladder is now 35 techs",
+  tree.kindlingGone && tree.techCount === 35, `${tree.techCount} techs`);
 check("3 — ...and nothing anywhere still gates on it",
   tree.kindlingIsNobodysReq);
 check("3 — Banked Coals moves to The Sump Ecology",

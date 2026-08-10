@@ -210,7 +210,12 @@ check("the five Era-3 anchors sit on the v0.47 Kittens-parity ladder",
 const content = await page.evaluate(() => {
   const o = {};
   // v0.52 Part 2.4: refinedMetallurgy removed from this list — the tech is deleted.
-  const newTechs = ["championsRegimen", "deepCartography", "hexdraulics", "sumpEcology",
+  // RE-POINTED v0.61, superseded by DEV NOTE 4 (Jerry): `championsRegimen` and
+  // `deepCartography` are MERGED into `vanguardDoctrine`, which unlocks BOTH of the discoveries
+  // they used to unlock one apiece. The list is twelve rather than thirteen, and the property it
+  // guards — every tech this round added unlocks something real, no empty ladder rungs — is
+  // exactly what the merge was for: two rungs each opening one leaf became one rung opening two.
+  const newTechs = ["vanguardDoctrine", "hexdraulics", "sumpEcology",
     "progressDay", "chemBaronAccords", "gloriousEvolution", "atlasGauntlets", "hexgate",
     "greyReclamation", "voidglassOptics", "watchersBelow"];
   o.allExist = newTechs.every(id => TECHS.some(t => t.id === id));
@@ -273,7 +278,7 @@ const content = await page.evaluate(() => {
   clean(); S.caravans = {};
   return o;
 });
-check("all thirteen new techs exist", content.allExist);
+check("all twelve surviving new techs exist (thirteen before the v0.61 merge)", content.allExist);
 check("every new tech unlocks something real — no empty ladder rungs",
   content.unlockless.length === 0, content.unlockless.join(", "));
 check("the mix is Kittens-shaped: mostly upgrades, some buildings, one expedition",

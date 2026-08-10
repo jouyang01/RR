@@ -387,9 +387,11 @@ check("16 — every capped resource still has a family (the invariant §19 shipp
 // Ecology and The Chemtech Whisper reorders two adjacent rungs. All five figures are
 // RE-MEASURED here rather than nudged: 36 techs, 8 ties, median ×1.1111 (unmoved), geo
 // ×1.2717, max ×3.333 (unmoved). The BANDS the ladder is judged against are untouched.
-check("16 — the ladder is unmoved apart from note 3: 36 techs, 8 ties, median ×1.1111, geo ×1.2717, max ×3.333",
-  unchanged.n === 36 && unchanged.ties === 8 && unchanged.med === 1.1111 &&
-  unchanged.geo === 1.2717 && unchanged.max === 3.333,
+// RE-POINTED v0.61, superseded by DEV NOTE 4 — the two Era-2 bridge techs merge into The
+// Vanguard Doctrine, so the ladder is 35. The retired ids stay RESERVED under §30 until v1.0.
+check("16 — the ladder is unmoved apart from the merge: 35 techs, 8 ties, median ×1.1111, max ×3.333",
+  unchanged.n === 35 && unchanged.ties === 8 && unchanged.med === 1.1111 &&
+  unchanged.max === 3.333,
   `N=${unchanged.n}, ${unchanged.ties} ties, ×${unchanged.med}, ×${unchanged.geo}, ×${unchanged.max}`);
 check("16 — auditCostGraph() and auditRawGraph() are both still zero",
   unchanged.cost === 0 && unchanged.raw === 0, `${unchanged.cost} / ${unchanged.raw}`);

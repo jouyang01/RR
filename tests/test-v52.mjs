@@ -177,8 +177,14 @@ check("2.4 — the Bloomery and Refined Metallurgy are both gone, with no orphan
   p2.orphanReq.length === 0, JSON.stringify({ u: p2.orphanU, b: p2.orphanB, r: p2.orphanReq }));
 check("2.4 — ...and Steel Axes is re-homed on `smelting`, which already carried its prerequisite",
   p2.steelAxesTech === "smelting", p2.steelAxesTech);
-check("2.4 — ...taking the ladder to 36 techs (37 before v0.59.1 note 3 deleted Kindling)",
-  p2.techCount === 36, String(p2.techCount));
+// RE-POINTED v0.61, superseded by DEV NOTE 4 (Jerry): The Champions' Regimen (28,000) and
+// Deep Cartography (35,000) are MERGED into The Vanguard Doctrine (45,000), which unlocks both
+// Standing Orders and Surveyed Approaches. **The ladder goes 36 -> 35 techs.** Both retired ids
+// are RESERVED under STANDING-RULINGS §30 until v1.0. The SHAPE conditions this assertion
+// actually protects — tie count, median step, geometric step, largest single cliff — are
+// unchanged and are what still carries the check.
+check("2.4 — ...taking the ladder to 35 techs (36 before v0.61 dev note 4 merged the bridge)",
+  p2.techCount === 35, String(p2.techCount));
 check("2.5 — CAMP_YIELD_LIMIT is kept at 6 by ruling, not changed", p2.campLimit === 6, String(p2.campLimit));
 
 // the migrations, exercised rather than read

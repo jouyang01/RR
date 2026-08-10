@@ -32,6 +32,9 @@ const RULINGS = readFileSync(new URL("../STANDING-RULINGS.md", import.meta.url),
 const LUXURY_KINDS_EXPECTED = 3;
 // v0.59.1 note 1 — Leyline Calibration's magnitude, unchanged by the re-scope (BUILD REPORT §3).
 const LEYLINE_EXPECTED = 0.30;
+// v0.61 Part 5.1 — the single hunt-renown rate, pinned here as this suite's own expectation
+// (the Baron's own rate; see the re-point at pass condition 10c).
+const RENOWN_PER_VIGOR_EXPECTED = 0.0154;
 
 // ============================================================================
 // PART 1 — the Granary is deleted on every load, and the id that ate it
@@ -105,7 +108,8 @@ const renown = await page.evaluate(() => {
   o.ladder = {};
   ["wolves", "gromp", "raptors", "krugs", "drakeHunt", "baron"].forEach(id => {
     const e = EXPEDITIONS.find(x => x.id === id);
-    if (e) o.ladder[id] = { authored: e.renown || 2, paid: renownForExpedition(e) };
+    if (e) o.ladder[id] = { authored: e.renown || 2, paid: renownForExpedition(e),
+                            vigor: (e.cost && e.cost.vigor) || 0, flat: !!e.renownFlat };
   });
   const hunt = charges => {
     fresh(); all(); S.pop = 0; S.res.renown = 100; S.res.vigor = 1e6; S.buildings.hallOfHeroes = 30;
@@ -179,13 +183,24 @@ check("4 — ...and the charge MULTIPLIES ×3, applied AFTER the floor: 2 → 6"
 check("4 — the guard is gone from the source, not bypassed",
   !/if \(!isChargeCamp\(e\) \|\| empowered\)/.test(CODE) && /renownForExpedition/.test(CODE));
 // PASS CONDITION 10c
-check("10c — RENOWN_DEED_RATE is 1.00 and the camp ladder is no longer a flat 1",
+// RE-POINTED v0.61, superseded by PART 5.1 / DEV NOTE 9 (Jerry): "Howling Abyss pays too much;
+// renown should scale with vigor." The AUTHORED field is no longer what a camp pays —
+// `expeditionRenownBase()` derives the payout from the camp's own vigor cost at a single
+// `RENOWN_PER_VIGOR = 0.0154`, which is the Baron's existing rate and the one deed nobody has
+// called mispriced. **What this line has always guarded is that the ladder is not flat and that
+// the tooltip cannot disagree with the pay site**, and both survive; what changes is where the
+// per-camp number comes from. The Abyss was paying 41.67 renown per 1,000 vigor against the
+// Baron's 15.38 — 2.7x — and it is a CHARGE camp, so an empowered run paid x3 on top of that.
+check("10c — RENOWN_DEED_RATE is 1.00 and the camp ladder is still not flat",
   renown.rate === 1.00 &&
-  renown.ladder.wolves.paid === 2 && renown.ladder.raptors.paid === 3 &&
-  renown.ladder.drakeHunt.paid === 15 && renown.ladder.baron.paid === 40,
+  renown.ladder.wolves.paid === 2 && renown.ladder.drakeHunt.paid === 14 &&
+  renown.ladder.baron.paid === 40 &&
+  new Set(Object.values(renown.ladder).map(v => v.paid)).size > 1,
   JSON.stringify(Object.fromEntries(Object.entries(renown.ladder).map(([k, v]) => [k, v.paid]))));
-check("10c — ...and every camp pays its AUTHORED field exactly, so the card is the truth",
-  Object.values(renown.ladder).every(v => v.paid === v.authored));
+check("10c — ...and every camp pays ONE RATE against its own vigor cost, so the ladder is levelled",
+  Object.values(renown.ladder).every(v =>
+    v.paid === Math.max(1, Math.round(v.vigor * RENOWN_PER_VIGOR_EXPECTED))),
+  JSON.stringify(Object.fromEntries(Object.entries(renown.ladder).map(([k, v]) => [k, v.vigor + "v->" + v.paid]))));
 check("10c — the tooltip names the empowered payout, from ONE generator shared with the pay site",
   renown.tip === "+2 renown (+6 empowered)" &&
   (CODE.match(/renownYieldLine\(e\)/g) || []).length === 3 &&
@@ -331,7 +346,11 @@ const know = await page.evaluate(() => {
   o.morelloBase = state(["voidglassLenses"], 10, 1000);
   o.morelloAll = state(FIVE.concat("voidglassLenses"), 10, 1000);
   fresh(); FIVE.forEach(u => S.upgrades[u] = 1);
-  o.sigma = archiveRatioTotal();
+  // RE-POINTED v0.61 PART 7: `archiveRatioTotal()` is gone with the single-pairing model that
+  // assumed all three upgrades aimed at the Archive. `knowledgeAmpSigma()` is the same Sigma
+  // across the same three upgrades; what changed is that each now names its own target.
+  o.sigma = knowledgeAmpSigma();
+  o.pairings = KNOWLEDGE_AMP_LINE.map(u => [u.id, u.ratio, u.scaler, u.target]);
   o.line = ARCHIVE_RATIO_LINE.slice();
   o.astrolabe = Object.assign({}, ASTROLABE_LINE);
   o.astrolabeMult = ASTROLABE_MULT;
@@ -349,12 +368,34 @@ const know = await page.evaluate(() => {
 check("10f — archiveRatio is Kittens' Σ 0.06, three rungs at 0.02 each",
   Math.abs(know.sigma - 0.06) < 1e-9 && know.line.length === 3 && know.line.every(u => u[1] === 0.02),
   `Σ ${know.sigma} from ${JSON.stringify(know.line)}`);
-check("10f — ...and it is SCALED BY OBSERVATORY COUNT: nothing at 0 observatories, ×1.30 at 10",
-  Math.abs(know.all0 / know.base0 - (1 + (20 * 250 * 0 + 15 * 500 * 0.5 + 5 * 1500 * 0.5) / know.base0)) < 0.01 ||
-  Math.abs(know.all10 / know.base10 - 1.30) < 0.005,
-  `0 obs: ×${(know.all0 / know.base0).toFixed(4)}  |  10 obs: ×${(know.all10 / know.base10).toFixed(4)}`);
-check("10f — the building total is 35,000 → 45,500 at the spec's fixture, exactly as predicted",
-  know.base10 === 35000 && know.all10 === 45500, `${know.base10} → ${know.all10}`);
+// RE-POINTED v0.61, superseded by PART 7 / DEV NOTE 2 (Jerry): "Cataloguing and The Great Index
+// unlock together and do the same thing." All three Reflectors rungs used to be scaled by the
+// SAME building (Observatories) onto the SAME target (the Archive) — which is precisely why two
+// of them read as one effect. There are three DISTINCT pairings now:
+//     cataloguing       ACADEMIES     -> Archive
+//     crossReferencing  OBSERVATORIES -> Archive   <- the source's own pairing, deliberately kept
+//     greatIndex        OBSERVATORIES -> Academy
+// so "nothing at 0 observatories" is no longer true and must not be: the Academy rung is
+// supposed to pay at zero observatories. **Sigma is still 0.06 and the total still rises**;
+// what this now asserts is that EACH pairing is scaled by ITS OWN building, which is the
+// property that makes the three different from each other.
+check("10f — ...and each rung is SCALED BY ITS OWN BUILDING, which is what makes the three differ",
+  know.pairings.length === 3 &&
+  know.pairings.filter(p => p[3] === "archive").length === 2 &&
+  know.pairings.filter(p => p[3] === "academy").length === 1 &&
+  know.pairings.filter(p => p[2] === "academy").length === 1 &&
+  know.pairings.filter(p => p[2] === "observatory").length === 2 &&
+  know.all0 > know.base0 && know.all10 > know.base10,
+  JSON.stringify(know.pairings) +
+  `  |  0 obs: ×${(know.all0 / know.base0).toFixed(4)}  |  10 obs: ×${(know.all10 / know.base10).toFixed(4)}`);
+// RE-POINTED v0.61, same supersession. The spec's fixture (20 archives / 15 academies /
+// 10 observatories / 5 hexLabs) gave 35,000 -> 45,500 when all three rungs pointed at the
+// Archive and were scaled by Observatories alone. With the Academy now scaling the Archive too —
+// and RR builds MORE academies than observatories, which was the round's stated prediction —
+// the same fixture delivers **35,000 -> 47,250, x1.35 rather than x1.30.** The base is
+// unchanged, which is the half of this assertion that was never about the restructure.
+check("10f — the base is untouched at 35,000, and the three pairings now deliver ×1.35 not ×1.30",
+  know.base10 === 35000 && know.all10 === 47250, `${know.base10} → ${know.all10}`);
 check("10f — the two Astrolabe rungs are the Academy and the Hexcore Laboratory, at ×1.5 per copy",
   know.astrolabe.annotatedIndex === "academy" && know.astrolabe.livingLibrary === "hexLab" &&
   know.astrolabeMult === 1.5, JSON.stringify(know.astrolabe));
@@ -376,8 +417,17 @@ check("10e — voidglassLenses is UNTOUCHED at ×1.5 per Observatory copy — Ki
   `×${know.voidglass}`);
 check("10e — ...and it is ledgered PARITY against js/buildings.js:672",
   /voidglassLenses/.test(LEDGER) && /js\/buildings\.js:672/.test(LEDGER));
-check("5.4 — every rung's description is GENERATED and names what it actually does",
-  know.descs.slice(0, 3).every(d => /a further 2%/.test(d) && /Archive/.test(d) && /Observatory/.test(d)) &&
+// RE-POINTED v0.61, same supersession. Requiring all three strings to name BOTH "Archive" and
+// "Observatory" was only correct while all three shared one pairing. The GENERATED property is
+// unchanged and is what is asserted: each string states its own scaler, its own target and the
+// same "a further 2%" that its row carries.
+check("5.4 — every rung's description is GENERATED and names its OWN pairing",
+  know.descs.slice(0, 3).every(d => /a further 2%/.test(d)) &&
+  know.pairings.every(p => {
+    const d = know.descs[know.pairings.indexOf(p)];
+    return d.indexOf(p[2] === "academy" ? "Academy" : "Celestial Observatory") > -1 &&
+           d.indexOf(p[3] === "academy" ? "Academy" : "Archive") > -1;
+  }) &&
   /Academies hold \+50%/.test(know.descs[3]) && /Laboratories hold \+50%/.test(know.descs[4]),
   JSON.stringify(know.descs));
 
@@ -544,8 +594,42 @@ check("14 — ...rung-matched at the Sparks band, and the cost graph audit is cl
   feel.newDiscovery.tech === "sparks" && feel.newDiscovery.req === "arcaneFocus" &&
   feel.costAudit.length === 0,
   `${JSON.stringify(feel.newDiscovery)}; audit ${JSON.stringify(feel.costAudit)}`);
-check("8.7 — the Festival shows on the buff banner beside the Baron and the Crest of Cinders",
-  /FESTIVAL ' \+ Math\.ceil/.test(RAW) && /HAND OF BARON/.test(RAW) && /CREST OF CINDERS/.test(RAW));
+// ============================================================================
+// RE-POINTED v0.61, superseded by DEV NOTE 1 — AND THIS ONE IS A LESSON, NOT A TIDY-UP.
+//
+// **THE OLD ASSERTION PASSED FOR TWO ROUNDS WHILE THE FEATURE NEVER ONCE FIRED.** It grepped
+// the source for the literal `FESTIVAL ' + Math.ceil`. That string was present, so the check
+// was green — but the line it lived on tested `S.festivalUntil`, the WALL-CLOCK field, and
+// v0.58 note 12 had already made the festival TICK-denominated: `holdFestival()` sets
+// `S.festivalUntilTick` and then sets `S.festivalUntil = 0` explicitly. **Every festival a
+// player held from v0.58 onward was invisible on the banner, and Jerry had to report the same
+// note twice.**
+//
+// A GREP ASSERTS THAT SOMEBODY WROTE THE CODE. IT DOES NOT ASSERT THAT THE CODE RUNS.
+// This now holds an actual festival and reads the actual banner.
+// ============================================================================
+const festBanner = await page.evaluate(() => {
+  loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
+  TECHS.forEach(t => S.techs[t.id] = 1);
+  S.upgrades.harvestRites = 1;
+  for (const r in RES) S.res[r] = 1e9;
+  const before = (document.getElementById("calendar-bar") || {}).innerHTML || "";
+  holdFestival();
+  renderAll(); renderTop(computeRates());
+  const after = (document.getElementById("calendar-bar") || {}).innerHTML || "";
+  return { active: festivalActive(), seasonsLeft: festivalSeasonsLeft(),
+           wallClockField: S.festivalUntil || 0, before, after };
+});
+check("8.7 — a festival that is ACTIVE actually appears on the buff banner (not just in the source)",
+  festBanner.active === true && /FESTIVAL/.test(festBanner.after) && !/FESTIVAL/.test(festBanner.before),
+  `active=${festBanner.active}, banner has FESTIVAL=${/FESTIVAL/.test(festBanner.after)}`);
+check("8.7 — ...and it reads the TICK clock, which is why the old grep-shaped check could not catch this",
+  festBanner.wallClockField === 0 && festBanner.seasonsLeft > 0 &&
+  /festivalActive\(\)/.test(CODE),
+  `S.festivalUntil=${festBanner.wallClockField} (wall clock, always 0 since v0.58), ` +
+  `${festBanner.seasonsLeft} seasons left on the tick clock`);
+check("8.7 — ...beside the Baron and the Crest of Cinders, which were never broken",
+  /HAND OF BARON/.test(RAW) && /CREST OF CINDERS/.test(RAW));
 check("8.8 — the Festival costs fewer mushrooms, and plumes are HALF the mushroom cost",
   feel.festivalConsts.mushrooms === 2 && feel.festivalConsts.plumeShare === 0.5 &&
   feel.festivalPlumesAreHalf,

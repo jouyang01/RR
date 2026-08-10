@@ -93,8 +93,15 @@ const ladder = await page.evaluate(ids => ids.map(id => UPGRADES.find(u => u.id 
 const ladderReqs = await page.evaluate(ids => ids.map(id => UPGRADES.find(u => u.id === id).req || null), LADDER_IDS);
 // v0.41 §2.1(b) moves the Great Index one tier earlier still, sparks -> callToArms, so
 // pre-Sparks scholarMult is 5.6 rather than 2.8. Still monotonic.
-check("the Scholarship ladder is monotonic in tech order (v0.54 d5: I and II now TIE at Rites of Targon, ordered by req)",
-  JSON.stringify(ladder) === JSON.stringify(["ritesOfTargon", "ritesOfTargon", "callToArms", "chemtech", "deepWorks"]) &&
+// RE-POINTED v0.61, superseded by PART 7 / DEV NOTE 2 (Jerry): "Cataloguing and The Great Index
+// unlock together and do the same thing; the Great Index should move to Sparks." All three
+// Reflectors rungs contributed 0.02 to the SAME line, so they were one effect bought three
+// times, and `greatIndex` sat on `callToArms` beside `crossReferencing`'s `ritesOfTargon`.
+// It moves to `sparks` (20,000), a full era later, and the three now name three DISTINCT
+// pairings (Academies->Archive, Observatories->Archive, Observatories->Academy) at an unchanged
+// Sigma 0.06. **The ladder is still monotonic** — that is the property, and it holds.
+check("the Scholarship ladder is monotonic in tech order (I and II TIE at Rites of Targon, ordered by req)",
+  JSON.stringify(ladder) === JSON.stringify(["ritesOfTargon", "ritesOfTargon", "sparks", "chemtech", "deepWorks"]) &&
   ladderReqs[1] === "cataloguing", JSON.stringify(ladder) + " reqs " + JSON.stringify(ladderReqs));
 // NOT changed this pass, on Jerry's explicit instruction
 const prices = await page.evaluate(() => {

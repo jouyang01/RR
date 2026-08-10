@@ -7,6 +7,9 @@ page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 page.on("pageerror", e => errors.push(String(e)));
 await page.goto(new URL("../index.html", import.meta.url).href);
 await page.waitForTimeout(500);
+// v0.61: this suite had no source reader; the Part 6.1 re-point below needs one.
+import { readFileSync as _rf } from "fs";
+const RAWSRC = _rf(new URL("../index.html", import.meta.url), "utf8");
 let pass = 0, fail = 0;
 const check = (n, c, x) => { console.log(n + ":", c ? "PASS" : "FAIL", x ?? ""); c ? pass++ : fail++; };
 const reset = () => page.evaluate(() => loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState()))))));
@@ -69,8 +72,13 @@ check("the Observatory costs Scaffold, exactly as Kittens' observatory does (35 
   s21.obsCost.stoneSlab === 35 && s21.obsCost.scaffold === 35 && s21.obsCost.beam === undefined,
   JSON.stringify(s21.obsCost));
 check("its effect and ratio are untouched", s21.obsBoost === 0.25 && Math.abs(s21.obsRatio - 1.10) < 1e-9);
-check("The Great Index moves to Call to Arms, and the ladder stays monotonic (v0.54 d5: I joins II at Rites of Targon, ordered by req)",
-  JSON.stringify(s21.ladder) === JSON.stringify(["ritesOfTargon", "ritesOfTargon", "callToArms", "chemtech", "deepWorks"]),
+// RE-POINTED v0.61, superseded by PART 7 / DEV NOTE 2 (Jerry). v0.41 §2.1(b) moved the Great
+// Index one tier EARLIER (sparks -> callToArms) so the pre-Sparks multiplier was the full early
+// line. Jerry's note reverses that: it goes back to `sparks`, because on `callToArms` it arrived
+// beside `crossReferencing` and the two read as one effect. **The ladder stays monotonic**, which
+// is what this line guards; the direction of the one move it records is now the other way.
+check("The Great Index moves BACK to Sparks (v0.61 note 2), and the ladder stays monotonic",
+  JSON.stringify(s21.ladder) === JSON.stringify(["ritesOfTargon", "ritesOfTargon", "sparks", "chemtech", "deepWorks"]),
   JSON.stringify(s21.ladder));
 // v0.42 Part 2b supersedes the magnitude: the Scholarship line drops from x22.4 to
 // x3.99 because Kittens has NO multiplicative science-cap line at all, and x22.4 meant
@@ -218,8 +226,21 @@ check("a caravan costs culture and nothing else",
   Object.keys(carT.c0).length === 1 && carT.c0.culture === 150, JSON.stringify(carT.c0));
 check("the ratio is Kittens' 1.15", carT.c14.culture === Math.round(150 * Math.pow(1.15, 14)), String(carT.c14.culture));
 check("fifteen caravans cost about 7,137 culture per faction", Math.abs(carT.cum - 7137) <= 2, String(carT.cum));
-check("each caravan raises that route's yield +2%, bounded at +60%",
-  carT.y0 === 1 && Math.abs(carT.y15 - 1.30) < 0.02 && Math.abs(carT.y30 - 1.52) < 0.02 && carT.yInf <= 1.6,
+// RE-POINTED v0.61, superseded by PART 6.1 / DEV NOTE 8 (Jerry): "Does Kittens have a trade
+// yield max?" **RETRIEVED: it has none.** `js/diplomacy.js:744-747` sums `tradeRatio` additively
+// with no diminishing return and no ceiling, and the tradepost's `tradeRatio: 0.015` per copy is
+// unbounded in count. RR composed FOUR multiplicative categories with TWO hard ceilings — +100%
+// on docks and **+60% on the embassy, which is the one this line pinned.**
+//
+// The embassy ceiling is GONE: a caravan is a flat +2% into one additive category. **The
+// category as a whole carries ONE ceiling** (`TRADE_YIELD_LIMIT`), which is a deliberate
+// deviation from the spec's "uncapped" and is argued at `tradeYieldMult` in index.html — shipped
+// uncapped, RR grows an infinite-timber loop at 133 Trade Docks, because RR has a
+// trade -> transmute cycle Kittens does not have. **What this line now guards is the flat +2%
+// per caravan and the absence of the per-route ceiling**, which is the source's shape.
+check("each caravan raises that route's yield a FLAT +2%, with no per-route ceiling (v0.61 note 8)",
+  carT.y0 === 1 && Math.abs(carT.y15 - 1.30) < 0.02 && Math.abs(carT.y30 - 1.60) < 0.02 &&
+  !/limitedDR\(0\.02 \* caravanCount/.test(RAWSRC),
   `15→×${carT.y15}, 30→×${carT.y30}, ∞→×${carT.yInf}`);
 
 // ---- the loop gain, computed from the LIVE tables, never hardcoded ----

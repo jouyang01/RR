@@ -182,9 +182,14 @@ check("7/5.3 — ...and the flat figure is exactly 210 + 900 × Halls, at 20 Hal
 // RE-POINTED v0.59 Part 5.4: the prose is about the Archive and the Observatory now, and the
 // rung is 2% rather than 25%. The invariant — the prose states the increment the code applies,
 // and never a "×" for something that adds — is unchanged.
+// RE-POINTED AGAIN v0.61, superseded by PART 7 / DEV NOTE 2 (Jerry): the three Reflectors rungs
+// no longer share one pairing. `prose1` is `cataloguing`, which is now **Academies → Archive**,
+// so requiring the word "Observatory" in it asserts the very thing the note says was wrong.
+// **The invariant is untouched and is what still carries the check**: the prose states the
+// increment the code applies, and never a "×" for something that adds.
 check("7/5.4 — the Reflectors prose says 'a further 2%', never a ×, for a rung that adds",
   /a further 2%/.test(scholar.prose1) && !/×/.test(scholar.prose1) &&
-  /Archive/.test(scholar.prose1) && /Observatory/.test(scholar.prose1), scholar.prose1);
+  /Archive/.test(scholar.prose1) && /Academy/.test(scholar.prose1), scholar.prose1);
 check("8 — culture, renown and crystals are CLASSIFIED by the apparatus before any sizing",
   /LUMPY SINK ONLY — a ceiling change cannot move this/.test(PACING) &&
   /resourceBalance/.test(SIMCORE) &&

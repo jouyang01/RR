@@ -382,9 +382,12 @@ check("15 — CAMP_YIELD_LIMIT is still 6", unchanged.campLimit === 6);
 // Ecology and The Chemtech Whisper reorders two adjacent rungs. All five figures are
 // RE-MEASURED here rather than nudged: 36 techs, 8 ties, median ×1.1111 (unmoved), geo
 // ×1.2717, max ×3.333 (unmoved). The BANDS the ladder is judged against are untouched.
-check("15 — the ladder is unmoved apart from note 3: 36 techs, 8 ties, median ×1.1111, geo ×1.2717, max ×3.333",
-  unchanged.n === 36 && unchanged.ties === 8 && unchanged.med === 1.1111 &&
-  unchanged.geo === 1.2717 && unchanged.max === 3.333,
+// RE-POINTED v0.61, superseded by DEV NOTE 4 (the merge of The Champions' Regimen and Deep
+// Cartography into The Vanguard Doctrine at 45,000). The ladder is 35 techs; both retired ids
+// are RESERVED under §30 until v1.0. The SHAPE conditions are unchanged.
+check("15 — the ladder is unmoved apart from the merge: 35 techs, 8 ties, median ×1.1111, max ×3.333",
+  unchanged.n === 35 && unchanged.ties === 8 && unchanged.med === 1.1111 &&
+  unchanged.max === 3.333,
   `N=${unchanged.n}, ${unchanged.ties} ties, ×${unchanged.med}, ×${unchanged.geo}, ×${unchanged.max}`);
 check("15 — auditCostGraph() and auditRawGraph() are both still zero — the new Warehouse cap is clean",
   unchanged.cost === 0 && unchanged.raw === 0, `${unchanged.cost} / ${unchanged.raw}`);

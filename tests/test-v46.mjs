@@ -224,7 +224,13 @@ const p5 = await page.evaluate(() => {
 // RE-POINTED v0.59.1, superseded by NOTE 3: Kindling Theory is DELETED, 37 -> 36. This
 // literal has now been re-pointed three times (38 -> 37 -> 36) and each time for a real,
 // deliberate deletion — which is the assertion working, not failing.
-check("PASS CONDITION: tech count is 36 (37 before v0.59.1 note 3)", p5.count === 36, String(p5.count));
+// RE-POINTED v0.61, superseded by DEV NOTE 4 (Jerry): The Champions' Regimen (28,000) and
+// Deep Cartography (35,000) are MERGED into The Vanguard Doctrine (45,000), which unlocks both
+// Standing Orders and Surveyed Approaches. **The ladder goes 36 -> 35 techs.** Both retired ids
+// are RESERVED under STANDING-RULINGS §30 until v1.0. The SHAPE conditions this assertion
+// actually protects — tie count, median step, geometric step, largest single cliff — are
+// unchanged and are what still carries the check.
+check("PASS CONDITION: tech count is 35 (36 before v0.61 dev note 4 merged the two bridge techs)", p5.count === 35, String(p5.count));
 check("PASS CONDITION: five or more exact ties", p5.ties >= 5, String(p5.ties));
 check("PASS CONDITION: median ×1.10–1.20", p5.median >= 1.10 && p5.median <= 1.20, `×${p5.median}`);
 check("PASS CONDITION: geometric mean ×1.25–1.30", p5.geo >= 1.25 && p5.geo <= 1.30, `×${p5.geo}`);

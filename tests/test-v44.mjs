@@ -237,7 +237,12 @@ const lad = await page.evaluate(() => {
     count: k.length,
     era3: { sparks: cost("sparks"), chemtech: cost("chemtech"), hexcore: cost("hexcore"),
             deepWorks: cost("deepWorks"), icathia: cost("icathia") },
-    bridge: { championsRegimen: cost("championsRegimen"), deepCartography: cost("deepCartography") },
+    // RE-POINTED v0.61, superseded by DEV NOTE 4: The Champions' Regimen (28,000) and Deep
+    // Cartography (35,000) are MERGED into The Vanguard Doctrine (45,000), which unlocks both
+    // Standing Orders and Surveyed Approaches. The two old ids are RESERVED under §30 until
+    // v1.0. What this assertion guards — that the Era-2 -> Era-3 BRIDGE is priced between the
+    // Sparks rung and the first Sparks child — is unchanged and is what is checked now.
+    bridge: { vanguardDoctrine: cost("vanguardDoctrine") },
     interstitial: { hexdraulics: cost("hexdraulics"), sumpEcology: cost("sumpEcology"),
                     progressDay: cost("progressDay"), chemBaronAccords: cost("chemBaronAccords"),
                     gloriousEvolution: cost("gloriousEvolution"), atlasGauntlets: cost("atlasGauntlets"),
@@ -269,8 +274,15 @@ check("all ten Era-3 interstitials land on the v0.47 Kittens-parity ladder",
 // SUPERSEDED v0.47 Part 1 — the ladder is Kittens' ladder rank for rank now.
 // v0.52 Part 2.4: three became two. Refined Metallurgy (42,000) is deleted with the
 // Bloomery; Steel Axes re-homed onto Smelting, which already carried its prerequisite.
-check("the two surviving Era-2 bridge techs land at 28,000 / 35,000",
-  lad.bridge.championsRegimen === 28000 && lad.bridge.deepCartography === 35000,
+// RE-POINTED v0.61, superseded by DEV NOTE 4 (the merge). The property this guards is the
+// BRIDGE's position, not the two literals: it must sit ABOVE the Sparks rung (20,000) — it is a
+// bridge INTO Era 3 — and BELOW the first Sparks child (`hexdraulics`, 50,000), or a
+// `callToArms` child would resolve after techs a full rung above it and stop being a bridge.
+// 45,000 is the centre of that window. Both figures it replaces are inside it too, so this
+// assertion would have passed before the merge as well — which is what makes it the durable one.
+check("the Era-2 -> Era-3 bridge is priced between the Sparks rung and the first Sparks child",
+  lad.bridge.vanguardDoctrine === 45000 &&
+  lad.bridge.vanguardDoctrine > lad.era3.sparks && lad.bridge.vanguardDoctrine < 50000,
   JSON.stringify(lad.bridge));
 // SUPERSEDED v0.46 Part 5: the re-skew flattens the tail but Call to Arms -> Sparks is a
 // real era boundary and now reads x2.0. The x14.3 cliff is what mattered and it is gone.
@@ -309,11 +321,20 @@ const sch = await page.evaluate(() => {
   S.buildings = keep;
   S.upgrades = {};
   // the description prose is generated from the same table the maths reads
+  // v0.61 PART 7: the three Reflectors upgrades now name THREE DIFFERENT pairings, so one
+  // upgrade's prose can no longer stand for the line. All three are captured and each is
+  // checked against its OWN row in KNOWLEDGE_AMP_LINE — which is a stronger test of the
+  // generated-from-the-table property than reading one string ever was.
   const prose = UPGRADES.find(u => u.id === "greatIndex").desc;
+  const allProse = KNOWLEDGE_AMP_LINE.map(u => {
+    const up = UPGRADES.find(x => x.id === u.id);
+    const nm = bid => (BUILDINGS.find(x => x.id === bid) || {}).name || bid;
+    return { id: u.id, desc: up.desc, scaler: nm(u.scaler), target: nm(u.target), ratio: u.ratio };
+  });
   S.buildings = {};
   return { kX: +(k1 / k0).toFixed(4), cX: +(c1 / c0).toFixed(4), dX: d0 > 0 ? +(d1 / d0).toFixed(4) : null,
            kNoSlices: +(kNoSlices1 / kNoSlices0).toFixed(4),
-           prose, mentionsKnowledge: /Knowledge/i.test(prose),
+           prose, mentionsKnowledge: /Knowledge/i.test(prose), allProse,
            knowledgeFamily: capFamilyOf("knowledge"),
            scholarCapsExists: (typeof SCHOLAR_CAPS !== "undefined") };
 });
@@ -353,8 +374,20 @@ check("5.3 — SCHOLAR_CAPS is GONE entirely, not emptied",
 // followed. The line is now ABOUT knowledge, so the prose must say so — the invariant the
 // assertion actually protects is that the prose is GENERATED from the same table the maths
 // reads, which is asserted here and again in test-v43.
-check("5.4 — the prose names knowledge because the effect is knowledge, and it is GENERATED",
-  sch.mentionsKnowledge && /Archive/.test(sch.prose) && /Observatory/.test(sch.prose), sch.prose);
+// RE-POINTED AGAIN v0.61, superseded by PART 7 (dev note 2: "Cataloguing and The Great Index
+// unlock together and do the same thing"). The old form required every Reflectors string to
+// name BOTH "Archive" and "Observatory", which was true only while all three upgrades shared one
+// pairing — the very thing Jerry's note says was wrong. There are three distinct pairings now
+// (Academies->Archive, Observatories->Archive, Observatories->Academy), so the assertion checks
+// what it was always for: **each string is GENERATED from that upgrade's own row**, naming its
+// own scaler, its own target and its own ratio. Sigma is still 0.06.
+check("5.4 — each Reflectors string is GENERATED from its own pairing, and the line still sums 0.06",
+  sch.mentionsKnowledge &&
+  sch.allProse.length === 3 &&
+  sch.allProse.every(u => u.desc.indexOf(u.scaler) > -1 && u.desc.indexOf(u.target) > -1 &&
+    u.desc.indexOf(String(Math.round(u.ratio * 1000) / 10)) > -1) &&
+  Math.abs(sch.allProse.reduce((a, u) => a + u.ratio, 0) - 0.06) < 1e-9,
+  sch.allProse.map(u => u.id + ": " + u.scaler + "->" + u.target).join(" | "));
 
 // ==================== gameplay note 1 — the wanderer cap starts at 0 ====================
 const cap0 = await page.evaluate(() => {

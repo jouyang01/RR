@@ -79,9 +79,22 @@ check("3 — Noxus' failure line names a mechanic that EXISTS; 'standing' does n
   !/\bstanding\b/i.test(CODE.split("function tradeCaravan")[0].slice(-4000)));
 check("4 — the +caravan button greys and highlights like every other mini-button",
   /'<span class="mini-btn' \+ \(canAfford\(caravanCost\(f\.id\)\) \? "" : " dim"\)/.test(CODE));
-check("5 — the caravan tooltip names a cargo slot only once its resource has been SEEN",
-  /if \(!ttResKnown\(sl\.res\)\) \{ hiddenSlots\+\+; return; \}/.test(CODE) &&
-  /deeper cargo slot/.test(CODE));
+// RE-POINTED v0.61, superseded by PART 6.2 / DEV NOTE 10 (Jerry): "the 'deeper cargo slots'
+// message is inaccurate." **The old test was the wrong property, and so was the code it pinned.**
+// `ttResKnown` is a resource VISIBILITY test — has the player ever SEEN this resource — while the
+// sentence beside it claims a CAPABILITY: goods "this settlement has not yet handled". The two
+// disagree on exactly one case and it is the reported bug: **the craft is unlocked and buildable
+// but the player has never actually held one**, so a Piltover slot paying support beams counted
+// as unhandled goods for a settlement that can make beams at will.
+//
+// `slotAvailable(fid, i)` is the capability test and has been in the file since v0.50. Note that
+// this assertion could only ever have caught a REWORDING, never the mismatch — it pinned the
+// implementation to itself. It now asserts the two tests are DIFFERENT things and that the
+// sentence is wired to the capability one.
+check("5 — the cargo-slot sentence tests CAPABILITY (slotAvailable), not visibility (ttResKnown)",
+  /if \(!slotAvailable\(fid, i\)\) \{ hiddenSlots\+\+; return; \}/.test(CODE) &&
+  /deeper cargo slot/.test(CODE) &&
+  /function slotAvailable/.test(CODE) && /function ttResKnown/.test(CODE));
 
 // ============================================================================
 // NOTE 6 — the Revelations reveal with worship, and cost more devotion

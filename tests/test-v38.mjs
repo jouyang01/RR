@@ -85,11 +85,21 @@ const i1 = await page.evaluate(() => {
   // and so can a caravan. v0.41 §2.6 rebuilt every faction cost table, so read the
   // live one rather than assuming Freljord still charges furs.
   S.techs.trade = true; S.factionsFound = { freljord: true }; S.tradeFatigue = {};
+  // RE-POINTED v0.61, superseded by PART 6.3 / DEV NOTE 11 (Jerry): "All trades cost provisions,
+  // ~5,000." The fixture seeded from `f.cost`, the faction's AUTHORED cost — but a caravan pays
+  // `tradeCost(f)`, which applies the Caravanserai and Letter of Marque discounts and now adds a
+  // shared `TRADE_PROVISIONS`. Seeded from the authored table the caravan could no longer be
+  // afforded, so nothing was spent and the check read as a regression.
+  //
+  // **Reading the RESOLVED price is what this assertion should always have done** — it is about
+  // whether a trade may spend a stock to zero, and the price it spends is the resolved one.
   const f = FACTIONS.find(x => x.id === "freljord");
-  for (const r in f.cost) S.res[r] = f.cost[r];
-  const before = Object.fromEntries(Object.keys(f.cost).map(r => [r, S.res[r]]));
+  const paid = tradeCost(f);
+  for (const r in paid) S.res[r] = paid[r];
+  const before = Object.fromEntries(Object.keys(paid).map(r => [r, S.res[r]]));
   tradeCaravan("freljord");
-  o.tradeSpendsToZero = Object.keys(f.cost).every(r => S.res[r] <= before[r] - f.cost[r] + 1e-9);
+  o.tradeSpendsToZero = Object.keys(paid).every(r => S.res[r] <= before[r] - paid[r] + 1e-9);
+  o.tradeCostHasProvisions = (paid.provisions || 0) >= 5000;
   return o;
 });
 check("LUXURY_COMFORT = 25 replaces LUXURY_FLOOR", i1.comfortExists && i1.floorGone);
@@ -102,6 +112,8 @@ check("morale no longer ramps on luxuryComfort — the flat rule replaced it",
   !i1.moraleUsesComfort, `moraleUsesComfort=${i1.moraleUsesComfort}`);
 check("crafting can now spend a luxury to zero", i1.craftSpendsToZero);
 check("trading can now spend a luxury to zero", i1.tradeSpendsToZero);
+check("...and the RESOLVED trade price now carries the shared provisions cost (v0.61 note 11)",
+  i1.tradeCostHasProvisions);
 
 const ramp = await page.evaluate(() => {
   S.pop = 10; S.buildings = {}; S.jackboxes = 0; S.wtechs = {}; S.wanderers = []; invalidateCensus();

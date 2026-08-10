@@ -237,9 +237,18 @@ check("13 — the class is DERIVED from the row, not hand-assigned to 120 of the
 check("13 — the generator ABORTS on a GENUINELY OPEN row with no recorded retrieval attempt",
   /LEDGER ABORT: \$\{unclassed\.length\} UNVERIFIED row/.test(LEDGERGEN) &&
   /function hasRetrievalAttempt/.test(LEDGERGEN));
-check("13 — the RETRIEVABLE set was actually worked this round: the buildings block carries citations",
-  (LEDGER.match(/v0\.60 Part 8, RETRIEVED @c52985b/g) || []).length >= 13,
-  `${(LEDGER.match(/v0\.60 Part 8, RETRIEVED @c52985b/g) || []).length} rows retrieved`);
+// RE-POINTED v0.61, superseded by PART 3.2. One of v0.60's thirteen retrieved building rows —
+// `hextechFoundry` — was retrieved correctly but MAPPED to the wrong Kittens building (the
+// Factory, a craft-ratio building, against RR's converter). v0.60 flagged it rather than
+// silently repairing it; v0.61 re-points it to the Calciner and splits its `globalBoost` clause
+// into its own row. So the v0.60 marker count is 12, not 13, and that is the round working as
+// intended rather than a regression. **What this guards — that the retrieval pass was real work
+// with citations attached, not a relabelling — is asserted across BOTH rounds' markers.**
+check("13 — the RETRIEVABLE set was actually worked: the buildings block carries citations",
+  (LEDGER.match(/v0\.60 Part 8, RETRIEVED @c52985b/g) || []).length >= 12 &&
+  (LEDGER.match(/RETRIEVED/g) || []).length >= 13,
+  `${(LEDGER.match(/v0\.60 Part 8, RETRIEVED @c52985b/g) || []).length} v0.60 rows + ` +
+  `${(LEDGER.match(/v0\.61 Part 3\.1 — RETRIEVED/g) || []).length} v0.61 rows`);
 
 // ============================================================================
 // PASS CONDITION 14 — the unchanged set
@@ -270,8 +279,19 @@ check("14 — Σ 4.35 / 1.80, CONSUMPTION 4.25 and TICK_MS 200 are untouched",
 // THE ROUND ITSELF
 // ============================================================================
 const version = await page.evaluate(() => VERSION);
-check("the version is well-formed under the scheme, and this round took an INTEGER (it had a spec)",
-  /^v0\.\d\d(\.\d+)?$/.test(version) && version === "v0.60", version);
+// RE-POINTED v0.61 — **the NINTH instance of the version-pinned-literal class**, and I wrote
+// this one myself at v0.60 while re-pointing the eighth. The comment in `test-v581` names the
+// pattern exactly: *an assertion about "the round we are in", written in the suite of a round
+// that has shipped, will always be wrong from the next round onward.* It ran green for exactly
+// one version, again.
+//
+// The DURABLE property is the numbering SCHEME (OFF-CYCLE-PROTOCOL §1): integers are reserved
+// 1:1 for spec rounds, off-cycle rounds take `v0.NN.M`. Asserted here as: the version is
+// well-formed, and it is **at or after** the round this suite belongs to — which can never
+// become false, and still fails if a build ships a version older than its own suites.
+check("the version is well-formed under the scheme and is at or after this suite's own round",
+  /^v0\.\d\d(\.\d+)?$/.test(version) &&
+  parseFloat(version.replace(/^v/, "")) >= 0.60, version);
 check("...and the footer renders from the constant",
   await page.evaluate(() => (document.body.innerText || "").indexOf(VERSION) > -1));
 check("the consumed v0.60 spec is archived under docs/specs/, and the root does not still hold it",

@@ -114,7 +114,12 @@ check("4 — the mushroom half of the line is untouched", /10–23 mushrooms/.te
 const d5 = await page.evaluate(() => {
   const u = id => UPGRADES.find(x => x.id === id);
   const IDS = ["cataloguing", "crossReferencing", "greatIndex", "annotatedIndex", "livingLibrary"];
-  const price = { songcraft: 1300, ritesOfTargon: 12000, callToArms: 15000, chemtech: 60000, deepWorks: 100000 };
+  // RE-POINTED v0.61, superseded by PART 7 / DEV NOTE 2 (Jerry): "The Great Index should move to
+  // Sparks." It was on `callToArms` (15,000) beside `crossReferencing`'s `ritesOfTargon`, which
+  // is why two of the three arrived together. `sparks` (20,000) joins the map. **The ladder is
+  // still non-decreasing** — 12,000 / 12,000 / 20,000 / 60,000 / 100,000 — which is the property
+  // this assertion has always guarded; the rung it passes through is what moved.
+  const price = { songcraft: 1300, ritesOfTargon: 12000, callToArms: 15000, sparks: 20000, chemtech: 60000, deepWorks: 100000 };
   const ladder = IDS.map(id => u(id).tech);
   return { cataloguing: u("cataloguing").tech, reqs: IDS.map(id => u(id).req || null),
            ladder, monotonic: ladder.every((t, i) => i === 0 || price[t] >= price[ladder[i - 1]]) };
@@ -450,11 +455,17 @@ check("regression — BOOST_LIMIT still has seven keys and `knowledge` is still 
 check("regression — auditCostGraph() and auditRawGraph() are both still zero",
   await page.evaluate(() => auditCostGraph().length === 0 && auditRawGraph().length === 0),
   await page.evaluate(() => JSON.stringify([auditCostGraph(), auditRawGraph()])));
-check("regression — the tech ladder is untouched at 36 techs and no research reveals more than three",
+// RE-POINTED v0.61, superseded by DEV NOTE 4 (Jerry): The Champions' Regimen (28,000) and
+// Deep Cartography (35,000) are MERGED into The Vanguard Doctrine (45,000), which unlocks both
+// Standing Orders and Surveyed Approaches. **The ladder goes 36 -> 35 techs.** Both retired ids
+// are RESERVED under STANDING-RULINGS §30 until v1.0. The SHAPE conditions this assertion
+// actually protects — tie count, median step, geometric step, largest single cliff — are
+// unchanged and are what still carries the check.
+check("regression — the tech ladder is 35 techs and no research reveals more than three",
   await page.evaluate(() => {
     const kids = {};
     TECHS.forEach(t => { if (t.req) (kids[t.req] = kids[t.req] || []).push(t.id); });
-    return TECHS.length === 36 && Object.values(kids).every(v => v.length <= 3);   // v0.59.1 note 3
+    return TECHS.length === 35 && Object.values(kids).every(v => v.length <= 3);   // v0.59.1 note 3; v0.61 dev note 4
   }));
 check("regression — poroRatio is still unbounded and `audience` still carries its tripwire",
   await page.evaluate(() => !/limitedDR/.test(poroRatio.toString()) && AUDIENCE_REOPEN_POP === 600));

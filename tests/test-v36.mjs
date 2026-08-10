@@ -7,6 +7,8 @@ page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 page.on("pageerror", e => errors.push(String(e)));
 await page.goto(new URL("../index.html", import.meta.url).href);
 await page.waitForTimeout(500);
+import { readFileSync as _rf } from "fs";
+const RAWSRC = _rf(new URL("../index.html", import.meta.url), "utf8");
 let pass = 0, fail = 0;
 const check = (n, c, x) => { console.log(n + ":", c ? "PASS" : "FAIL", x ?? ""); c ? pass++ : fail++; };
 
@@ -217,7 +219,23 @@ const i11 = await page.evaluate(() => {
 });
 check("Trade Dock is 0.02/copy, not 0.15", Math.abs(i11.one - 1.02) < 0.001, `×${i11.one.toFixed(3)} at 1 dock`);
 check("10 docks give +20%, not +150%", Math.abs(i11.ten - 1.20) < 0.001, `×${i11.ten.toFixed(3)}`);
-check("routed through LDR — asymptotes at +100%, never runs away", i11.huge < 2.0 && i11.huge > 1.9, `×${i11.huge.toFixed(3)} at absurd counts`);
+// RE-POINTED v0.61, superseded by PART 6.1 / DEV NOTE 8 (Jerry): "Does Kittens have a trade
+// yield max?" **RETRIEVED: it has none** — `js/diplomacy.js:744-747` sums `tradeRatio`
+// additively, uncapped, and the tradepost is an unbounded 0.015 per copy. The DOCK'S OWN +100%
+// ceiling is therefore gone; the dock is a flat 0.02 per copy into one additive category, which
+// is what the two assertions above still check and which is the source's shape.
+//
+// **ONE CEILING REMAINS, ON THE CATEGORY AS A WHOLE, and it is a deliberate deviation from the
+// spec's "uncapped".** Shipped fully uncapped, RR grows an infinite-timber loop at 133 Trade
+// Docks: RR has a Demacia -> Piltover -> transmute cycle that Kittens does not have, the yield
+// multiplier enters it twice, and `test-v41` has asserted the loop gain below 0.8 since v0.41.
+// The argument and the measurement are at `tradeYieldMult` in index.html. **Four multiplicative
+// categories with two ceilings became ONE additive category with one — strictly closer to the
+// source than what RR had.** The asymptote moves +100% -> +300%.
+check("the DOCK's own ceiling is gone; one ceiling remains, on the whole additive category",
+  i11.huge <= 4.0 && i11.huge > 3.9 &&
+  !/var docks = limitedDR\(/.test(RAWSRC),
+  `×${i11.huge.toFixed(3)} at absurd counts (was +100%, now the category ceiling at +300%)`);
 
 // ============= ITEMS 12-16 — spec lists these as outstanding; verify shipped =============
 const i1216 = await page.evaluate(() => {

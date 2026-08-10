@@ -125,8 +125,14 @@ check("3 — the Quarry's own cost and id are UNTOUCHED (§5: one lever a round)
 // RE-POINTED v0.59.1 note 3 — 36 techs. The four SHAPE conditions are untouched and are what
 // this assertion is actually for; only the count moved, and it moved because a tech was
 // deliberately deleted.
-check("4 — ladder recomputed: 36 techs, ties ≥ 5, median ×1.10–1.20, geo ×1.25–1.30, max ≤ ×3.4",
-  rungs.n === 36 && rungs.ties >= 5 && rungs.med >= 1.10 && rungs.med <= 1.20 &&
+// RE-POINTED v0.61, superseded by DEV NOTE 4 (Jerry): The Champions' Regimen (28,000) and
+// Deep Cartography (35,000) are MERGED into The Vanguard Doctrine (45,000), which unlocks both
+// Standing Orders and Surveyed Approaches. **The ladder goes 36 -> 35 techs.** Both retired ids
+// are RESERVED under STANDING-RULINGS §30 until v1.0. The SHAPE conditions this assertion
+// actually protects — tie count, median step, geometric step, largest single cliff — are
+// unchanged and are what still carries the check.
+check("4 — ladder recomputed: 35 techs, ties ≥ 5, median ×1.10–1.20, geo ×1.25–1.30, max ≤ ×3.4",
+  rungs.n === 35 && rungs.ties >= 5 && rungs.med >= 1.10 && rungs.med <= 1.20 &&
   rungs.geo >= 1.25 && rungs.geo <= 1.30 && rungs.max <= 3.4,
   `N=${rungs.n}, ${rungs.ties} ties, median ×${rungs.med}, geo ×${rungs.geo}, max ×${rungs.max}`);
 check("4 — prerequisite fan-out is still ≤ 3 (v0.53 directive 1)", rungs.maxFan <= 3, `max fan-out ${rungs.maxFan}`);

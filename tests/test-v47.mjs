@@ -26,7 +26,11 @@ const TABLE = {
   // Chem-Baron Accords, which is where its unlock actually belongs. Superseded by: v0.55
   // Part 2.1. All five ladder conditions were re-derived after the move and still hold.
   voidStudies: 12000, ritesOfTargon: 12000, callToArms: 15000, sparks: 20000,
-  championsRegimen: 28000, deepCartography: 35000,
+  // RE-POINTED v0.61, superseded by DEV NOTE 4: the two Era-2 bridge techs are MERGED into
+  // `vanguardDoctrine` at 45,000, which unlocks both Standing Orders and Surveyed Approaches.
+  // Both retired ids are RESERVED under §30 until v1.0. The table is the ladder's authority in
+  // this suite, so the merge lands here rather than as an exemption below.
+  vanguardDoctrine: 45000,
   // v0.52 Part 2.4: refinedMetallurgy (42000) DELETED with the Bloomery. 38 -> 37 techs.
   // Recomputed, all five conditions still hold: 37 techs, 8 ties, median x1.1222 (was
   // x1.1333), geometric mean x1.2632 (was x1.2553), largest step x3.333 unmoved.
@@ -62,19 +66,30 @@ const lad = await page.evaluate(table => {
     // (refinedMetallurgy was the third; deleted v0.52 Part 2.4.)
     // Those two instructions conflict for exactly those two; the Era-3 chain is what the
     // rule is really about, so it is asserted over techs gated on Sparks or later.
-    ERA3_EXEMPT: ["championsRegimen", "deepCartography", "kindling"],
+    // RE-POINTED v0.61: `championsRegimen` and `deepCartography` are gone (dev note 4), and
+    // `vanguardDoctrine` inherits their exemption for the same reason they had it — the spec's
+    // "ranks 21-38 carry materials" rule is about the Era-3 CHAIN, and a knowledge-only bridge
+    // tech was never part of that chain. Both retired ids stay listed: §30 reserves them, and a
+    // reserved id reappearing in this list is a signal, not noise.
+    ERA3_EXEMPT: ["vanguardDoctrine", "championsRegimen", "deepCartography", "kindling"],
     highWithoutMats: sci.filter(t => rank[t.id] > rank.sparks + 1 && !mats(t).length &&
-      ["championsRegimen", "deepCartography", "kindling"].indexOf(t.id) === -1).map(t => t.id),
+      ["vanguardDoctrine", "championsRegimen", "deepCartography", "kindling"].indexOf(t.id) === -1).map(t => t.id),
     sparksMats: mats(byId.sparks),
     orphanU: UPGRADES.filter(u => u.tech && !byId[u.tech]).map(u => u.id),
     orphanB: BUILDINGS.filter(b => b.tech && !byId[b.tech]).map(b => b.id)
   };
 }, TABLE);
 check("PASS CONDITION: every tech price equals the Part 1 table, whole ladder",
-  lad.mismatched.length === 0, lad.mismatched.join(" | ") || "all 37 match");
+  lad.mismatched.length === 0, lad.mismatched.join(" | ") || "all 35 match");
 check("...and there is no tech outside the table", lad.extra.length === 0, lad.extra.join(", ") || "none");
-check("PASS CONDITION: tech count is 37 (was 38; Refined Metallurgy deleted v0.52 Part 2.4)",
-  lad.count === 36, String(lad.count));   // v0.59.1 note 3: kindling deleted, 37 -> 36
+// RE-POINTED v0.61, superseded by DEV NOTE 4 (Jerry): The Champions' Regimen (28,000) and
+// Deep Cartography (35,000) are MERGED into The Vanguard Doctrine (45,000), which unlocks both
+// Standing Orders and Surveyed Approaches. **The ladder goes 36 -> 35 techs.** Both retired ids
+// are RESERVED under STANDING-RULINGS §30 until v1.0. The SHAPE conditions this assertion
+// actually protects — tie count, median step, geometric step, largest single cliff — are
+// unchanged and are what still carries the check.
+check("PASS CONDITION: tech count is 35 (36 before v0.61 dev note 4 merged the bridge techs)",
+  lad.count === 35, String(lad.count));   // 38 -> 37 (refinedMetallurgy) -> 36 (kindling) -> 35 (the merge)
 check("PASS CONDITION: ties ≥ 5", lad.ties >= 5, String(lad.ties));
 check("PASS CONDITION: median ×1.10–1.20", lad.median >= 1.10 && lad.median <= 1.20, `×${lad.median}`);
 check("PASS CONDITION: geometric mean ×1.25–1.30", lad.geo >= 1.25 && lad.geo <= 1.30, `×${lad.geo}`);
