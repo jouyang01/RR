@@ -296,8 +296,15 @@ const curve = await page.evaluate(() => {
   return r;
 });
 check("Era 1 is a real pinch, well clear of the 25 floor", curve.era1 < 90 && curve.era1 > 25, String(curve.era1));
-check("Era 3 lands in the 120–140 band with Hearth investment",
-  curve.era3 >= 118 && curve.era3inv >= 125 && curve.era3inv <= 142, `${curve.era3} → ${curve.era3inv}`);
+// RE-POINTED v0.62, superseded by PART 4.1 / DEV NOTE 1 (Jerry). The per-Shrine morale rate goes
+// 0.5 -> 0.25 on the measurement the spec conditioned it on (the shrine term was 79.2% of total
+// morale), so an Era-3 settlement holding Shrines reads a few points lower. **The PROPERTY is the
+// band's SHAPE — Hearth investment must move Era-3 morale UP into a healthy range, and morale
+// must not be trivially satisfied — and both hold.** The lower bound moves with the rate; the
+// upper bound does not, because nothing raised the ceiling.
+check("Era 3 lands in a healthy band with Hearth investment, and investment MOVES it",
+  curve.era3inv > curve.era3 && curve.era3inv >= 118 && curve.era3inv <= 142,
+  `${curve.era3} → ${curve.era3inv} with Hearth investment`);
 check("morale still tapers past 130 wanderers, so growth stays a trade-off",
   curve.late < curve.era3inv, `pop130 ${curve.era3inv} → pop190 ${curve.late}`);
 check("the curve dips in Era 1 and recovers through Era 2",

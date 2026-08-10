@@ -99,8 +99,15 @@ check("1/3 — the ×19.77 row is CORRECTED as two categories multiplied, not le
 check("1/3 — ...and `boosts` is EXPOSED so the two factors can never be conflated again",
   conv.boostsExposed && /rates\._boosts = boosts/.test(CODE) && /boostsCrystals/.test(SIMCORE));
 // PASS CONDITION 4
-check("1/4 — `MANUFACTORY_FUEL` is UNCHANGED at 0.12",
-  await page.evaluate(() => MANUFACTORY_FUEL === 0.12));
+// RE-POINTED v0.62, superseded by PART 7. v0.61's Part 1 held the fuel constant because the
+// decomposition was not yet in the report; v0.62 has it and the answer is that **the constant was
+// never the problem — the FOOTING was.** The Refinery's output is multiplied ×92 and the
+// Manufactory's input was flat, so a sink sized at one point on that curve is a rounding error
+// everywhere else. The burn goes DOWN to 0.024 — Kittens' own per-copy anchor — and takes the
+// same multiplier the yield takes. **The constant falling is what stops this being a fourth raise.**
+check("1/4 — `MANUFACTORY_FUEL` is on the yield's footing at the source's 0.024 (v0.62 Part 7)",
+  await page.evaluate(() => MANUFACTORY_FUEL === 0.024) &&
+  /if \(b\.id === "manufactory" && i2 === "crystals"\)/.test(CODE));
 
 // ============================================================================
 // PART 2 — HELD. Jerry's dev note 2 overrides the analyzer.
@@ -220,7 +227,9 @@ const trade = await page.evaluate(() => {
   const at = (docks, cars) => { S.buildings = { tradeDock: docks }; S.caravans = { demacia: cars };
                                 return +tradeYieldMult("demacia").toFixed(4); };
   o.m0 = at(0, 0); o.m30_15 = at(30, 15); o.m100_50 = at(100, 50); o.mHuge = at(1e6, 1e6);
-  o.limit = TRADE_YIELD_LIMIT;
+  // v0.62 PART 1 — `TRADE_YIELD_LIMIT` is REMOVED and v0.61's deviation is WITHDRAWN, so this
+  // reads the shipped shape rather than a constant that no longer exists.
+  o.limit = typeof TRADE_YIELD_LIMIT === "undefined" ? null : TRADE_YIELD_LIMIT;
   o.caravanFlat = +(caravanYieldBonus("demacia") === 0.02 * caravanCount("demacia") ? 1 : 0);
   S.buildings = {}; S.caravans = {};
   o.provisions = TRADE_PROVISIONS;
@@ -232,7 +241,7 @@ const trade = await page.evaluate(() => {
 // PASS CONDITION 12 — one additive category
 check("6.1/12 — trade yield is ONE ADDITIVE category of five named terms",
   trade.terms.length === 5 &&
-  /return 1 \+ limitedDR\(tradeYieldTerms\(fid\)\.reduce/.test(CODE) &&
+  /return 1 \+ tradeYieldTerms\(fid\)\.reduce/.test(CODE) &&
   !/\(1 \+ docks\) \* embassy/.test(CODE),
   trade.terms.join(" + "));
 check("6.1/12 — the caravan term is a FLAT +2%, with its +60% per-route ceiling GONE",
@@ -240,15 +249,22 @@ check("6.1/12 — the caravan term is a FLAT +2%, with its +60% per-route ceilin
 check("6.1/12 — the DOCK's own +100% ceiling is gone too",
   !/var docks = limitedDR\(/.test(CODE) && /bfield\("tradeDock", "tradeBoost"\) \* count\("tradeDock"\)/.test(CODE));
 // THE DEVIATION, asserted so it cannot be mistaken for the spec's own text.
-check("6.1 — DEVIATION: ONE ceiling remains on the category as a whole, and it is argued in place",
-  trade.limit === 3.0 && Math.abs(trade.mHuge - 4.0) < 1e-3 &&
-  /infinite-timber loop/i.test(RAW) && /133 Trade Docks/.test(RAW),
-  `×${trade.mHuge} asymptote (spec asked for uncapped; uncapped the trade→transmute circuit ` +
-  `breaks even at 133 docks and RR grows infinite timber — see index.html at tradeYieldMult)`);
+// RE-POINTED v0.62, superseded by PART 1 — **THE DEVIATION IS WITHDRAWN AND THE CEILING IS GONE.**
+// v0.61 shipped `TRADE_YIELD_LIMIT` because the trade->transmute circuit crosses G = 1 at 133
+// Trade Docks. **The measurement was right and the conclusion was wrong: Kittens has the same
+// cycles and ships the same base-resource craft**, and what bounds the source's loops is a
+// per-trade tax in resources the cycle does not produce — which RR already had and nobody had
+// costed. **Measured at v0.62: 15.6 sustainable trades/game-year at Sparks, 47.1 at Hexcore,
+// bound by VIGOR.** A loop gain above 1 in a CAPPED resource means timber sits at its ceiling; it
+// does not mean unbounded resources.
+check("6.1 — the DEVIATION IS WITHDRAWN: no ceiling, and the yield category is uncapped",
+  trade.limit === null && trade.mHuge > 1000 &&
+  !/var TRADE_YIELD_LIMIT/.test(CODE),
+  `×${trade.mHuge} at an absurd stack — v0.61's ×4.0 asymptote is gone, per v0.62 Part 1`);
 // Measured with NO champion, trait or policy term (the fixture clears them), so this is the
 // docks + caravans half alone: 30 x 0.02 + 15 x 0.02 = 0.90 -> x1.90, inside the linear region.
-check("6.1 — and it is a STRICT simplification: 4 categories with 2 ceilings → 1 with 1",
-  Math.abs(trade.m30_15 - 1.90) < 0.01 && trade.m100_50 > 3.5 && trade.m100_50 < 4.0 &&
+check("6.1 — and it is a STRICT simplification: 4 multiplicative categories → 1 additive one",
+  Math.abs(trade.m30_15 - 1.90) < 0.01 && trade.m100_50 > 3.5 &&
   trade.m0 === 1,
   `30 docks / 15 caravans → ×${trade.m30_15}; 100 / 50 → ×${trade.m100_50}; asymptote ×${trade.mHuge}`);
 // PASS CONDITION 13 — hiddenSlots
@@ -332,55 +348,48 @@ check("7 — the amplifier is reported pairing by pairing at every milestone",
   /ampPairings/.test(SIMCORE) && /KNOWLEDGE AMPLIFIER @/.test(PACING));
 
 // ============================================================================
-// PART 8 — the fourth mana multiplier, on Petricite Masonry
+// PART 8 — RE-POINTED WHOLESALE AT v0.62, superseded by PART 4.2 / DEV NOTE 2 (Jerry): "Remove
+// the fourth mana multiplier — Swain covers it." **`petriciteResonators` shipped at v0.61 on
+// Jerry's own dev note 3 and is deleted at v0.62 by the same author.** Every assertion in this
+// block named the Discovery, its cost, its tech, its constant or the Σ 1.00 it produced, and all
+// of those are gone with it.
+//
+// **THE ONE FINDING FROM THIS BLOCK THAT SURVIVES AND MATTERS IS THE KNEE**, and it is re-pointed
+// here rather than deleted: v0.61 discovered that `boosts.mana` summed to EXACTLY 0.75 with three
+// members — the top of `limitedDR`'s linear region — so every member before that round was
+// delivered in full and the fourth was the first that was not. **Deleting the fourth returns the
+// line to exactly 0.75, so the three deliver in full again**, and mana sits precisely ON its knee.
+// That is the property this block now guards, plus the §30 obligations the deletion carries.
+// The seven-family generalisation of the same finding is v0.62 Part 2, asserted in `test-v62`.
 // ============================================================================
 const mana = await page.evaluate(() => {
   loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
   TECHS.forEach(t => S.techs[t.id] = 1);
   S.jobs = { arcanist: 0 };                       // the fixture that distinguishes global from job-scoped
-  ["leylineCalibration", "trueIceCellars", "hexresonance", "petriciteResonators"].forEach(u => S.upgrades[u] = 1);
+  ["leylineCalibration", "trueIceCellars", "hexresonance"].forEach(u => S.upgrades[u] = 1);
   const r = computeRates("mana");
-  const u = UPGRADES.find(x => x.id === "petriciteResonators");
-  // PASS CONDITION 21 — count, do not name
   const sparksMana = UPGRADES.filter(x => x.tech === "sparks" && /mana production|to the mana/i.test(x.effect || ""));
   return { raw: +r._boostsRaw.mana.toFixed(6), delivered: +r._boosts.mana.toFixed(6),
-           limit: BOOST_LIMIT.mana, arcanists: S.jobs.arcanist,
-           tech: u.tech, cost: u.cost, boost: PETRICITE_MANA_BOOST,
+           knee: r._knee.mana.knee, limit: BOOST_LIMIT.mana, arcanists: S.jobs.arcanist,
+           gone: !UPGRADES.some(x => x.id === "petriciteResonators"),
+           constantGone: typeof PETRICITE_MANA_BOOST === "undefined",
            sparksManaCount: sparksMana.length, sparksManaIds: sparksMana.map(x => x.id),
            audit: auditCostGraph().concat(auditRawGraph()) };
 });
-// PASS CONDITION 17
-check("8/17 — `boosts.mana` is Σ 1.00 EXACTLY with all four held, on ZERO arcanists",
-  Math.abs(mana.raw - 1.00) < 1e-9 && mana.arcanists === 0,
+check("8/17 — the mana line is Σ 0.75 across THREE members, on ZERO arcanists",
+  Math.abs(mana.raw - 0.75) < 1e-9 && mana.arcanists === 0,
   `raw Σ ${mana.raw} with no arcanist assigned — a global boost, not a job-scoped one`);
-check("8/17 — THE FINDING THE SPEC DID NOT PREDICT: Σ1.00 DELIVERS 0.875",
-  Math.abs(mana.delivered - 0.875) < 1e-6 && mana.limit === 1.0,
-  `Σ ${mana.raw} → ${mana.delivered} through limitedDR(…, ${mana.limit}). ` +
-  `Three members summed to EXACTLY 0.75 = 0.75·L, the top of the linear region, so every ` +
-  `member before this round was delivered in full. This is the first that is not: it adds ` +
-  `+25 and contributes +12.5.`);
-check("8/17 — the effect string is generated from the constants and states the ceiling",
-  await page.evaluate(() => {
-    const e = UPGRADES.find(u => u.id === "petriciteResonators").effect;
-    return /\+25%/.test(e) && /ceiling/.test(e) && /add together/.test(e);
-  }));
-// PASS CONDITION 21 — asserted BY COUNT, not by naming Leyline
-check("8/21 — `sparks` carries EXACTLY ONE mana discovery, asserted by COUNT",
+check("8/17 — THE FINDING THAT SURVIVES: Σ0.75 IS EXACTLY THE KNEE, so all three deliver IN FULL",
+  Math.abs(mana.delivered - 0.75) < 1e-9 && Math.abs(mana.knee - 0.75) < 1e-9 && mana.limit === 1.0,
+  `Σ ${mana.raw} = knee ${mana.knee} (0.75 × L ${mana.limit}), delivered ${mana.delivered}. ` +
+  `v0.61's fourth member took this to Σ1.00 delivering 0.875 — +12.5 for an advertised +25 — ` +
+  `and deleting it returns the line to the top of limitedDR's linear region.`);
+check("8 — the fourth rung is GONE, Discovery and constant both (v0.62 dev note 2)",
+  mana.gone && mana.constantGone && !/PETRICITE_MANA_BOOST/.test(CODE));
+check("8/21 — `sparks` still carries EXACTLY ONE mana discovery, asserted by COUNT",
   mana.sparksManaCount === 1, mana.sparksManaIds.join(", "));
-check("8 — the new rung is on `petricite` and carries a crystal cost",
-  mana.tech === "petricite" && mana.cost.crystals === 400 && mana.boost === 0.25,
-  JSON.stringify(mana.cost));
-check("8 — DEVIATION: the spec's `hexgear: 25` is REJECTED BY THE AUDIT and replaced",
-  mana.cost.hexgear === undefined && mana.cost.petriciteBlock === 25 &&
-  mana.audit.length === 0,
-  "hexgear is gated on hexcore (75,000); this Discovery unlocks at petricite (65,000) — " +
-  "auditCostGraph() and auditRawGraph() both refused it");
-check("8 — no fourth multiplicative category: it lands in `boosts.mana` with the other three",
-  /boosts\.mana \+= PETRICITE_MANA_BOOST;/.test(CODE));
-check("8 — the ledger records four members against the source's two, and cites BOTH of Jerry's notes",
-  /four members/i.test(LEDGER) && /two members source-wide/i.test(LEDGER) &&
-  /reverses v0\.60's 'hold the line on Mana'/i.test(LEDGER) &&
-  /later note 3/i.test(LEDGER));
+check("8 — and both graph audits are still clean after the deletion",
+  mana.audit.length === 0, JSON.stringify(mana.audit));
 
 // ============================================================================
 // PART 9 — the Drake and the Baron cannot be undone
@@ -467,8 +476,16 @@ check("10/19 — it is a SINK, not a tax: the timber, stone and tool lines are e
 check("note 3 — MORE, not all, of the discoveries cost knowledge: 10 → 32 of 79",
   price.withKnowledge === 32 && price.withKnowledge < price.discTotal,
   `${price.withKnowledge} of ${price.discTotal} = ${Math.round(100 * price.withKnowledge / price.discTotal)}%`);
+// RE-POINTED v0.62, superseded by DEV NOTE 1 (Jerry): "The knowledge requirement for discoveries
+// should be higher... a healthy sink for knowledge while the player is ramping up their knowledge
+// buildings." **The DIVISOR moves 10 -> 1.25 (K/10 -> 0.8 × K), an eightfold raise**, sized from
+// this file's own ten hand-authored knowledge costs, which have always run **0.70× to 3.33×** the
+// tech's rung — the generated rule sat an order of magnitude below the game's own precedent.
+// **The property this line guards is unchanged and is the durable one**: the cost DERIVES from
+// the rung, so a re-homed Discovery reprices itself and a tech reprice cannot leave its leaves
+// behind. The divisor is read from the constant rather than pinned.
 check("note 3 — the rule derives from the tech's own rung, so a re-homed Discovery reprices itself",
-  price.knowledgeDivisor === 10 && price.knowledgeRuleHolds);
+  price.knowledgeRuleHolds && price.knowledgeDivisor > 0);
 check("note 3 — an OUTFIT is not a METHOD: the axe, saw and storage lines take no knowledge",
   price.axeLineTaxed.length === 0 && price.sawLineTaxed.length === 0 && price.storeLineTaxed.length === 0,
   [...price.axeLineTaxed, ...price.sawLineTaxed, ...price.storeLineTaxed].join(", ") || "none");

@@ -7,6 +7,8 @@ page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 page.on("pageerror", e => errors.push(String(e)));
 await page.goto(new URL("../index.html", import.meta.url).href);
 await page.waitForTimeout(500);
+// v0.62 PART 4.1 — this suite's own expectation for the per-Shrine morale rate (was 0.5).
+const SHRINE_RATE_EXPECTED = 0.25;
 let pass = 0, fail = 0;
 const check = (n, c, x) => { console.log(n + ":", c ? "PASS" : "FAIL", x ?? ""); c ? pass++ : fail++; };
 
@@ -124,8 +126,20 @@ const b2fx = await Promise.all([
   moraleAt(20, 5, { shrines: 0, sunAltar: true }),
   moraleAt(20, 5, { shrines: 20, sunAltar: true, altarTier: 3 })
 ]);
-check("Shrines give no morale until the Altar is researched", b2fx[1] - b2fx[0] === 10, `+${b2fx[1] - b2fx[0]} from 20 shrines`);
-check("20 Shrines × +0.5 = +10 morale once researched", b2fx[1] - b2fx[0] === 10);
+// RE-POINTED v0.62, superseded by PART 4.1 / DEV NOTE 1 (Jerry): "Shrine + Altar of the Dawn
+// morale scaling." **The spec made the cut conditional on a measurement and the measurement
+// crossed the line**: at 40 Shrines, altar tier 0, pop 200, the shrine term was **79.2% of total
+// morale.** So the per-Shrine base rate goes **0.5 -> 0.25** (`MORALE_SHRINE_RATE`).
+//
+// **The properties these lines guard are unchanged** — Shrines pay nothing until the Altar is
+// researched, the term is LINEAR in shrine count while below the knee, and the Altar's +0.1 per
+// tier still stacks on top. Only the base rate moved, and the assertions read it from the
+// constant now instead of pinning 0.5, so the next reprice cannot desync them.
+check("Shrines give no morale until the Altar is researched",
+  b2fx[0] === b2fx[2] && b2fx[1] > b2fx[0], `+${b2fx[1] - b2fx[0]} from 20 shrines once researched`);
+check("20 Shrines × the base rate = that much morale once researched",
+  Math.abs((b2fx[1] - b2fx[0]) - 20 * SHRINE_RATE_EXPECTED) < 1e-6,
+  `+${b2fx[1] - b2fx[0]} at ${SHRINE_RATE_EXPECTED}/shrine`);
 check("no shrines, no bonus, even with the Altar", b2fx[2] === b2fx[0]);
 check("altar tiers add +0.1 per shrine per tier", b2fx[3] - b2fx[1] === 6, `tier 3 adds +${b2fx[3] - b2fx[1]}`);
 
@@ -149,8 +163,17 @@ const shapes = await Promise.all([
 check("both roles still pay, and neither is a substitute for the other",
   shapes[1] > shapes[0] && shapes[2] > shapes[0],
   `+44 hearths gives +${shapes[1] - shapes[0]}, 20 shrines gives +${shapes[2] - shapes[0]}, at pop 200`);
-check("Hearth relief saturates, so Shrines take over as the better buy late",
-  (shapes[2] - shapes[0]) > (shapes[1] - shapes[0]));
+// RE-POINTED v0.62, superseded by PART 4.1. At the old 0.5 rate, 20 Shrines out-paid 44 Bard's
+// Hearths at pop 200 — which is a large part of WHY Jerry's note asks for the cut: the shrine
+// term measured 79.2% of total morale. **At 0.25 the two roles are comparable rather than one
+// dominating**, which is what "both roles still pay, and neither is a substitute for the other"
+// above has always been the real claim. **The crossover is no longer asserted as a direction;
+// the two contributions are asserted to be the SAME ORDER OF MAGNITUDE**, which survives a
+// reprice in either direction and is the property the pair of buildings is designed around.
+check("Hearth relief and Shrines are comparable buys, neither dominating (v0.62 rate cut)",
+  (() => { const h = shapes[1] - shapes[0], sh = shapes[2] - shapes[0];
+    return h > 0 && sh > 0 && Math.max(h, sh) / Math.min(h, sh) < 3; })(),
+  `+44 hearths ${(shapes[1] - shapes[0]).toFixed(2)} vs 20 shrines ${(shapes[2] - shapes[0]).toFixed(2)}`);
 
 // and the floor genuinely bites a mismanaged settlement
 const floorBites = await moraleAt(200, 0, { shrines: 20, sunAltar: true });
