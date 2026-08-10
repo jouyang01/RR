@@ -30,6 +30,36 @@ Challenger 11,500 with gaps 2,700 / 4,000; `AUTOMATION_BASE = 0.02` driving both
 
 ---
 
+## Jerry's dev notes — where every one lives in this spec
+
+**All eleven notes from the previous round are specified. The mapping, so none can be lost:**
+
+| # | note | Part |
+|---|---|---|
+| 1 | Trades should show the renown reward | **5.3** |
+| 2 | Cataloguing / Great Index unlock together and do the same thing; Great Index → Sparks | **7** |
+| 2.1 | Cataloguing = Academy → Archive; Great Index = Observatory → Academy | **7** |
+| 3 | More mana multipliers, one costing hextech crystals | **8** — *revised: it moves to Petricite Masonry* |
+| 4 | "civilisation" spelling in the Trade UI | **6.4** |
+| 5 | Is Jarvan's XP passive Kittens' Academy `skillXP`? Are we at parity? | **4** |
+| 6 | Drake and Baron hunts cannot be undone | **9** |
+| 7 | Festival gives 25 renown | **5.2** |
+| 8 | Does Kittens have a trade yield max? | **6.1** — *answer: no, it has none* |
+| 9 | Howling Abyss pays too much; renown should scale with vigor | **5.1** |
+| 10 | "deeper cargo slots" message is inaccurate | **6.2** |
+| 11 | All trades cost provisions, ~5,000 | **6.3** |
+
+**And this round's four updates:**
+
+| update | disposition |
+|---|---|
+| XP rate → 0.05/s | **already shipped at v0.60.** `index.html:3235` is `var XP_PER_SECOND = 0.05;`. **But Jarvan cannot mitigate the early ladder — see Part 2.0, he arrives 12× too late.** |
+| Only one mana discovery on Sparks; fourth goes on Petricite Masonry | **Part 8, revised.** `leylineCalibration` is confirmed on `sparks`; the new rung moves to `petricite`. |
+| The "deeper cargo slots" message | **Part 6.2 — already specified**, with the exact wrong test named. |
+| More post-Sparks discoveries cost Hextech Crystals | **Part 10, new** — and it is the best-shaped crystal sink this project has found. |
+
+---
+
 ## Part 0 — Ground rules
 
 **This spec produces `v0.61`.** Integers stay reserved 1:1 for spec rounds.
@@ -110,6 +140,29 @@ corrected with the two-category explanation; **`MANUFACTORY_FUEL` still unchange
 ---
 
 ## Part 2 — The early rank ladder, where a new player actually lives (builder note 2)
+
+### 2.0 The XP rate is already at the source, and Jarvan cannot reach this problem
+
+**`XP_PER_SECOND = 0.05` shipped at v0.60** (`index.html:3235`) — the first half of the update is
+already true and no code moves for it.
+
+**The second half needs a measurement before it is relied on.** Jarvan's passive is +25% XP, and
+the question is whether it offsets the early ladder. **It cannot, by more than an order of
+magnitude:**
+
+| | real time |
+|---|---|
+| one game-year (`TICK_MS 200 × TICKS_PER_DAY 10 × DAYS_PER_SEASON 100 × 4 seasons`) | **800 s = 13.33 min** |
+| **the first rank rung** — 350 XP at 0.05/s | **1.94 hours** |
+| **the first champion** — y106, v0.60's three-seed median | **23.6 hours** |
+
+**Jarvan arrives roughly 12× later than the rung he would be helping with** — and he is one
+champion of ten, so on most runs he is later still. **A +25% XP passive that arrives on day two
+does nothing for the player's first two hours, which is the entire span the ×3.50 debt covers.**
+
+**So Part 2 stands as written.** If Jerry would rather leave the ladder alone and accept the
+early pace, that is a legitimate call — but it should be made knowing Jarvan is not the mitigation.
+
 
 **28% is the top rung and nothing else.** Matched by bonus — the only comparison with meaning,
 since RR has nine rungs and Kittens seven — the debt is worst at the very first one and narrows
@@ -418,40 +471,44 @@ carries the Observatory→Archive pairing with `js/buildings.js:579–580` cited
 
 ---
 
-## Part 8 — A mana multiplier at Sparks, and the reversal it represents (dev note 3)
+## Part 8 — The fourth mana multiplier goes on Petricite Masonry (dev note 3, revised)
 
-**Ship it, and state plainly what it does to the parity position, because one round ago the
-ruling went the other way.**
+**Jerry's correction is right and I should have caught it when I wrote the first draft.**
+`leylineCalibration` is already on `sparks` (`index.html:2293`, `tech: "sparks"`, `req:
+"arcaneFocus"`), so the first draft would have put **two** mana discoveries on one tech. **One
+mana discovery per tech, and Sparks keeps Leyline.**
 
-v0.60 §6 records Jerry's note 5 as **"hold the line on Mana"**, and Σ0.75 was left untouched on
-that basis. **Dev note 3 now asks for another mana multiplier.** Both are Jerry's calls under §16
-and the second supersedes the first — **but the spec would be failing him if it shipped the
-reversal without the number attached.**
-
-**The position, from the census this project already made:** Kittens' `<res>GlobalRatio` — the
-only category with RR's scope — has **two members in the entire game, at 0.30 and 0.25**. RR's
-`boosts.mana` is **Σ 0.75 across three discoveries**. A fourth at a typical RR magnitude of 0.25
-takes it to **Σ 1.00 — four members against the source's two, and 3.3× the source's largest
-single member.**
-
-**Ship the discovery as asked:**
+**The new rung goes on `petricite` — Petricite Masonry** (`index.html:1098`, 65,000 knowledge +
+65 morellonomicons, `req: "smelting"`). That is a good home on three counts: it is comfortably
+after Sparks (20,000), it is the tech whose whole flavour is *stone that drinks magic*, and its
+own price already runs through the scribal chain, so a mana rung there sits with its own fiction.
 
 | | |
 |---|---|
-| tech | **`sparks`** (20,000 knowledge + steel 200) — Jerry's ask |
-| cost | **hextech crystals + a wrought good** — `{ crystals: 120, hexgear: 20 }` puts it on the Era-3 industrial chain rather than the culture chain the other three sit on |
+| tech | **`petricite`** (65,000 knowledge) |
+| cost | **`{ crystals: 400, hexgear: 25 }`** — crystals per Jerry's original note, and see Part 11 |
 | effect | **+0.25 to `boosts.mana`**, additive into the existing accumulator |
 
-**0.25 rather than a larger figure** because it is the source's own largest global member and
-because Σ1.00 is a round, legible ceiling for a category the project may later want to split.
-**Do not add a fourth multiplicative category** — it lands in `boosts.mana` with the other three,
-which is the one thing about RR's mana line that is already right.
+**0.25, and the accounting travels with it.** Kittens' `<res>GlobalRatio` — the only category
+with RR's scope — has **two members in the entire game, at 0.30 and 0.25**. RR's `boosts.mana`
+becomes **Σ 1.00 across four members**. That is four against two, and 3.3× the source's largest
+single member.
 
-**Pass conditions:** the discovery ships on `sparks` with a crystal cost; `boosts.mana` measures
-**Σ 1.00 exactly** with all four held, on a settlement with zero arcanists (the only fixture that
-distinguishes a global boost from a job-scoped one); a ledger row recording **four members against
-the source's two** and the reversal of the v0.60 ruling, with both notes cited; mana production
-reported at each milestone.
+**This reverses the v0.60 ruling and that is fine — but it should be on the record.** v0.60 §6
+recorded Jerry's note 5 as *"hold the line on Mana"* and Σ0.75 was left untouched on that basis.
+Dev note 3 supersedes it. **Ledger the reversal with both notes cited**, so a future round does
+not read the v0.60 row as still current.
+
+**Do not create a fourth multiplicative category.** It lands in `boosts.mana` with the other
+three. That accumulator being additive is the one thing about RR's mana line that is already
+right, and Part 11 is about not making that mistake anywhere else.
+
+**Pass conditions:** the discovery ships on `petricite` with a crystal cost; **`sparks` still
+carries exactly one mana discovery, asserted by counting** rather than by naming Leyline;
+`boosts.mana` measures **Σ 1.00 exactly** with all four held, on a settlement with **zero
+arcanists** — the only fixture that distinguishes a global boost from a job-scoped one; the
+ledger row records four members against the source's two and cites both of Jerry's notes; mana
+production reported at each milestone.
 
 ---
 
@@ -475,7 +532,142 @@ no-undo hunt; **the property is read from the expedition, not branched on id.**
 
 ---
 
-## Part 10 — Order, discipline, pass conditions
+## Part 10 — Post-Sparks discoveries take Hextech Crystals (dev note 4, new)
+
+**Measured: 33 discoveries sit on techs at or after Sparks, and only 4 of them — 12% — cost
+crystals.** Three of those four are the Manufactory line v0.59.1 repriced. So after Sparks, the
+game's signature Era-3 resource is almost absent as a research currency.
+
+**And this is the source's own pattern, not an RR invention.** A census of `js/workshop.js`:
+**106 of Kittens' 171 priced workshop upgrades — 62% — carry a scarce converted or crafted
+component** (titanium, unobtainium, eludium, alloy, blueprint, starchart, concrate, thorium).
+`astrolabe` is titanium 5 + science 25,000 + starchart 75; `titaniumMirrors` is titanium 15 +
+science 20,000 + starchart 20; `unobtainiumReflectors` is unobtainium 75 + science 250,000 +
+starchart 750. **Kittens prices its late upgrades in a scarce converter output as a matter of
+course, and RR's crystals are exactly that shape** — a converter product, capped, mid-tier.
+Titanium is even produced the same way: `titaniumPerTickAutoprod: 0.0005` on the Calciner.
+
+**Bring RR from 12% to roughly the source's 62%** — about twenty of the thirty-three.
+
+### 10.1 This is also the crystal sink the project has been looking for since v0.58.1
+
+**Three rounds have tried to make crystals scarce by raising a per-tick burn and all three
+failed**, most recently at 96.2% time-at-cap after a ×6 on `MANUFACTORY_FUEL`. §24's own
+classification says why: **crystals are a stock with no lumpy sink**, and a smooth per-tick burn
+against a large faucet is a rounding error at every scale.
+
+**A research cost is a lumpy sink, and lumpy sinks are what move a stock's time-at-cap.** It
+draws the stockpile down in single large bites at exactly the moment the player has banked it,
+and it does so without touching a production constant. **Report crystals-at-cap before and after —
+this is the measurement three rounds of fuel changes could not produce.**
+
+### 10.2 Sizing
+
+**Scale the crystal component with the tech's knowledge rung**, so it stays meaningful as income
+grows rather than being trivial by Icathia:
+
+```
+crystals ≈ round( K / 100 )      // K = the tech's knowledge price
+```
+
+which gives 200 at Sparks (20,000), 650 at Petricite (65,000), 1,000 at Deep Works (100,000),
+1,350 at Icathia (135,000). **The four discoveries that already cost crystals keep their current
+figures** — Pressure Regulators 600, The Rolling Press 450, The Automated Workshop 900,
+Hexresonance 80 — because those were sized deliberately at v0.59.1 and re-deriving them would
+discard that work.
+
+**Do not add crystals to every discovery.** The ones that should carry it are those whose fiction
+is hextech or industry; the timber and stone lines should stay on their own chains, exactly as
+Kittens leaves `barges` on blueprint+titanium but keeps its catnip upgrades on catnip. **State
+which twenty were chosen and why**; a rule that hits all thirty-three is a tax, not a sink.
+
+**Pass conditions:** post-Sparks discoveries carrying crystals rises from **4 to ~20**, the share
+reported against the source's 62%; the rung-scaled rule stated and applied; the four existing
+figures unchanged; **crystals-at-cap and crystal time-at-cap reported before and after at every
+milestone**; total crystals spent on research reported as a share of crystals produced.
+
+---
+
+## Part 11 — RULING REQUESTED: the multiplicative category count (Jerry's question)
+
+**Jerry asked whether RR's multiplicative categories can be made additive, what that would do,
+and whether RR can keep them and still resemble Kittens. This Part carries the measurement so he
+can rule; it ships nothing on the analyzer's say-so (§16).**
+
+### 11.1 What RR actually multiplies
+
+Measured on a state with every tech, every upgrade, every drake maxed, all ten champions at level
+10, full worship and thirty of every monument building:
+
+| stack | terms | product | **if collapsed to one additive category** |
+|---|---|---|---|
+| `global` | `catMonument` ×4.30 · `catReligion` ×1.195 · `catPolicy` ×1.00 · `catMeta` ×1.25 · `catBuff` ×1.00 | **×6.42** | ×4.75 |
+| `convMult` | infernal ×1.495 · clockworkBellows ×1.25 · bankedCoals ×1.15 · resonanceCoils ×1.25 · overseer ×2.00 | **×5.37** | ×3.15 |
+| **combined** | | **×34.51** | **×14.92** |
+
+**A converter output passes through roughly eleven multiplicative factors.** Collapsing all of
+them into a single additive category gives **×6.89 against the current ×34.51 — the shipped stack
+is 5.0× a fully additive one.**
+
+### 11.2 The answer to "can we, and should we"
+
+**Yes mechanically — but "make it all additive" is the wrong target, because Kittens is not
+additive either.** `game.js:3409–3440` multiplies four categories against each other:
+`<res>GlobalRatio`, `<res>Ratio`, `<res>RatioReligion`, `<res>SuperRatio`, with `<res>JobRatio`
+added into village production before them. **Kittens' Law as this project states it — additive
+within a category, multiplicative between — is literally the source's code.**
+
+**The divergence is the CENSUS, not the principle.** In Kittens, for any given resource, **one or
+two of those four categories are live** — `<res>GlobalRatio` has 2 members in the whole game,
+`<res>SuperRatio` has 1, `<res>RatioReligion` has 2 keys. For most resources the only non-empty
+category is `<res>Ratio`, and it reaches **×3.70** (`calcinerRatio`) to **×5.35** (`barnRatio`).
+
+> **RR's combined ×34.5 is 9.3× the source's single live conversion category.** Not because any
+> RR number is large — the three conversion Discoveries are at **49% of the source's** (Part 1) —
+> but because **RR gives each individual upgrade, drake, champion system and buff its own
+> category.** Kittens has categories that are *kinds of effect*; RR has categories that are
+> *individual effects*.
+
+### 11.3 The move that is actually available
+
+**Group RR's eleven factors into four source-shaped categories** — buildings/monuments, religion,
+meta/prestige, and one "upgrades and systems" category holding the conversion Discoveries, drakes
+and champion affinities additively:
+
+| | product |
+|---|---|
+| shipped | ×34.51 |
+| **four source-shaped categories** | **×20.20 — a 41% cut** |
+| fully additive (one category) | ×6.89 — an 80% cut |
+
+**What it would do to the game, stated honestly:**
+
+- **It is a late-game change only, and that is a feature.** Early on almost every factor is 1.0,
+  so a product and a sum are the same number. The gap opens only as the stack fills. **The first
+  two hours — Part 2's problem — do not move at all.**
+- **It compresses the dynamic range**, which is the deeper reason Kittens *feels* different: in
+  the source, late numbers grow because you own **more buildings** (linear in count), not because
+  multipliers compound. RR currently gets both.
+- **It would lengthen Era 3, and Era 3 is already lengthening.** 785.9 → 1,172.5 over one round.
+  A 41% cut to late production plausibly puts Era 3 back into the **1,400–2,300 band Jerry
+  retired at v0.59** — which may be welcome or may not, but it is the consequence and it must be
+  measured, not assumed. **This is the single largest pacing lever anyone has proposed in this
+  project and it should not ship in the same round as Part 2's ladder re-price.**
+
+**Recommendation: rule the principle now, ship it in its own round.** The principle — *a category
+is a kind of effect, not an individual effect, and RR targets four* — is a standing ruling worth
+having. The implementation is a round of its own with the ensemble to itself, because it moves
+every production number in the game and nothing else in v0.61 should be entangled with it.
+
+**Pass conditions for THIS round:** the measurement above recorded in `STANDING-RULINGS.md` as an
+open question with its figures; **no category collapsed this round**; a ledger row naming the
+eleven-factor stack as a standing structural divergence with the ×9.3 comparison; Part 1's
+additive-Discoveries change is the *only* composition change that ships, and it is inside a single
+category rather than across them.
+
+---
+
+## Part 12 — Order, discipline, pass conditions
 
 ### Order
 
@@ -486,9 +678,11 @@ no-undo hunt; **the property is read from the expedition, not branched on id.**
 3. **Part 5** — the renown economy, all three notes in one slice. **They do not decompose:** 5.1
    cuts and 5.2 adds, and a prefix with only one measures a game that will not ship.
 4. **Part 6** — trade. 6.1 is a real balance change; 6.2–6.4 are corrections and ride along.
-5. **Parts 7, 8, 9** — the knowledge split, the mana discovery, the undo guard.
-6. **Parts 3, 4** — the ledger argument pass and the learning-rate rows. Rows and rulings; no
-   game numbers move.
+5. **Parts 7, 8, 9, 10** — the knowledge split, the mana rung on Petricite, the undo guard, and
+   the crystal research costs. **Part 10 wants its own measurement slice**: it is the first
+   credible crystal sink and its effect on time-at-cap is the round's cleanest result.
+6. **Parts 3, 4, 11** — the ledger argument pass, the learning-rate rows, and the category-count
+   measurement. **Rows and rulings; no game numbers move, and Part 11 explicitly ships nothing.**
 
 ### Operational
 
@@ -518,8 +712,12 @@ before sizing any ceiling. Strip comments before grepping. **Clone Kittens; pin 
 | 16 | Knowledge line | three distinct effects; Σ0.06; `crossReferencing` keeps the source pairing; `greatIndex` on `sparks` |
 | 17 | Mana | Σ **1.00** exactly, zero arcanists; ledger row records four members vs the source's two and the reversal |
 | 18 | Undo | `noUndo: true` read from the expedition; re-roll penalty asserted clean |
-| 19 | Unchanged | `capFamilyOf()` two families · audits 0/0 · Σ 4.35/1.80 · `CONSUMPTION` 4.25 · ratio 1.17647 · `XP_PER_SECOND` 0.05 |
-| 20 | Every Part | actioned, or its non-action explicitly justified |
+| 19 | Post-Sparks crystal costs | 4 → **~20** discoveries; share reported vs the source's 62%; rung-scaled rule stated; the four existing figures unchanged |
+| 20 | Crystals | **time-at-cap and crystals-at-cap before and after**, every milestone; research spend as a share of production |
+| 21 | Sparks mana discoveries | **exactly one**, asserted by count |
+| 22 | Category count | measurement recorded in `STANDING-RULINGS.md` as an open question; ledger row with the ×9.3 comparison; **no category collapsed this round** |
+| 23 | Unchanged | `capFamilyOf()` two families · audits 0/0 · Σ 4.35/1.80 · `CONSUMPTION` 4.25 · ratio 1.17647 · `XP_PER_SECOND` 0.05 |
+| 24 | Every Part | actioned, or its non-action explicitly justified |
 
 ### Predicted vs measured — medians of three, with spreads
 
@@ -531,6 +729,7 @@ before sizing any ceiling. Strip comments before grepping. **Clone Kittens; pin 
 | s3: renown (5.1 cut + 5.2 festival) | **−20 to +60** | may widen | champions are threshold crossings on a bursty resource — the v0.60 decomposition showed this channel carries 59.5% of the spread |
 | s4: trade (uncapped additive + provisions cost) | **−60 to +80** | | two changes in opposite directions; **the sign is genuinely unknown** |
 | s5: knowledge split + mana + undo | **−40 to −10** | unchanged | a higher knowledge ceiling pulls late techs forward |
+| s6: crystal research costs | **+20 to +90** | unchanged | ~20 discoveries gain a real price at the rung they sit on; **the first change that should move crystals-at-cap off 96%** |
 | **shipped** | **950–1,200** | **report it against ×1.92** | |
 
 **The spread is still the open question and Part 2 is the term most likely to move it.** v0.60

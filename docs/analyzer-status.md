@@ -25,7 +25,7 @@ table wins.
 | Previous build | **v0.59.1**, tagged `v0.59.1` — an OFF-CYCLE round built from Jerry's eight gameplay notes (`OFF-CYCLE-PROTOCOL.md`) |
 | Last consumed spec | **`docs/specs/rr-analyzer-v060-spec.md`** (consumed by v0.60; moved out of the root, not copied) |
 | Last consumed dev notes | `docs/specs/rr-devnotes-v0.59.1.md` (consumed by v0.59.1) |
-| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.61, "the converter stack is at HALF the source's upgrade line, and the early ladder is where the debt actually lives".** Written against the `v0.60` tag; carries five builder notes and eleven of Jerry's dev notes. |
+| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.61**, twelve Parts. Carries five builder notes, **all eleven of Jerry's dev notes (mapping table at the spec's head)**, and his four follow-up updates. **Part 11 requests a ruling and ships nothing** — the multiplicative category count. |
 | Live suites | **31 suites, 1,566 `check()` call sites, 1,615 assertions executed, all passing**, under `node tools/run-suites.mjs --selftest`. **The dying-suite class is closed** — every suite prints a `SUITE-END` trailer and the runner fails the round on a missing one, on a non-zero exit at `failed=0`, and on fewer assertions executed than call sites. **Do not run suites with a shell loop that scrapes "N passed"**; that is what hid two dead suites for a round. |
 | Parity ledger | **226 rows — PARITY 72, EASIER 41, HARDER 2, UNVERIFIED 111.** PARITY +9 / UNVERIFIED −9, all from Part 8's retrieval pass against a local clone. |
 | Cap families | **TWO, not three.** `SCHOLAR_CAPS` was deleted at v0.59 Part 5.3. `capFamilyOf()` returns `exempt` / `masonry` / null. Do not re-add a third. |
@@ -213,6 +213,69 @@ across four**, against the source's two.
 
 **The three-seed ensemble was launched at the start of the session and had not finished at
 hand-off.** Every Era-3 and milestone figure in the v0.61 spec is v0.60's own, labelled as such.
+
+### v0.61 spec revised — Jerry's four updates, and the category-count question
+
+**All eleven dev notes from the previous round are in the spec**, with a mapping table at its
+head so none can be lost. The four updates:
+
+- **XP rate → 0.05/s: already shipped at v0.60** (`index.html:3235`). **But Jarvan cannot
+  mitigate the early ladder and the arithmetic is not close.** One game-year is
+  `0.2s × 10 × 100 × 4 = 800 s = 13.33 real minutes`. The first rank rung (350 XP at 0.05/s) is
+  **1.94 real hours**; the first champion, at v0.60's three-seed median of y106, is **23.6 real
+  hours** — and Jarvan is one champion of ten, so usually later still. **He arrives ~12× too late
+  to touch the span the ×3.50 debt covers.** Part 2 stands.
+- **Only one mana discovery on Sparks.** Confirmed: `leylineCalibration` is already
+  `tech: "sparks"` (`:2293`), so the first draft would have put two there. The fourth rung moves
+  to **Petricite Masonry** (`:1098`, 65,000 knowledge), cost `{ crystals: 400, hexgear: 25 }`.
+- **The cargo-slot message was already specified** (Part 6.2) with the wrong test named.
+- **Post-Sparks discoveries take crystals — new Part 10, and it is the best-shaped crystal sink
+  the project has found.**
+
+### The crystal sink, finally the right shape
+
+**Measured: 33 discoveries sit on techs at or after Sparks and only 4 — 12% — cost crystals**,
+three of them the Manufactory line. **Kittens prices 106 of its 171 workshop upgrades — 62% — in
+a scarce converted or crafted resource** (titanium, unobtainium, eludium, alloy, blueprint,
+starchart): `astrolabe` titanium 5, `titaniumMirrors` titanium 15, `unobtainiumReflectors`
+unobtainium 75. **Titanium is produced the same way RR's crystals are** — a converter autoprod
+output (`titaniumPerTickAutoprod: 0.0005` on the Calciner). **So this is the source's own
+upgrade-pricing pattern, not an RR invention.**
+
+**And it is the sink three rounds of fuel changes could not produce.** §24 says why: crystals are
+a **stock with no lumpy sink**, and a smooth per-tick burn against a large faucet is a rounding
+error at every scale — hence 96.2% time-at-cap after a ×6 on `MANUFACTORY_FUEL`. **A research
+cost is lumpy by construction.** Part 10 requires crystals-at-cap reported before and after.
+
+### The category-count question, measured — Part 11, ruling requested
+
+**Jerry asked whether RR's multiplicative categories can be made additive.** Measured on a fully
+maxed state:
+
+| stack | product | collapsed to one additive category |
+|---|---|---|
+| `global` (monument ×4.30 · religion ×1.195 · policy ×1.00 · meta ×1.25 · buff ×1.00) | **×6.42** | ×4.75 |
+| `convMult` (infernal ×1.495 · 3 Discoveries ×1.797 · overseer ×2.00) | **×5.37** | ×3.15 |
+| **combined** | **×34.51** | **×14.92** — and ×6.89 if every factor collapses into one |
+
+**The answer is that "make it additive" is the wrong target, because Kittens is not additive
+either.** `game.js:3409–3440` multiplies four categories against each other. **Kittens' Law as
+this project states it is literally the source's code.**
+
+**The divergence is the CENSUS, not the principle.** In Kittens one or two categories are live
+per resource — `<res>GlobalRatio` has 2 members in the whole game, `<res>SuperRatio` 1 — and the
+usual single live category reaches **×3.70** (`calcinerRatio`) to **×5.35** (`barnRatio`).
+**RR's combined ×34.5 is 9.3× the source's single live conversion category** — not because any RR
+number is large (its three conversion Discoveries are at **49%** of the source's) but because
+**RR gives each individual upgrade, drake, champion system and buff its own category. Kittens'
+categories are kinds of effect; RR's are individual effects.**
+
+**Grouping RR's eleven factors into four source-shaped categories gives ×20.20 — a 41% cut**,
+falling entirely on the late game because early factors are all 1.0. **It would plausibly put
+Era 3 back inside the 1,400–2,300 band retired at v0.59.** That makes it the largest pacing lever
+anyone has proposed here, so Part 11 **ships nothing**: it records the measurement, asks Jerry to
+rule the principle, and recommends the implementation get a round of its own with the ensemble to
+itself.
 
 ## v0.60 — the analyzer's verification pass
 
