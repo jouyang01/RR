@@ -260,7 +260,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.60";
+var VERSION = "v0.61";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -319,7 +319,7 @@ var CONSUMPTION = 4.25, OFFLINE_CAP_HOURS = 12;
 // The multiplier applied to every provisions COST and CAP in the same slice as the rate
 // change above. Without it, multiplying production and consumption by ten while every
 // provisions price stays fixed would make every provisions price one-tenth as expensive in
-// real time — silently trivialising the Storehouse, the Harbor, the Longhouse, the Training
+// real time — silently trivializing the Storehouse, the Harbor, the Longhouse, the Training
 // Ground, the Bard's Hearth and two Discoveries. `test-v55` asserts the full enumeration, so
 // a provisions price added later cannot be left on the old scale.
 var PROVISIONS_SCALE = 10;
@@ -1059,7 +1059,7 @@ var BUILDINGS = [
     lore: "Trophies, banners, a mural nobody remembers commissioning, and a bard who won't stop.",
     effect: "Somewhere to hold the Renown your deeds earn.",
     // ========================================================================================
-    // v0.57 PART 1 STEP 2 — THE DEDICATED RENOWN LINE. Jerry pre-authorised it and made the
+    // v0.57 PART 1 STEP 2 — THE DEDICATED RENOWN LINE. Jerry pre-authorized it and made the
     // trigger objective: ship it if, after moving Renown onto the Scholarship line, EITHER the
     // tenth champion is not affordable within 2,500 game-years OR Renown's time-at-cap does not
     // fall below 70%. MEASURED ON THE POST-MOVE BUILD, 1,400 game-years, seed 1:
@@ -1296,7 +1296,7 @@ var TECHS = [
     lore: "The settlement starts remembering itself in song.",
     effect: "Culture becomes a resource."},
   { id: "mining", name: "Mining", cost: { knowledge: 500 }, req: "woodcraft",
-    lore: "Follow the seam, and stop apologising for the hole.",
+    lore: "Follow the seam, and stop apologizing for the hole.",
     effect: "Ore and Stone Slabs become resources."},
   { id: "trade", name: "Trade Routes", cost: { knowledge: 1200 }, req: "mining",
     lore: "Caravans to Piltover, the Freljord, Bilgewater — and Noxus, if you dare.",
@@ -1382,10 +1382,35 @@ var TECHS = [
     lore: "Where the world was broken, something waits."},
 
   // ---- Era 2 -> Era 3 bridge (v0.42 Part 1.3): the last x14.3 cliff ----
-  { id: "championsRegimen", name: "The Champions' Regimen", cost: { knowledge: 28000 }, req: "callToArms",
-    lore: "Somebody has to organise the heroes, and it is never the heroes."},
-  { id: "deepCartography", name: "Deep Cartography", cost: { knowledge: 35000 }, req: "callToArms",
-    lore: "Maps of places the maps did not have."},
+  // v0.61 DEV NOTE 4 (Jerry): "Combine the researches (Deep Cartography and Champion's Regiment)
+  // into 1 research that unlocks both discoveries (Standing Orders and Surveyed Approaches).
+  // Name it something that makes sense."
+  //
+  // THE MERGE. The two were structurally identical and neither justified its own rung: each was
+  // a `callToArms` child costing knowledge and nothing else, and each unlocked EXACTLY ONE
+  // discovery. Two rungs that each open one leaf is a ladder with a landing on it.
+  //
+  // THE NAME. Both discoveries are about PREPARING A DEED rather than doing one — Standing
+  // Orders drills the champions so training costs less renown, Surveyed Approaches maps the
+  // route so the wilds cost less vigor. Drill and route-finding are the two halves of the same
+  // written practice, so: THE VANGUARD DOCTRINE. It names what the tech is for rather than
+  // splitting the difference between two old names.
+  //
+  // THE PRICE, and it is the only judgement here. It replaces 28,000 + 35,000 = 63,000.
+  //   * It must cost MORE than either alone (35,000) — it delivers both.
+  //   * It must cost LESS than the first Sparks child (`hexdraulics`, 50,000), or a `callToArms`
+  //     child would resolve after techs that sit a full rung above it and the bridge would stop
+  //     being a bridge.
+  // The window is (35,000, 50,000) and 45,000 is its centre, rounded to the ladder's own
+  // granularity. **The player saves 18,000 knowledge, and that saving is the point of the note.**
+  // Part of it is recovered where it belongs — DEV NOTE 3 puts a knowledge component on both
+  // discoveries this tech unlocks, so the cost moves from the rung to the leaves rather than
+  // vanishing. See `standingOrders` and `surveyedApproaches`.
+  //
+  // STANDING-RULINGS §30: `championsRegimen` and `deepCartography` are RESERVED IDS for as long
+  // as their migration exists, and that migration RETIRES AT v1.0.
+  { id: "vanguardDoctrine", name: "The Vanguard Doctrine", cost: { knowledge: 45000 }, req: "callToArms",
+    lore: "Drill the heroes, map the road. The two halves of arriving anywhere on purpose."},
 
   // ---- Era 3 interstitials (v0.42 Part 1.3) ----
   { id: "hexdraulics", name: "Hexdraulics", cost: { knowledge: 50000, beam: 40 }, req: "sparks",
@@ -2032,15 +2057,89 @@ function buyWtech(id) {
 // academy 500/0.20, observatory 1000/0.25, hexLab 1500/0.35 against library 250/0.1, academy
 // 500/0.2, observatory 1000/0.25, biolab 1500/0.35), so the Archive IS the Library and takes
 // the ratio; the Observatory IS the Observatory and does the scaling.
-var ARCHIVE_RATIO_LINE = [["cataloguing", 0.02], ["crossReferencing", 0.02], ["greatIndex", 0.02]];
-function archiveRatioTotal() {
+// v0.61 PART 1 — DECLARED HERE, ABOVE `var UPGRADES`, NOT NEXT TO THE CODE THAT USES IT.
+// The three Discoveries' button text is generated from this line by `convDiscDesc()`, which is
+// called while the UPGRADES array literal is being built. A `var` declared AFTER that array but
+// read INSIDE it is `undefined` at load — not an error, just a blank page. That has cost this
+// project a round before and it is operational rule 11. The full argument for the line — why
+// additive, and why the v0.60 ×19.77 figure was two categories multiplied — is at
+// `convMultBreakdown()` below.
+var CONV_DISCOVERY_LINE = [
+  ["clockworkBellows", 0.25],
+  ["bankedCoals",      0.15],
+  ["resonanceCoils",   0.25]
+];
+function convDiscoveryTotal() {
   var t = 0;
-  ARCHIVE_RATIO_LINE.forEach(function (u) { if (S.upgrades[u[0]]) t += u[1]; });
+  CONV_DISCOVERY_LINE.forEach(function (u) { if (S.upgrades[u[0]]) t += u[1]; });
   return t;
 }
-function archiveRatioOf(id) {
-  for (var i = 0; i < ARCHIVE_RATIO_LINE.length; i++) if (ARCHIVE_RATIO_LINE[i][0] === id) return ARCHIVE_RATIO_LINE[i][1];
+function convDiscoveryOf(id) {
+  for (var i = 0; i < CONV_DISCOVERY_LINE.length; i++) if (CONV_DISCOVERY_LINE[i][0] === id) return CONV_DISCOVERY_LINE[i][1];
   return 0;
+}
+// ============================================================================
+// v0.61 PART 7 / DEV NOTE 2 (Jerry): "Cataloguing and The Great Index unlock together and do
+// the same thing; the Great Index should move to Sparks."
+//
+// **BOTH COMPLAINTS WERE EXACT.** All three upgrades contributed 0.02 to the SAME line —
+// Observatories raising the Archive's knowledge cap — so they were literally one effect bought
+// three times; and `greatIndex` sat on `callToArms` beside `crossReferencing`'s `ritesOfTargon`,
+// which is why two of the three arrived together.
+//
+// THE SHAPE IS THE SOURCE'S AND IT IS KEPT. Kittens ships exactly one "a building's count
+// amplifies another building's science max" pairing — **Observatory -> Library**,
+// `js/buildings.js:579-580` @ `c52985b`:
+//
+//     effects["scienceMax"] *= (1 + observatory.on * libraryRatio)
+//
+// fed by three upgrades at `libraryRatio: 0.02` each. RR's `archive` IS the Library analogue and
+// its `observatory` IS the Observatory analogue, so RR already held the source's pairing exactly.
+//
+// **SO THE MIDDLE UPGRADE KEEPS THE ORIGINAL JOB, NOT THE FIRST.** `crossReferencing` retains
+// Observatory -> Archive, which is the literal source pairing, so the ledger keeps a GENUINE
+// PARITY row instead of trading it away for three RR-original ones. The other two are re-aimed:
+//
+//     cataloguing       ritesOfTargon   ACADEMIES     raise the ARCHIVE's knowledge cap
+//     crossReferencing  ritesOfTargon   OBSERVATORIES raise the ARCHIVE's knowledge cap  <- source
+//     greatIndex        sparks          OBSERVATORIES raise the ACADEMY's knowledge cap
+//
+// **Sigma STAYS 0.06 ACROSS THREE UPGRADES** — Kittens' three-reflector total, taken and not
+// tuned. The magnitude parity is preserved EXACTLY; only the pairings change. The two new
+// pairings are shape-PARITY and pairing-RR-ORIGINAL: the mechanism is the source's, the choice
+// of which building amplifies which is RR's, and the ledger says so rather than claiming full
+// parity.
+//
+// PREDICTED BEFORE RUNNING: the Academy->Archive term is the largest of the three in practice,
+// because RR builds more academies than observatories.
+var KNOWLEDGE_AMP_LINE = [
+  { id: "cataloguing",      ratio: 0.02, scaler: "academy",     target: "archive" },
+  { id: "crossReferencing", ratio: 0.02, scaler: "observatory", target: "archive" },   // the source's own pairing
+  { id: "greatIndex",       ratio: 0.02, scaler: "observatory", target: "academy" }
+];
+// Kept as an alias so nothing that reads the old name silently reads nothing. It is the same
+// three upgrades and the same three ratios; what changed is that each now names its own pair.
+var ARCHIVE_RATIO_LINE = KNOWLEDGE_AMP_LINE.map(function (u) { return [u.id, u.ratio]; });
+// The amplifier for ONE target building: Sigma of the held upgrades aimed at it, each scaled by
+// the count of ITS OWN scaler. Three distinct effects, one accumulator per target, additive
+// within the target and multiplicative against everything else — Kittens' Law, unchanged.
+function knowledgeAmpFor(targetId) {
+  var t = 0;
+  KNOWLEDGE_AMP_LINE.forEach(function (u) {
+    if (u.target === targetId && S.upgrades[u.id]) t += u.ratio * count(u.scaler);
+  });
+  return t;
+}
+function knowledgeAmpSigma() {
+  return KNOWLEDGE_AMP_LINE.reduce(function (a, u) { return a + u.ratio; }, 0);
+}
+function archiveRatioOf(id) {
+  for (var i = 0; i < KNOWLEDGE_AMP_LINE.length; i++) if (KNOWLEDGE_AMP_LINE[i].id === id) return KNOWLEDGE_AMP_LINE[i].ratio;
+  return 0;
+}
+function knowledgeAmpDef(id) {
+  for (var i = 0; i < KNOWLEDGE_AMP_LINE.length; i++) if (KNOWLEDGE_AMP_LINE[i].id === id) return KNOWLEDGE_AMP_LINE[i];
+  return null;
 }
 // ---- The Astrolabe family: +50% held, per copy, on one building ----
 // Kittens' Astrolabe (js/workshop.js:1436-1448) carries `effects: {}`; its entire effect lives
@@ -2104,8 +2203,8 @@ function hoeMult() { return 1 + lineSum(HOE_LINE); }    // ×1.55 at the full li
 function axeMult() { return 1 + lineSum(AXE_LINE); }   // x4.20 at the full line
 function sawSum()  { return lineSum(SAW_LINE); }       // 0.95 at the full line
 // Per-copy job boost for a building, after the saw line and the minerals upgrades.
-// Generalised deliberately: v0.44 hard-coded the Hexdraulic amplifier on a building id
-// and left a warning not to add a second such branch. This is that generalisation.
+// Generalized deliberately: v0.44 hard-coded the Hexdraulic amplifier on a building id
+// and left a warning not to add a second such branch. This is that generalization.
 function jobBoostPerCopy(b, job) {
   var v = (b.jobBoost && b.jobBoost[job]) || 0;
   if (!v) return 0;
@@ -2161,6 +2260,15 @@ function hoeDesc(id) {
   return "Farmers +" + Math.round(v * 100) + "%.";
 }
 // Masterwork Tools is the one upgrade that sits in two lines, so it generates from both.
+// v0.61 PART 1 — the three conversion Discoveries describe themselves from CONV_DISCOVERY_LINE,
+// so a reprice cannot leave a stale percentage on a button. They are ADDITIVE with each other:
+// the wording says "adds", not "increases by", because three of these held is +65%, not +80%.
+function convDiscDesc(id, extra) {
+  var v = convDiscoveryOf(id);
+  return (extra ? extra + " " : "") + "Adds +" + Math.round(v * 100) +
+    "% to converter output (Forge, Refinery and every worked converter). The conversion " +
+    "Discoveries add together rather than compounding.";
+}
 function masterworkDesc() {
   var av = 0, hv = 0;
   AXE_LINE.forEach(function (u) { if (u[0] === "masterworkTools") av = u[1]; });
@@ -2280,7 +2388,7 @@ var CULTURE_FIXED_MULT = 1.05;
 // v0.56 PART 5 — THE STORAGE-SCOPE RESTRUCTURE.
 //
 // RR ran ONE MULTIPLICATIVE CHAIN across twelve resources:
-//   masonryMult = 1.75 x 1.8 x 2 x 2 x 1.75 = x22.05 nominal (x12.6 realised, because
+//   masonryMult = 1.75 x 1.8 x 2 x 2 x 1.75 = x22.05 nominal (x12.6 realized, because
 //   voidwardStores has never been researched in any measured run)
 // and that is wrong in two independent ways at once.
 //
@@ -2449,12 +2557,17 @@ function poppyLeadDesc() {
 // in this file: the prose is computed from the same tables the code reads, so a tooltip cannot
 // outlive the effect it describes — which is exactly what happened to this line at v0.58.
 function scholarEffect(id, numeral) {
-  var ar = archiveRatioOf(id);
-  if (ar) {
+  // v0.61 PART 7 — the string names ITS OWN pairing rather than hard-coding
+  // "Observatory -> Archive" for all three, which is what made the three read as one effect.
+  var amp = knowledgeAmpDef(id);
+  if (amp) {
     // NO LIVE STATE IN THIS STRING. `effect:` is evaluated when the UPGRADES array is built,
     // which is before S exists — a count() here takes the whole page down, and did once.
-    return "Scholarship " + numeral + " — every Celestial Observatory raises the Archive's " +
-      "knowledge capacity by a further " + Math.round(ar * 1000) / 10 + "%.";
+    var nameOf = function (bid) { var bb = BUILDINGS.find(function (x) { return x.id === bid; }); return bb ? bb.name : bid; };
+    var plural = function (nm) { return /y$/.test(nm) ? nm.slice(0, -1) + "ies" : nm + "s"; };
+    return "Scholarship " + numeral + " — every " + nameOf(amp.scaler) + " raises the " +
+      nameOf(amp.target) + "'s knowledge capacity by a further " +
+      Math.round(amp.ratio * 1000) / 10 + "%. (" + plural(nameOf(amp.scaler)) + " -> " + nameOf(amp.target) + ")";
   }
   var bld = ASTROLABE_LINE[id];
   if (bld) {
@@ -2480,6 +2593,39 @@ function scholarDesc(id, numeral, flavour) {
 // and a global +30% are not the same claim about the source.
 var LEYLINE_MANA_BOOST = 0.30;
 var TRUE_ICE_MANA_BOOST = 0.20;
+// ============================================================================
+// v0.61 PART 8 / DEV NOTE 3 (Jerry, revised by his own follow-up): "More mana multipliers, one
+// costing hextech crystals" — then: "Only one mana discovery on Sparks; the fourth goes on
+// Petricite Masonry."
+//
+// **THE REVISION WAS RIGHT AND THE FIRST DRAFT WAS WRONG.** `leylineCalibration` is ALREADY on
+// `sparks`, so putting the new rung there too would have given one tech two mana discoveries.
+// One mana discovery per tech, and Sparks keeps Leyline.
+//
+// `petricite` — PETRICITE MASONRY, 65,000 knowledge — is a good home on three counts: it is
+// comfortably after Sparks (20,000); it is the tech whose whole fiction is *stone that drinks
+// magic*; and its own price already runs through the scribal chain, so a mana rung sits with it.
+//
+// **THE ACCOUNTING TRAVELS WITH THE NUMBER.** Kittens' `<res>GlobalRatio` — the only source
+// category with RR's scope — has **TWO members in the entire game, at 0.30 and 0.25.** With
+// this rung `boosts.mana` becomes **Sigma 1.00 across FOUR members**: four against two, and the
+// largest single member is 3.3x the source's largest. That is in the ledger, not buried here.
+//
+// **THIS REVERSES THE v0.60 RULING AND THAT IS ON THE RECORD.** v0.60 §6 logged Jerry's note 5
+// as "hold the line on Mana" and left Sigma 0.75 untouched on that basis. Dev note 3 supersedes
+// it. Both notes are cited in the ledger row so a later round does not read v0.60 as current.
+//
+// **NO FOURTH MULTIPLICATIVE CATEGORY.** It lands in `boosts.mana` with the other three. That
+// accumulator being additive is the one thing about RR's mana line that is already right, and
+// Part 11 is entirely about not making that mistake anywhere else.
+var PETRICITE_MANA_BOOST = 0.25;
+// v0.61 PART 8 — HOISTED ABOVE `var UPGRADES`, and for the reason operational rule 11 names.
+// Petricite Resonators' effect string quotes `BOOST_LIMIT.mana` so the button cannot advertise a
+// figure the ceiling will not deliver; that string is evaluated while the UPGRADES array literal
+// is being built, and a `var` declared after that array but read inside it is `undefined` at
+// load — a blank page, not an error. It has cost this project a round before.
+var BOOST_LIMIT = { devotion: 2.0, culture: 2.0, gold: 1.5, vigor: 1.0, crystals: 2.0,
+                    provisions: 1.5, mana: 1.0 };
 
 var UPGRADES = [
   { id: "runicAttunement", name: "Runic Attunement", cost: { mana: 120 },
@@ -2608,7 +2754,12 @@ var UPGRADES = [
   { id: "crossReferencing", name: "Cross-Referencing", cost: { tome: 5, culture: 800, crystals: 25 }, tech: "ritesOfTargon", req: "cataloguing",
     lore: "The ledgers start citing each other.",
     effect: scholarEffect("crossReferencing", "II")},
-  { id: "greatIndex", name: "The Great Index", cost: { culture: 2000, crystals: 50 }, tech: "callToArms",
+  // v0.61 PART 7 / DEV NOTE 2 — moved from `callToArms` to `sparks` (20,000 knowledge + steel
+  // 200), which separates it from `crossReferencing`'s `ritesOfTargon` by a full era. It is now
+  // the OBSERVATORY -> ACADEMY pairing; `crossReferencing` keeps the source's own
+  // Observatory -> Archive. Its knowledge component reprices itself from the new rung
+  // (DISCOVERY_KNOWLEDGE_SET, K/10: 1,500 -> 2,000).
+  { id: "greatIndex", name: "The Great Index", cost: { culture: 2000, crystals: 50 }, tech: "sparks",
     lore: "One catalogue to find them all.",
     effect: scholarEffect("greatIndex", "III")},
   { id: "annotatedIndex", name: "The Annotated Index", cost: { tome: 40, culture: 4000 }, tech: "chemtech",
@@ -2617,10 +2768,15 @@ var UPGRADES = [
   { id: "livingLibrary", name: "The Living Library", cost: { tome: 120, hexcore: 4 }, tech: "deepWorks",
     lore: "The catalogue has started making suggestions.",
     effect: scholarEffect("livingLibrary", "V")},
-  { id: "standingOrders", name: "Standing Orders", cost: { culture: 1400, tome: 10 }, tech: "championsRegimen",
+  // v0.61 DEV NOTES 3 + 4 — both discoveries move onto the merged `vanguardDoctrine`, and both
+  // gain a knowledge component. The merge saved the player 18,000 knowledge at the rung; note 3
+  // ("more, not all, of the discoveries should cost knowledge") puts part of it back at the
+  // leaves, where it is paid per discovery taken rather than as a toll on the whole branch.
+  // 4,500 each = K/10 at the tech's 45,000 rung — see DISCOVERY_KNOWLEDGE_RULE.
+  { id: "standingOrders", name: "Standing Orders", cost: { culture: 1400, tome: 10, knowledge: 4500 }, tech: "vanguardDoctrine",
     lore: "Drill happens whether or not anyone is watching.",
     effect: "Champion training costs 25% less Renown."},
-  { id: "surveyedApproaches", name: "Surveyed Approaches", cost: { parchment: 140, gold: 1000 }, tech: "deepCartography",
+  { id: "surveyedApproaches", name: "Surveyed Approaches", cost: { parchment: 140, gold: 1000, knowledge: 4500 }, tech: "vanguardDoctrine",
     lore: "Knowing the way is most of the walk.",
     effect: wildsVigorDesc(15, false)},
   // v0.52 Part 5.1: 900 -> 1,300 knowledge. It is a BRANCH at Songcraft's own price, not a
@@ -2695,12 +2851,32 @@ var UPGRADES = [
   { id: "petriciteFrames", name: "Petricite Frames", cost: { gear: 60, gold: 2000 }, tech: "hexcore", req: "ironwoodShelters",
     lore: "Petricite frames, cut to a standard nobody has to re-measure.",
     effect: ratioEffect("shelter", "petriciteFrames")},
+  // v0.61 PART 8 — the fourth mana multiplier. The crystal cost is Jerry's own ("one costing
+  // hextech crystals") and the spec's figure of 400. NOTE THE DEVIATION, because Part 10 ships a
+  // rung-scaled rule for crystal costs in the same round: K/100 at petricite's 65,000 rung would
+  // be 650, and this ships 400. The spec names 400 explicitly, so 400 ships; it is the one
+  // post-Sparks crystal figure in the game that does not follow the rule, and it is recorded in
+  // BUILD REPORT §6 rather than silently normalized.
+  // COST DEVIATION FROM THE SPEC, and the project's own audit forced it. The spec authored
+  // `{ crystals: 400, hexgear: 25 }`. **`auditCostGraph()` and `auditRawGraph()` both rejected it:
+  // hexgear is gated on `hexcore` (75,000) and this Discovery unlocks at `petricite` (65,000)**,
+  // so the player would have seen a Discovery a full rung before they could buy it. That is not
+  // a balance disagreement — it is an unbuildable item, and it is exactly the class the audit
+  // exists to refuse. `petriciteBlock` replaces it at the same count: available at this rung,
+  // and it is the stone the Discovery is named for. **The crystal component — the half that is
+  // Jerry's own note — is untouched at 400.**
+  { id: "petriciteResonators", name: "Petricite Resonators", cost: { crystals: 400, petriciteBlock: 25 }, tech: "petricite",
+    lore: "The stone drinks the spell and hums it back, a little louder each time.",
+    effect: "Adds +" + Math.round(PETRICITE_MANA_BOOST * 100) + "% to the mana production line. " +
+      "The mana Discoveries add together and the line as a whole approaches a +" +
+      Math.round(BOOST_LIMIT.mana * 100) + "% ceiling, so with the other three held this one " +
+      "delivers about half of what it adds."},
   { id: "stonecutGuild", name: "Stonecut Guild", cost: { stoneSlab: 150, gold: 800 }, tech: "petricite",
     lore: "The masons finally unionize.",
     effect: ratioEffect("storehouse", "stonecutGuild")},
   { id: "clockworkBellows", name: "Clockwork Bellows", cost: { gear: 5, gold: 200 }, tech: "smelting",
     lore: "A bellows that never gets bored.",
-    effect: "Converter output (Forge, Refinery) +25%."},
+    effect: convDiscDesc("clockworkBellows")},
   { id: "masterworkTools", name: "Masterwork Tools", cost: { gear: 15, steel: 20 }, tech: "smelting",
     lore: "Ornn-forged, grudgingly.",
     effect: masterworkDesc()},
@@ -2713,7 +2889,7 @@ var UPGRADES = [
   // single number on a single resource. Old saves carrying `hexCapacitors` are migrated.
   { id: "resonanceCoils", name: "Resonance Coils", cost: { crystals: 30, gold: 400 }, tech: "hextech",
     lore: "Tune one crystal and the whole workshop starts humming in the same key.",
-    effect: "Crystal production +25%, and every worked converter +25%."},
+    effect: convDiscDesc("resonanceCoils", "Crystal production +25%.")},
   { id: "celestialCharts", name: "Celestial Charts", cost: { crystals: 60, gold: 800 }, tech: "hextech",
     lore: "The stars were keeping time all along. Somebody wrote it down.",
     effect: "All production +10%."},
@@ -2748,7 +2924,7 @@ var UPGRADES = [
   // v0.59.1 NOTE 3 — re-homed from the deleted `kindling` onto `sumpEcology`.
   { id: "bankedCoals", name: "Banked Coals", cost: { steel: 80, stoneSlab: 20 }, tech: "sumpEcology",
     lore: "A fire you never let die is a fire you never rebuild.",
-    effect: "Forge and Refinery output +15%."},
+    effect: convDiscDesc("bankedCoals")},
   { id: "pastureRotation", name: "Pasture Rotation", cost: { provisions: 8000, poros: 40 }, tech: "abyss",   // provisions x10, v0.55 Part 3.3
     lore: "Move them before they eat the field, which they will.",
     effect: "Poro Pastures produce 50% more poros."},
@@ -2812,6 +2988,153 @@ var UPGRADES = [
     lore: "Fractions, condensers, and a great deal of ventilation.",
     effect: "Unlocks the Hextech Refinery."}
 ];
+
+// ============================================================================
+// v0.61 DEV NOTE 3 (Jerry): "Let's have more (not all) of the discoveries cost knowledge."
+//
+// WHERE RR WAS. **10 of 78 Discoveries carried a knowledge component — 13%.** Kittens is the
+// other way round: its workshop upgrades essentially ALWAYS cost science plus materials
+// (`astrolabe` is science 25,000 + titanium 5 + starchart 75; `titaniumMirrors` is science
+// 20,000 + titanium 15 + starchart 20). A Discovery in this game is a piece of LEARNING and
+// almost none of them were priced as one.
+//
+// THE RULE FOR THE AMOUNT: **knowledge = round(K / 10)**, where K is the knowledge price of the
+// tech the Discovery hangs off. Deriving it from the rung rather than authoring 23 literals
+// means a Discovery re-homed onto a different tech reprices itself, and a tech reprice cannot
+// leave its leaves behind. **K/10 is deliberately BELOW the source's own ratio** — Kittens'
+// workshop upgrades routinely cost a quarter to a half of a tech's science — because RR is
+// adding this to an economy that was balanced without it, and the conservative direction is the
+// one that can be raised later on a measurement.
+//
+// THE RULE FOR THE SET, and Jerry said MORE, NOT ALL, so there has to be one. A Discovery takes
+// knowledge when it is a **METHOD** — a technique, a practice, a rite, a way of doing something
+// that someone had to work out. It does NOT when it is an **OUTFIT or a FACILITY** — materials
+// assembled into more of a thing the settlement already has. That is why:
+//   * the AXE and SAW lines are exempt: re-forging a tool in a better metal is a material
+//     outlay, and the metal IS the cost;
+//   * the STORAGE lines are exempt for the same reason — a bigger barn is timber, not insight;
+//   * HOUSING and pure-capacity facilities are exempt;
+//   * everything post-Sparks is exempt HERE, because Part 10 gives that half of the ladder a
+//     HEXTECH CRYSTAL component instead. **A Discovery is not taxed twice for being late.**
+//     The two exceptions are `standingOrders` and `surveyedApproaches`, which take knowledge as
+//     part of DEV NOTE 4's own accounting for the merged research and are priced at that tech's
+//     rung in their own definitions.
+//
+// This takes the game from 10 of 78 to 35 of 78 — **13% to 45%.** More, not all.
+var DISCOVERY_KNOWLEDGE_DIVISOR = 10;
+var DISCOVERY_KNOWLEDGE_SET = [
+  // — methods of working the land and the wilds —
+  "ironPlows", "zauniteDrills", "jessedHawks", "pastureRotation",
+  // — practices of trade and coin —
+  "bilgewaterContracts", "mintedCoin", "letterOfMarque", "ironShodWheels",
+  // — the arcane and the ceremonial —
+  "trueIceCellars", "arcanistsCircle", "harvestRites", "fourPartHarmony",
+  // — the scribal and scholarly line —
+  "scribesGuild", "cataloguing", "crossReferencing", "illuminators", "greatIndex",
+  "tributeReliquaries",
+  // — techniques of the workshop, including two of the three conversion Discoveries —
+  // NOTE `masterworkTools` IS DELIBERATELY ABSENT. It reads as a method, but it is a member of
+  // both AXE_LINE and HOE_LINE — it is a TOOL rung — and the tool lines are exempt without
+  // exception. A rule with one judgement call in it is a rule nobody can apply next round.
+  "clockworkBellows", "resonanceCoils", "celestialCharts", "facetedCuts"
+];
+(function applyDiscoveryKnowledge() {
+  var techK = {};
+  TECHS.forEach(function (t) { techK[t.id] = (t.cost && t.cost.knowledge) || 0; });
+  DISCOVERY_KNOWLEDGE_SET.forEach(function (id) {
+    var u = null;
+    for (var i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].id === id) { u = UPGRADES[i]; break; }
+    // A missing id is a BUG, not a no-op. Silently skipping is how a re-homed Discovery drops
+    // its price and nobody notices for four rounds.
+    if (!u) { console.error("DISCOVERY_KNOWLEDGE_SET names an id that does not exist: " + id); return; }
+    var K = techK[u.tech] || 0;
+    if (!K) { console.error("DISCOVERY_KNOWLEDGE_SET member " + id + " sits on a tech with no knowledge price: " + u.tech); return; }
+    // Never overwrite an authored knowledge cost — the ten that already had one were sized
+    // deliberately in earlier rounds and re-deriving them would discard that work, exactly as
+    // Part 10 leaves its four existing crystal figures alone.
+    if (u.cost.knowledge === undefined) u.cost.knowledge = Math.round(K / DISCOVERY_KNOWLEDGE_DIVISOR);
+  });
+})();
+// ============================================================================
+// v0.61 PART 10 / DEV NOTE 4 (Jerry, this round): "More post-Sparks discoveries should cost
+// Hextech Crystals."
+//
+// WHERE RR WAS. **33 Discoveries sit on techs at or after Sparks and only FOUR — 12% — cost
+// crystals**, three of them the Manufactory line v0.59.1 repriced. After Sparks, the game's
+// signature Era-3 resource was almost absent as a research currency.
+//
+// **THIS IS THE SOURCE'S OWN PATTERN, NOT AN RR INVENTION.** A census of `js/workshop.js` @
+// `c52985b`: **106 of Kittens' 171 priced workshop upgrades — 62% — carry a scarce converted or
+// crafted component** (titanium, unobtainium, eludium, alloy, blueprint, starchart, concrate,
+// thorium). `astrolabe` is titanium 5 + science 25,000 + starchart 75; `unobtainiumReflectors`
+// is unobtainium 75 + science 250,000 + starchart 750. **Kittens prices its late upgrades in a
+// scarce converter output as a matter of course, and RR's crystals are exactly that shape** — a
+// converter product, capped, mid-tier. Titanium is even produced the same way, by the Calciner's
+// `titaniumPerTickAutoprod`.
+//
+// ============================================================================
+// AND THIS IS THE CRYSTAL SINK THE PROJECT HAS BEEN LOOKING FOR SINCE v0.58.1.
+//
+// **Three rounds tried to make crystals scarce by raising a per-tick burn and all three
+// failed** — most recently 96.2% time-at-cap AFTER a x6 on `MANUFACTORY_FUEL`. STANDING-RULINGS
+// §24 says why: **crystals are a STOCK with no lumpy sink**, and a smooth per-tick burn against
+// a large faucet is a rounding error at every scale.
+//
+// **A RESEARCH COST IS A LUMPY SINK.** It draws the stockpile down in single large bites at
+// exactly the moment the player has banked it, and it does so without touching a production
+// constant. This is the measurement three rounds of fuel changes could not produce.
+// ============================================================================
+//
+// THE RULE FOR THE AMOUNT: **crystals = round(K / 100)**, K being the tech's knowledge rung, so
+// the cost stays meaningful as crystal income grows rather than being trivial by Icathia.
+// 200 at Sparks (20,000), 500 at Hexdraulics (50,000), 1,000 at Deep Works (100,000), 1,350 at
+// Icathia (135,000).
+//
+// **THE FOUR THAT ALREADY COST CRYSTALS KEEP THEIR FIGURES** — Pressure Regulators 600, The
+// Rolling Press 450, The Automated Workshop 900, Hexresonance 80. Those were sized deliberately
+// at v0.59.1 and re-deriving them would discard that work.
+//
+// THE RULE FOR THE SET, and it is not all thirty-three, because **a rule that hits everything is
+// a tax and not a sink.** Crystals go on the Discoveries whose fiction is HEXTECH or INDUSTRY.
+// The TOOL lines (axes, saws), the TIMBER and STONE chains, the CULTURE line and the pure
+// KNOWLEDGE line stay on their own materials — exactly as Kittens leaves `barges` on blueprint +
+// titanium while keeping its catnip upgrades on catnip.
+var DISCOVERY_CRYSTAL_DIVISOR = 100;
+var DISCOVERY_CRYSTAL_SET = [
+  // — the hexdraulic and chemtech works —
+  "piltovanCranes", "chemtechSilos", "continuousDraw", "sumpVentilation", "chemBaronTithe",
+  // — the conversion line's own Discovery, which is industry by definition —
+  "bankedCoals",
+  // — the hextech assembly and frame lines —
+  "hexboundJoinery", "petriciteFrames", "atlasGauntletsUp", "hexcreteFrames", "voidwrightFrames",
+  // — the late hextech and voidglass works —
+  "greyScrubbers", "standardHour", "voidglassLenses", "voidwardStores"
+];
+(function applyDiscoveryCrystals() {
+  var techK = {};
+  TECHS.forEach(function (t) { techK[t.id] = (t.cost && t.cost.knowledge) || 0; });
+  DISCOVERY_CRYSTAL_SET.forEach(function (id) {
+    var u = null;
+    for (var i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].id === id) { u = UPGRADES[i]; break; }
+    if (!u) { console.error("DISCOVERY_CRYSTAL_SET names an id that does not exist: " + id); return; }
+    var K = techK[u.tech] || 0;
+    if (!K) { console.error("DISCOVERY_CRYSTAL_SET member " + id + " sits on a tech with no knowledge price: " + u.tech); return; }
+    // Never overwrite an authored crystal cost — see the four above.
+    if (u.cost.crystals === undefined) u.cost.crystals = Math.round(K / DISCOVERY_CRYSTAL_DIVISOR);
+  });
+})();
+function postSparksDiscoveries() {
+  var techK = {};
+  TECHS.forEach(function (t) { techK[t.id] = (t.cost && t.cost.knowledge) || 0; });
+  var sparksK = techK.sparks || 20000;
+  return UPGRADES.filter(function (u) { return u.tech && (techK[u.tech] || 0) >= sparksK; });
+}
+function postSparksCrystalCount() {
+  return postSparksDiscoveries().filter(function (u) { return u.cost && u.cost.crystals !== undefined; }).length;
+}
+function discoveryKnowledgeCount() {
+  return UPGRADES.filter(function (u) { return u.cost && u.cost.knowledge !== undefined; }).length;
+}
 
 // v0.56 Part 5 — the Masonry `effect` strings, DERIVED from BARN_LINE and WAREHOUSE_LINE so
 // they cannot drift from the maths. Each rung states what it adds and what the whole line is
@@ -2935,7 +3258,7 @@ function discoveryEffect(id) {
 // POLICIES — a Culture sink. Permanent, one-time, mutually exclusive within a group.
 // Design rule (per spec): every option in a group is a clean positive of comparable
 // size. The exclusivity exists to say something about your settlement's identity,
-// NOT to create an optimisation puzzle — no option should ever be the "correct" pick,
+// NOT to create an optimization puzzle — no option should ever be the "correct" pick,
 // and skipping a whole group should never meaningfully set a player back.
 // ============================================================
 // ==========================================================================================
@@ -3111,9 +3434,9 @@ function policyGlobalBonus() {
 //
 // THE INTERIM, and the reason for its size. RR banked 1 xp per second worked. v0.54's
 // directive 8 made experience bank PER TRADE, which multiplied a wanderer's total time to
-// mastery by the number of trades they practise — a specialist was unaffected, a generalist
+// mastery by the number of trades they practice — a specialist was unaffected, a generalist
 // paid n times over. 2 xp/s restores a two-trade wanderer's aggregate mastery time to roughly
-// its pre-v0.54 value while leaving the per-trade specialisation intact.
+// its pre-v0.54 value while leaving the per-trade specialization intact.
 //
 //   time to Challenger in ONE trade:  11,500 xp / 1 per s = 3.19 real hours
 //                                     11,500 xp / 2 per s = 1.60 real hours
@@ -3218,7 +3541,7 @@ function policyGlobalBonus() {
 //     var skillXP = (baseSkillXP + game.getEffect("skillXP")) * times;
 //
 // **The base increment is 0.01 per tick, unconditionally, before the Internet upgrade.** The
-// `times`/`frequency` machinery above it is a performance optimisation that PRESERVES the rate
+// `times`/`frequency` machinery above it is a performance optimization that PRESERVES the rate
 // exactly — `frequency` is 1 below 100 kittens, the block early-returns unless
 // `ticks % frequency === 0`, and then `times = frequency`, so the average is 0.01/tick at every
 // population. Kittens ticks 5/s and `TICK_MS = 200` is exact tick parity, so:
@@ -3330,7 +3653,7 @@ function rankProgress(w, job) {                 // 0..1 toward the next rank in 
   var next = RANKS[i + 1];
   return Math.max(0, Math.min(1, (xp - cur.xp) / (next.xp - cur.xp)));
 }
-// Every trade this wanderer has ever practised, best first — the Census card's second line.
+// Every trade this wanderer has ever practiced, best first — the Census card's second line.
 function rankedJobs(w) {
   var out = [];
   for (var j in (w && w.jx) || {}) if (w.jx[j] > 0) out.push({ job: j, xp: w.jx[j], rank: rankOf(w, j) });
@@ -3340,7 +3663,7 @@ function rankedJobs(w) {
 
 // Traits are rolled once on arrival and never change. They apply ALWAYS —
 // regardless of what job the Wanderer is doing, or whether they have one.
-// Magnitudes are seasoning, not a system to optimise around.
+// Magnitudes are seasoning, not a system to optimize around.
 var TRAITS = [
   { id: "scholar",     name: "Scholar",       icon: "◈", per: 0.005,  desc: "Research & Discovery costs −0.5%" },
   { id: "trailblazer", name: "Trailblazer",   icon: "➤", per: 0.005,  desc: "Wilds camp yields +0.5%" },
@@ -3806,7 +4129,7 @@ var EXPEDITIONS = [
   // carrying it and Trade renders it with the same markup and the same handler, so there is
   // one definition and one code path, not two.
   // Cost is FLAT 500 vigor. The old escalating costFn ran 200 x 1.6^(n-1) vigor PLUS
-  // 300 x 1.7^(n-1) provisions, so the fifth civilisation cost 1,311 vigor and 2,505
+  // 300 x 1.7^(n-1) provisions, so the fifth civilization cost 1,311 vigor and 2,505
   // provisions — a wall in front of content the player has already been told exists.
   // v0.58.1 NOTE 35 (Jerry): "Scouting Party should take 1750 Vigor and not have this cost be
   // reduced by anything." 500 -> 1,750, and `noDiscount` makes expCost() skip every reducer.
@@ -3815,9 +4138,12 @@ var EXPEDITIONS = [
   // thing vigor buys, and it should not be quietly cheapened by upgrades bought for other
   // reasons. v0.58's note 14 scoped the Wilds discounts away from this button; this closes the
   // remaining path by making the exemption a property of the expedition rather than of its tab.
-  { id: "scouting", name: "Send a Scouting Party", tech: "trade", renown: 8, cooldown: 900, tab: "trade",
+  // v0.61 PART 5.1 — `renownFlat` EXEMPTS this from RENOWN_PER_VIGOR. At 1,750 vigor the rule
+  // would pay 27 against the authored 8; this is a discovery expedition, not a hunt, and Jerry's
+  // note 9 says hunts. The exemption is a property of the expedition, not a branch in the payout.
+  { id: "scouting", name: "Send a Scouting Party", tech: "trade", renown: 8, renownFlat: true, cooldown: 900, tab: "trade",
     desc: "Somebody out there is still trading. Find them.",
-    yield: "Reveals one undiscovered trading civilisation · a failed party still brings word",
+    yield: "Reveals one undiscovered trading civilization · a failed party still brings word",
     cost: { vigor: 1750 }, noDiscount: true,
     run: function () {
       var found = nextFactionToFind();
@@ -3842,7 +4168,7 @@ var EXPEDITIONS = [
   //   for the 10-minute camps, so the three tiers sit on one line rather than three guesses.
   // Gold pays on success only: a drake that drives the hunters back should not hand out a
   // consolation purse, and the 75% success rate is what makes the expected value honest.
-  { id: "drakeHunt", name: "Drake Hunt", tech: "drakeLore", renown: 15, cooldown: 900,
+  { id: "drakeHunt", noUndo: true, name: "Drake Hunt", tech: "drakeLore", renown: 15, cooldown: 900,
     desc: "Face an elemental drake in its own lair.",
     yield: "75% success — one random drake essence, a permanent settlement-wide bonus · 200–320 gold",
     cost: { vigor: 900, steel: 80, provisions: 9000 },
@@ -3885,7 +4211,7 @@ var EXPEDITIONS = [
   //   are already the largest food ask in the game.
   //   Gold 340-540 on a success = ~22 a cooldown-minute, one notch above the Drake's 17,
   //   which is the right ordering for the harder fight at the longer lockout.
-  { id: "baron", name: "Challenge Baron Nashor", tech: "voidStudies", renown: 40, cooldown: 1200,
+  { id: "baron", noUndo: true, name: "Challenge Baron Nashor", tech: "voidStudies", renown: 40, cooldown: 1200,
     desc: "The great Void-worm beneath the river.",
     yield: "60% success — HAND OF BARON: +25% all production for 20 minutes · 340–540 gold",
     cost: { vigor: 2600, steel: 260, provisions: 20000, knowledge: 200 },
@@ -4021,7 +4347,7 @@ var FACTIONS = [
     run: function (mult) {
       var m = Math.round((900 + Math.floor(Math.random() * 401)) * mult);
       gain("mana", m);
-      addLog("Piltover's aether-carts arrive humming. +" + fmt(m) + " mana, and an invoice itemised to four decimal places.", "trade");
+      addLog("Piltover's aether-carts arrive humming. +" + fmt(m) + " mana, and an invoice itemized to four decimal places.", "trade");
     } },
   { id: "noxus", name: "Noxus", motto: "Strength above all",
     family: "Metal",
@@ -4069,19 +4395,110 @@ var FACTIONS = [
       addLog("Bilgewater hulls unload " + fmt(n) + " Zaun Ore and a good deal else besides, none of it with paperwork.", "trade");
     } }
 ];
+// ============================================================================
+// v0.61 PART 6.1 / DEV NOTE 8 (Jerry): "Does Kittens have a trade yield max?"
+//
+// **RETRIEVED, AND THE ANSWER IS NO — IT HAS NONE.** `js/diplomacy.js:744–747` @ `c52985b`:
+//
+//     var tradeRatio =
+//         1
+//         + this.game.diplomacy.getTradeRatio()
+//         + this.game.diplomacy.calculateTradeBonusFromPolicies(race.name, this.game)
+//         + this.game.challenges.getChallenge("pacifism").getTradeBonusEffect(this.game);
+//
+// and `getTradeRatio()` (`:250`) is `getEffect("tradeRatio") + getEffectLeader("merchant", 0)`.
+// **A PLAIN ADDITIVE SUM WITH NO DIMINISHING RETURN AND NO CEILING.** The tradepost contributes
+// `tradeRatio: 0.015` per copy (`js/buildings.js:1679`), unbounded in count — a hundred
+// tradeposts is +150%. The only `Math.min` anywhere near trade yield is inside the pacifism
+// challenge (`js/challenges.js:326`), which is not base play.
+//
+// **RR CAPPED IT TWICE AND COMPOSED IT MULTIPLICATIVELY.** The shipped form was
+//     (1 + limitedDR(docks, 1.0)) * (1 + limitedDR(0.02 * caravans, 0.60))
+//         * (1 + champion + trait) * policyMult
+// — four multiplicative categories, two of them with hard ceilings, against the source's ONE
+// additive sum. RR was HARDER than the source on trade yield and structurally different from it.
+//
+// **ONE ADDITIVE CATEGORY, UNCAPPED**, which is the source's shape:
+//     1 + docks + caravans + champion + trait + policy
+//
+// WHAT THIS IS NOT: it is not uniformly a buff. **Four multiplicative terms near 1.0 exceed
+// their additive sum**, so at LOW caravan counts — which is exactly where `firstTrade` lives —
+// the additive form is WEAKER. At high counts, where the +60% embassy ceiling used to bind hard,
+// it is much stronger. The sign of the net is genuinely unknown before the ensemble and the
+// report states it either way. **If `firstTrade` regresses, the source's shape is still right
+// and the fix is the magnitudes, not the composition.**
+//
+// `policyMult("trade")` returns a MULTIPLIER (1.0 when no policy is taken), so it joins the sum
+// as `policyMult - 1`. Converting it to an additive term rather than leaving one multiplication
+// in place is the difference between one category and two.
+// ============================================================================
+// DEVIATION FROM THE SPEC, WITH THE MEASUREMENT THAT FORCED IT. READ THIS BEFORE CHANGING IT.
+//
+// The spec asks for "one additive category, UNCAPPED", which is literally the source's code.
+// **Shipped uncapped, RR grows an INFINITE-TIMBER LOOP at a reachable building count.**
+//
+// RR has a closed cycle Kittens does not have: **Demacia trades timber -> steel, Piltover trades
+// steel -> mana, and `transmute` converts mana back into timber.** The circuit's gain is
+// `G = (steel/timber) x (mana/steel) x (timber/mana) x tradeYieldMult^2` — the yield multiplier
+// enters TWICE, once per trade leg — and `test-v41` has asserted `G < 0.8` since v0.41 for
+// exactly this reason. **Kittens' trade has no path back to its own input, so an uncapped
+// `tradeRatio` is safe there and is not safe here.**
+//
+// MEASURED, on this build, sweeping Trade Docks with caravans at half that count:
+//     30 docks /  15 caravans -> x2.365,  G = 0.19
+//    100 docks /  50 caravans -> x4.465,  G = 0.68
+//    **133 docks /  67 caravans -> x5.465,  G = 1.013  <- BREAK-EVEN. Infinite timber past here.**
+//    200 docks / 100 caravans -> x7.465,  G = 1.89
+// **133 Trade Docks is reachable in a 2,500-year run.** This is not a balance disagreement; it
+// is an unbounded resource loop, and the project has had a guard against it for twenty versions.
+//
+// A MAGNITUDE FIX DOES NOT CLOSE IT, which is worth stating because the spec's own instruction
+// was "if it regresses, the fix is the magnitudes, not the composition". Cutting the Trade Dock
+// from RR's 0.02 to the source's own 0.015 per copy only moves the break-even to ~177 docks.
+// **G grows without bound at ANY positive per-copy rate, because the cycle is closed and the
+// multiplier is squared.** Only a ceiling closes it.
+//
+// SO WHAT SHIPS IS THE SPEC'S SUBSTANCE WITH ONE BOUND:
+//   * **ONE ADDITIVE CATEGORY** — docks + caravans + champion + trait + policy, summed, exactly
+//     as `js/diplomacy.js:744-747` sums them. This is the structural half of dev note 8 and it
+//     is the half the spec argues hardest for.
+//   * **ONE CEILING ON THAT CATEGORY**, replacing the TWO ceilings RR had on two of its four
+//     multiplicative categories (+100% on docks, +60% on the embassy). **This is strictly closer
+//     to the source than what RR had: four categories and two bounds becomes one category and
+//     one bound.**
+// `TRADE_YIELD_LIMIT = 3.0` asymptotes the multiplier at x4.0, against the x4.857 at which the
+// circuit breaks even — so G is bounded at ~0.54 at any stack, inside the guard's 0.8 with
+// margin, and above the old form's effective reach for every realistic stack.
+//
+// **IF A FUTURE ROUND WANTS THE SOURCE'S UNCAPPED FORM, IT MUST FIRST BREAK THE CYCLE** — the
+// transmute leg is the one that closes it, and it is RR-original. That is the real finding here
+// and it belongs to the transmute, not to trade.
+var TRADE_YIELD_LIMIT = 3.0;
 function tradeYieldMult(fid) {
-  var docks = limitedDR(bfield("tradeDock", "tradeBoost") * count("tradeDock") + bfield("hexgateBuilding", "tradeBoost") * count("hexgateBuilding"), 1.0);   // Kittens' tradepost is 0.015/copy; asymptote at +100%
-  var embassy = fid ? caravanYieldMult(fid) : 1;
-  return (1 + docks) * embassy * (1 + champPassive("caravan") / 100 + traitBonus("merchant")) * policyMult("trade");
+  return 1 + limitedDR(tradeYieldTerms(fid).reduce(function (a, t) { return a + t.amt; }, 0), TRADE_YIELD_LIMIT);
 }
-// Kittens' race yield carries (1 + 0.02 * energy), where energy is embassy-derived.
-// +2% per caravan, LDR-bounded at +60%: fifteen caravans is +30%, thirty is +52%,
-// and it never runs away.
-function caravanYieldMult(fid) { return 1 + limitedDR(0.02 * caravanCount(fid), 0.60); }
+// The terms, named, because Part 1's lesson is that an unnamed product is how a stack goes two
+// rounds mis-diagnosed. Every caller that wants the number calls `tradeYieldMult`; anything that
+// wants to EXPLAIN the number calls this.
+function tradeYieldTerms(fid) {
+  return [
+    { label: "trade docks & hexgates", amt: bfield("tradeDock", "tradeBoost") * count("tradeDock") +
+        bfield("hexgateBuilding", "tradeBoost") * count("hexgateBuilding") },
+    { label: "caravans on this route", amt: fid ? caravanYieldBonus(fid) : 0 },
+    { label: "champion passive", amt: champPassive("caravan") / 100 },
+    { label: "merchant trait", amt: traitBonus("merchant") },
+    { label: "trade policy", amt: policyMult("trade") - 1 }
+  ];
+}
+// Kittens' race yield carries (1 + 0.02 * energy), where energy is embassy-derived — and the
+// source applies NO bound to it. v0.61 Part 6.1 removes RR's `limitedDR(…, 0.60)` ceiling: the
+// contribution is a flat +2% a caravan and it joins the one additive category above.
+function caravanYieldBonus(fid) { return 0.02 * caravanCount(fid); }
+function caravanYieldMult(fid) { return 1 + caravanYieldBonus(fid); }
 // ============================================================
 // v0.54, DEV DIRECTIVE 10 — MERCHANT FATIGUE IS DELETED.
 //
-// It charged a running −8% per recent trade with the same civilisation, to a floor of ×0.15,
+// It charged a running −8% per recent trade with the same civilization, to a floor of ×0.15,
 // recovering over 90 seconds. Two objections and the second is the real one:
 //
 //  * It has NO Kittens counterpart. The source's trade has a season modifier, a race
@@ -4089,12 +4506,12 @@ function caravanYieldMult(fid) { return 1 + limitedDR(0.02 * caravanCount(fid), 
 //    of any kind. This was an RR invention, and STANDING-RULINGS §2 records what this
 //    project does with RR-invented rules the source contradicts.
 //  * It punished the only interaction the Trade tab has. A player who found five
-//    civilisations and wanted to use them was taxed for doing so, and the counter-play was
+//    civilizations and wanted to use them was taxed for doing so, and the counter-play was
 //    to stop playing for ninety seconds. Waiting is not a decision.
 //
 // `tradeFatigue`, `fatigueMult`, FATIGUE_RECOVER_S / FATIGUE_PENALTY / FATIGUE_MAX and the
 // "· weary −N%" line are all gone. `S.tradeFatigue` survives ONLY in freshState and in the
-// save-migration read at loadFromString, where it is used to infer which civilisations an
+// save-migration read at loadFromString, where it is used to infer which civilizations an
 // old save had met — deleting the key would lose that. Nothing writes it any more.
 // ============================================================
 
@@ -4169,7 +4586,7 @@ function nextFactionToFind() {
 }
 // v0.49 (Jerry, tooltip edit 3). A faction's yield string carried the AMOUNT and a line
 // of flavour glued together with " — ", so the tooltip could not put the flavour under
-// the civilisation's name where Jerry wants it. Split in the data, exactly as v0.48 split
+// the civilization's name where Jerry wants it. Split in the data, exactly as v0.48 split
 // the tech and discovery prose; `yieldDesc` is derived so nothing that still reads it breaks.
 FACTIONS.forEach(function (f) {
   if (f.yieldAmt !== undefined) f.yieldDesc = f.yieldAmt + " — " + f.yieldNote;
@@ -4260,11 +4677,32 @@ function tradeOpen(fid) {
 // and tradeGoldDiscount are (js/diplomacy.js:853, `return (cost < 0) ? 0 : cost`), so
 // the early relief is large and the late relief is nothing.
 var TRADE_VIGOR_DISCOUNT = 40, TRADE_GOLD_DISCOUNT = 15;
+// v0.61 PART 6.3 / DEV NOTE 11 (Jerry): "All trades cost provisions, ~5,000."
+//
+// No faction costs provisions today — `tradeCost` copies the faction's own cost and applies two
+// discounts, and provisions appear in none of them. The point of the note is stated plainly in
+// it: **the provisions CEILING should limit how many caravans can be sent at once.** That makes
+// this a test of a number against a cap, not a flavour addition, and the report has to check it
+// at the year trades actually open. A cost that only bites at Icathia is not a limiter.
+//
+// SHARED, NOT PER-FACTION. Every route pays the same 5,000, so the constraint is "how many
+// caravans can this settlement provision", which is the constraint Jerry described — a
+// per-faction figure would make it a route-choice question instead.
+//
+// IT IS SUBJECT TO NEITHER DISCOUNT. Caravanserai discounts vigor and the Letter of Marque
+// discounts gold; both were sized against their own resource and neither was priced against a
+// food cost that did not exist. Adding provisions to their scope would silently re-tune two
+// Discoveries that no note asks about.
+//
+// **INTERACTS WITH THE STOREHOUSE LINE AND WITH `eatCut`.** A hard provisions sink changes what
+// the Granary is FOR, so the report carries provisions time-at-cap before and after.
+var TRADE_PROVISIONS = 5000;
 function tradeCost(f) {
   var c = {};
   for (var r in f.cost) c[r] = f.cost[r];
   if (S.upgrades.caravanserai && c.vigor) c.vigor = Math.max(0, c.vigor - TRADE_VIGOR_DISCOUNT);
   if (S.upgrades.letterOfMarque && c.gold) c.gold = Math.max(0, c.gold - TRADE_GOLD_DISCOUNT);
+  c.provisions = (c.provisions || 0) + TRADE_PROVISIONS;
   return c;
 }
 // v0.58.1 NOTE 14 (Jerry): "Trading should have the same x/y/all as crafting in order to do
@@ -4487,7 +4925,10 @@ function capsSliceMult(b, r) {
   // one-for-one onto the Archive, which is RR's Library. This is the only cross-building cap
   // amplifier in the game and it is the reason two Observatories are worth more beside an
   // Archive than alone.
-  if (r === "knowledge" && b.id === "archive") return 1 + count("observatory") * archiveRatioTotal();
+  // v0.61 PART 7 — three DISTINCT pairings now, one accumulator per target building. The
+  // Archive keeps the source's Observatory pairing (via `crossReferencing`) and gains an
+  // Academy one; the Academy gains an Observatory one. Sigma is still 0.06 across the three.
+  if (r === "knowledge" && (b.id === "archive" || b.id === "academy")) return 1 + knowledgeAmpFor(b.id);
   return 1;
 }
 function capMultPerCopy(b) {
@@ -4816,6 +5257,8 @@ var FESTIVAL_MORALE_MULT = 1.20;
 // building keeps its role — a settlement with more places to sing throws a better festival.
 // A first festival at two or three Hearths pays ~300 gold, which against an early gold ceiling
 // of a few hundred is exactly the "boost early" the note asks for; twenty Hearths pay ~800.
+// v0.61 PART 5.2 / DEV NOTE 7 — the festival's renown grant. See holdFestival().
+var FESTIVAL_RENOWN = 25;
 var FESTIVAL_GOLD_BASE = 250, FESTIVAL_GOLD_PER_HEARTH = 25;
 // v0.59 Part 8 note 8 — the FESTIVAL'S OWN two line items, named so the half-of relation is
 // readable. SCOPE, because the first draft of this comment said "the two luxury terms" and that
@@ -4896,9 +5339,24 @@ function holdFestival() {
   var know = Math.round(20 + 10 * count("archive"));
   gain("gold", gold);
   gain("knowledge", know);
+  // v0.61 PART 5.2 / DEV NOTE 7 (Jerry): "Festival gives 25 renown." It granted gold, morale,
+  // knowledge and luxuries and NO renown at all.
+  //
+  // THROUGH `gainRenown()`, NOT `gain("renown", …)`, so the Call to Arms gate is respected
+  // exactly as the expedition path respects it. A festival held before Call to Arms banks
+  // nothing, which is correct — renown has no sink before that tech and `RES.renown.hidden`
+  // does not even show the row.
+  //
+  // SIZE IT AGAINST WHAT IT REPLACES, because this number is large and the report must say so:
+  // at Part 5.1's rate a Wolves hunt pays 2, so **25 renown is 12.5 Wolves hunts for one
+  // festival** — and the festival is already on a one-game-year cooldown and costs mushrooms
+  // and plumes rather than vigor. **This partly offsets 5.1's cut**, which may be exactly what
+  // Jerry intends, but the two must be reported as a NET rather than as two halves.
+  gainRenown(FESTIVAL_RENOWN);
   addLog("The settlement holds a festival. Mushroom stew, borrowed drums, and someone's cousin on the lute. " +
     "For a full year the settlement carries itself differently — morale +" +
-    Math.round((FESTIVAL_MORALE_MULT - 1) * 100) + "%. (+" + fmt(gold) + " gold in visitors' coin, +" + know + " knowledge)", "event");
+    Math.round((FESTIVAL_MORALE_MULT - 1) * 100) + "%. (+" + fmt(gold) + " gold in visitors' coin, +" + know +
+    " knowledge" + (S.techs.callToArms ? ", +" + FESTIVAL_RENOWN + " renown" : "") + ")", "event");
   uiDirty = true;
 }
 var MORALE_RELIEF_LIMIT = 0.88;  // the one tuning constant for the whole band
@@ -5175,8 +5633,6 @@ function computeCaps() {
 // is Sigma 0.75-1.05) so it never binds in normal play and catches the next Farmstead-shaped
 // surprise; mana 1.0 leaves Hexresonance's single 0.25 deep in the free band. Belt and
 // braces, not a nerf. Every key written into `boosts` now has an entry EXCEPT knowledge.
-var BOOST_LIMIT = { devotion: 2.0, culture: 2.0, gold: 1.5, vigor: 1.0, crystals: 2.0,
-                    provisions: 1.5, mana: 1.0 };
 // Kittens' smelterRatio: a multiplier on AUTOPROD output only, bounded by the same
 // primitive shape as campYieldMult. Deep Works loops back and improves the era's
 // own early machinery, which is the §1.4 "discoveries improve earlier mechanics" rule.
@@ -5194,6 +5650,55 @@ function autoprodMult() {
   if (S.upgrades.chemBaronTithe) sum += 0.35;
   if (S.upgrades.continuousDraw) sum += 0.25;   // v0.45 Part 6 — Shimmerworks
   return 1 + limitedDR(sum, AUTOPROD_LIMIT);
+}
+// ============================================================================
+// v0.61 PART 1 — THE CONVERSION DISCOVERY LINE IS ONE ADDITIVE CATEGORY.
+//
+// WHY, AND IT IS NOT A NERF ARGUMENT. Kittens composes conversion strength as ONE additive
+// category: `calcinerRatio` sums three upgrades to 2.70, giving ×3.70 (js/buildings.js, the
+// Calciner's `ironPerTickAutoprod: 0.15 * (1 + calcinerRatio)`). RR shipped its own three
+// conversion Discoveries CHAINED MULTIPLICATIVELY — 1.25 × 1.15 × 1.25 = ×1.7969.
+//
+// THE LIKE-FOR-LIKE COMPARISON REVERSES TWO ROUNDS OF DIAGNOSIS. v0.60 §2 reported the
+// "converter-side stack" at ×19.77 against Kittens' ×3.70 and concluded RR runs ×5.3 the
+// source. **That figure was `convMult × (1 + boosts.crystals)` — two different categories
+// multiplied — against ONE Kittens category.** `convMult` alone cannot exceed ×5.3728.
+// Compared line to line, RR's three Discoveries are ×1.797 against the source's ×3.70:
+// **RR's conversion upgrade line is at 49% of the source's. It is half as strong.**
+//
+// So the change here is a SHAPE change, not a magnitude one, and it is required by RR's own
+// STANDING-RULINGS §19: additive within a category, multiplicative between. The conversion
+// line was the last place in the game still chaining discrete upgrades multiplicatively.
+// ×1.7969 → ×1.65 is an 8% reduction and the 8% is not the point.
+//
+// THE EXCESS OVER THE SOURCE IS NOT HERE. It is the two RR-ORIGINAL systems multiplying on
+// top: the infernal drake (×1.495, `strictDR` capped at 0.5) and the overseer champion
+// affinity (×2.000, five champions × 2 × level with level capped at 10). Both are bounded —
+// worth recording, since neither is obviously so — and both are ledgered EASIER.
+// THE READOUT. A product with six factors that nobody can name is how this got two rounds of
+// wrong diagnosis, so every factor is named, valued and returned from ONE place that the
+// tooltip, the sim harness and the suites all read. `autoprod` converters take a different
+// second factor (the Zaun extractor line), so the shape is reported too.
+function convMultBreakdown(isAutoprod) {
+  var terms = [];
+  var infernal = 1 + drakeBonus("infernal", DRAKE_CAP.infernal);
+  terms.push({ label: "infernal drake", value: infernal, kind: "RR-ORIGINAL category", cap: 1 + DRAKE_CAP.infernal });
+  if (isAutoprod) {
+    terms.push({ label: "autoprod line (Zaun)", value: autoprodMult(), kind: "RR-ORIGINAL category", cap: 1 + AUTOPROD_LIMIT });
+  } else {
+    var cinderUp = simNow() < S.cinderUntil;
+    terms.push({ label: "cinder buff (transient)", value: cinderUp ? 1.5 : 1, kind: "transient", cap: 1.5 });
+    var discSum = convDiscoveryTotal();
+    terms.push({
+      label: "conversion Discoveries (ADDITIVE, Σ" + discSum.toFixed(2) + ")",
+      value: 1 + discSum, kind: "upgrade category — the calcinerRatio counterpart",
+      cap: 1 + CONV_DISCOVERY_LINE.reduce(function (a, u) { return a + u[1]; }, 0),
+      members: CONV_DISCOVERY_LINE.map(function (u) { return [u[0], u[1], !!S.upgrades[u[0]]]; })
+    });
+    terms.push({ label: "overseer affinity", value: 1 + affinityBonus("overseer") / 100, kind: "RR-ORIGINAL category", cap: 2.0 });
+  }
+  var product = terms.reduce(function (a, t) { return a * t.value; }, 1);
+  return { terms: terms, product: product, autoprod: !!isAutoprod };
 }
 // ============================================================================
 // v0.56 PART 3 — LEONA SOFTENS THE SEASON; SHE NO LONGER DELETES IT.
@@ -5268,6 +5773,9 @@ function computeRates(bdRes) {
   // reason — a third multiplicative category for one member is exactly what §19 exists to stop.
   if (S.upgrades.leylineCalibration) boosts.mana += LEYLINE_MANA_BOOST;
   if (S.upgrades.trueIceCellars)     boosts.mana += TRUE_ICE_MANA_BOOST;
+  // v0.61 PART 8 — the fourth member, on Petricite Masonry. Same accumulator, additive, so all
+  // four held is Sigma 1.00 and never x2.03.
+  if (S.upgrades.petriciteResonators) boosts.mana += PETRICITE_MANA_BOOST;
   if (S.upgrades.resonanceCoils) boosts.crystals += 0.25;   // v0.54 directive 16, was hexCapacitors at 0.50
   if (S.upgrades.tributeReliquaries) boosts.crystals += 0.25;   // v0.45 Part 6 — The Baron's Tribute
   if (S.wtechs && S.wtechs.solariHymn) boosts.devotion += 0.25;
@@ -5292,6 +5800,17 @@ function computeRates(bdRes) {
   // craft yields are bounded. Aspect's Sanctum at +10%/copy with no ceiling was
   // the one place the Targon economy could still run away. LDR is free for the
   // first 75%, so 15 Sanctums still pay in full.
+  // v0.61 PART 8 — the RAW sum is kept before the ceiling is applied, because the two are
+  // different claims and this round is the first time they differ for mana.
+  //
+  // THE FINDING, and the spec did not predict it. `BOOST_LIMIT.mana` is 1.0 and `limitedDR` is
+  // LINEAR only below 0.75 x L. With three members the mana line summed to EXACTLY 0.75 — the
+  // very top of the linear region — so every member before this round was delivered in full and
+  // nobody ever had cause to look. **The fourth member is the first one that is not.** Sigma
+  // 1.00 raw delivers **0.875**: Petricite Resonators advertises +25% and contributes +12.5
+  // points, half of what it says. That is measured, reported in BUILD REPORT §7, and the
+  // Discovery's own effect string says so rather than letting a button outlive its effect.
+  var boostsRaw = {}; for (var brk in boosts) boostsRaw[brk] = boosts[brk];
   for (var bk in boosts) if (BOOST_LIMIT[bk]) boosts[bk] = limitedDR(boosts[bk], BOOST_LIMIT[bk]);
   villageMult *= policyMult("village");
 
@@ -5423,12 +5942,11 @@ function computeRates(bdRes) {
       if (S.upgrades.rollingPress) b.convert.output.parchment = MANUFACTORY_PARCHMENT;
       else delete b.convert.output.parchment;
     }
-    var infernal = 1 + drakeBonus("infernal", DRAKE_CAP.infernal);
-    var convMult = infernal * (b.autoprod
-      ? autoprodMult()
-      : (simNow() < S.cinderUntil ? 1.5 : 1) * (S.upgrades.clockworkBellows ? 1.25 : 1) * (S.upgrades.bankedCoals ? 1.15 : 1) *
-        (S.upgrades.resonanceCoils ? 1.25 : 1) *                                     // v0.54 directive 16
-        (1 + affinityBonus("overseer") / 100));
+    // v0.61 PART 1 — read from convMultBreakdown() so the number the game uses and the number
+    // the readout prints cannot drift apart. The three Discoveries are now ONE ADDITIVE
+    // CATEGORY (§19, and the source's own `calcinerRatio` shape): 1.25 × 1.15 × 1.25 = ×1.7969
+    // becomes 1 + 0.25 + 0.15 + 0.25 = ×1.65.
+    var convMult = convMultBreakdown(!!b.autoprod).product;
     var manaCut = S.upgrades.greyScrubbers ? 0.75 : 1;
     for (var i2 in b.convert.input) {
       var inAmt = b.convert.input[i2] * n * (i2 === "mana" ? manaCut : 1);
@@ -5613,6 +6131,16 @@ function computeRates(bdRes) {
   }
 
   if (bdRes) rates._bd = bd;
+  // v0.61 PART 1 — `boosts` is exposed because v0.60 folded it into `convMult` and reported the
+  // product as one category. It is NOT one category: `boosts[o]` multiplies OUTSIDE `convMult`
+  // in the converter-output loop above. Publishing it means the readout can print the two
+  // factors side by side and separately, which is the whole correction.
+  // GATED ON `bdRes`, exactly as `_bd` is. `computeRates()` with no argument must return a
+  // map of NUMBERS and nothing else — test-v44's `noNaNRates` walks Object.values() and an
+  // object attached unconditionally makes every caller's finiteness check fail. Caught by that
+  // suite in this round; the fix is to match the convention already in the line above rather
+  // than to loosen the check.
+  if (bdRes) { rates._boosts = boosts; rates._boostsRaw = boostsRaw; }
   return rates;
 }
 
@@ -5916,7 +6444,7 @@ function step(dt, ticks) {
     for (var wi = 0; wi < S.wanderers.length; wi++) {
       var w = S.wanderers[wi];
       if (!w.j) continue;
-      // v0.54 directive 8: experience banks against the trade being practised. `w.xp` stays
+      // v0.54 directive 8: experience banks against the trade being practiced. `w.xp` stays
       // as the lifetime total across all trades; `w.jx[job]` is what rank reads.
       if (!w.jx) w.jx = {};
       var top = RANKS[RANKS.length - 1].xp;
@@ -6792,8 +7320,43 @@ function isChargeCamp(e) { return !!CHARGE_REGEN_S[e.id]; }
 // RENOWN_DEED_RATE and the Scouting Party one printed the raw authored field. With the rate at
 // 0.34 that was the difference between "+1 renown" and "+2 renown" on the same camp. Deleting
 // the guard would have left both wrong in a new way, so both now call this.
+// ============================================================================
+// v0.61 PART 5.1 / DEV NOTE 9 (Jerry): "Howling Abyss pays too much; renown should scale with
+// vigor." **He is right and the Abyss is the outlier by a clear margin.** Every expedition's
+// AUTHORED renown against its vigor cost, measured at the v0.60 tag:
+//
+//     Journey to the Howling Abyss    5 renown / 120 vigor   = 41.67 per 1,000 vigor
+//     Hunt Raptors                    3 / 100                = 30.00
+//     The Sump Crawl                  4 / 140                = 28.57
+//     Hunt Wolves, Hunt Gromp         2 / 100                = 20.00
+//     Hunt Krugs                      3 / 150                = 20.00
+//     Drake Hunt                     15 / 900                = 16.67
+//     Challenge Baron Nashor         40 / 2,600              = 15.38
+//     Send a Scouting Party           8 / 1,750              =  4.57
+//
+// **The Abyss pays 2.7x the Baron's rate per unit of vigor — and it is a CHARGE camp**
+// (`CHARGE_REGEN_S.abyssJourney = 200`), so an empowered run pays x3 on top of that.
+//
+// ONE RATE, and it is the Baron's. 0.0154 renown per vigor is what Challenge Baron Nashor
+// already pays, chosen because the Baron is the ladder's anchor and the one deed nobody in this
+// project has ever called mispriced. Deriving from a deed that is already right means the
+// change is a re-levelling rather than a re-tuning.
+var RENOWN_PER_VIGOR = 0.0154;
+// THE ONE EXEMPTION, and it is named on the expedition rather than branched on id — same
+// pattern as `noDiscount`, so the next exemption is one field instead of an edit here.
+// Send a Scouting Party costs 1,750 vigor and the rule would pay it 27 against its authored 8:
+// a x3.4 buff to a DISCOVERY expedition, which is not a hunt, and Jerry's note says hunts.
+function expeditionRenownBase(e) {
+  if (e.renownFlat) return e.renown || 2;
+  var v = (e.cost && e.cost.vigor) || 0;
+  if (!v) return e.renown || 2;
+  return Math.max(1, Math.round(v * RENOWN_PER_VIGOR));
+}
+// v0.59 PART 2.1 — the payout formula lives in ONE place now, and v0.61 keeps it that way:
+// `expeditionRenownBase` replaces the authored field, and RENOWN_DEED_RATE and the policy
+// multiplier still apply on top exactly as before.
 function renownForExpedition(e) {
-  return Math.max(1, Math.round((e.renown || 2) * RENOWN_DEED_RATE * policyMult("renown")));
+  return Math.max(1, Math.round(expeditionRenownBase(e) * RENOWN_DEED_RATE * policyMult("renown")));
 }
 // The tooltip string, which must say what the CHARGE is worth or the multiplier is invisible
 // until it fires. A charge camp with a charge banked shows "+2 renown (+6 empowered)".
@@ -6915,7 +7478,25 @@ function runExpedition(id) {
   // the player nothing they did not already know, at the one moment they most want to know
   // what they got. The label is rewritten AFTER the run from the actual resource deltas, so it
   // reports the roll that happened rather than the range that was advertised.
-  snapshotUndo(e.name, "hunt");   // v0.55 Part 8: hunts are the one undoable action with rolls
+  // ====================================================================================
+  // v0.61 PART 9 / DEV NOTE 6 (Jerry): "Drake and Baron hunts cannot be undone."
+  //
+  // These are the two highest-variance deeds in the game — 900 and 2,600 vigor for a drake soul
+  // and the Hand of Baron — and a ten-second undo on a bad roll is a FREE RE-ROLL of the most
+  // valuable random outcome the game has. Undo exists so a misclick is not punishing; it was
+  // never meant to be a reroll button on the deed you saved a thousand vigor for.
+  //
+  // `noUndo` IS A PROPERTY OF THE EXPEDITION, NOT A BRANCH ON ID, exactly as `noDiscount` and
+  // `renownFlat` already are. The next high-value hunt is one field, not an edit to shared code
+  // that the next author has to find.
+  //
+  // WHAT IT DOES NOT DO: the re-roll penalty marker is UNTOUCHED. `clearRerollPenalty("hunt",
+  // "war-band")` runs at the bottom of this function on every expedition including these two,
+  // so suppressing the snapshot cannot leave a penalty behind that only an undo used to clear.
+  // Asserted in test-v61 rather than reasoned about, because "X is cleared elsewhere" is the
+  // shape of claim that stops being true one refactor later.
+  if (!e.noUndo) snapshotUndo(e.name, "hunt");   // v0.55 Part 8: hunts are the one undoable action with rolls
+  else { undoSnapshot = null; undoUntil = 0; undoLabel = ""; undoKind = null; renderUndoToast(); }
   var undoBefore = {}; for (var ub in S.res) undoBefore[ub] = S.res[ub];
   pay(ec);
 
@@ -6934,6 +7515,10 @@ function runExpedition(id) {
       var d = S.res[gr] - (undoBefore[gr] || 0);
       if (d > 0.0001 && RES[gr]) gains.push("+" + fmt(d) + " " + RES[gr].name.toLowerCase());
     }
+    // A no-undo expedition still gets its haul reported — the toast's JOB since v0.58 note 6 is
+    // to show the returns, and `renderUndoToast()` shows no Undo button when there is no
+    // snapshot. Suppressing the label as well would have cost the player the one readout that
+    // tells them what a 2,600-vigor deed actually paid.
     undoLabel = e.name + (gains.length ? " — " + gains.join(", ") : " — nothing worth carrying home");
     renderUndoToast();
   })();
@@ -7064,7 +7649,7 @@ function loadFromString(str) {
   }
   // v0.53 → v0.54, directive 8: a Wanderer's single `xp` becomes per-trade `jx`. A veteran
   // keeps their whole bank, credited to the trade they were holding when the save was
-  // written — that is the only trade we have evidence they practised, and zeroing them all
+  // written — that is the only trade we have evidence they practiced, and zeroing them all
   // would take a Challenger miner back to Bronze for a change they did not make. A wanderer
   // who was idle at save time keeps `xp` as their lifetime total and starts every trade at
   // Bronze, which is the same thing the new rule would have said about them all along.
@@ -7098,7 +7683,7 @@ function loadFromString(str) {
   // v0.59 PART 1 — THE GRANARY MIGRATION IS RETIRED. THIS WAS LIVE DATA LOSS.
   //
   // Jerry's dev note 9: "Granaries are turning into storehouses on refresh. MAJOR BUG."
-  // Reproduced end to end by the analyzer: seven Granaries and three Storehouses, serialised
+  // Reproduced end to end by the analyzer: seven Granaries and three Storehouses, serialized
   // and reloaded, came back as ZERO Granaries and TEN Storehouses.
   //
   // The block that did it was the v0.10-era migration folding the OLD Granary into the
@@ -7174,9 +7759,26 @@ function loadFromString(str) {
   // `kindling` is a RESERVED ID for as long as this line exists, and THIS MIGRATION RETIRES AT
   // v1.0. Do not ship a new tech, building, upgrade or resource on that id before then.
   if (fresh.techs) delete fresh.techs.kindling;
+  // v0.61 DEV NOTE 4 — The Champions' Regimen and Deep Cartography are MERGED into The Vanguard
+  // Doctrine. A save holding EITHER is credited the merged tech, because the player has already
+  // paid for at least half of it and the merge is not a reason to take a rung back off them.
+  // Holding both is the same outcome: they paid 63,000 for what now costs 45,000 and nothing is
+  // refunded, consistent with every prior tech retirement in this file.
+  //
+  // The two DISCOVERIES are kept exactly as they are. Their `tech:` field now names
+  // `vanguardDoctrine`, and a player who owns `standingOrders` keeps it whether or not the
+  // migration credits them the tech — an owned discovery is never re-gated.
+  //
+  // STANDING-RULINGS §30: `championsRegimen` and `deepCartography` are RESERVED IDS for as long
+  // as this line exists, and THIS MIGRATION RETIRES AT v1.0. Do not ship a new tech, building,
+  // upgrade or resource on either id before then.
+  if (fresh.techs && (fresh.techs.championsRegimen || fresh.techs.deepCartography)) {
+    fresh.techs.vanguardDoctrine = true;
+  }
+  if (fresh.techs) { delete fresh.techs.championsRegimen; delete fresh.techs.deepCartography; }
   // v0.37 → v0.38: Worship moves out of RES and becomes a plain state number
   if (data.res && data.res.worship && !fresh.worship) fresh.worship = data.res.worship;
-  // v0.31 → v0.32: civilisations you have already met stay met
+  // v0.31 → v0.32: civilizations you have already met stay met
   fresh.factionsFound = fresh.factionsFound || {};
   // v0.41 §2.6 made Demacia the starter route; old saves keep Piltover found too, so
   // nobody loses a route they had already opened.
@@ -7812,7 +8414,27 @@ function renderTop(rates) {
   if (now < S.cinderUntil) html += ' &nbsp;·&nbsp; <span class="buff" style="color:#E8622D">CREST OF CINDERS ' + Math.ceil((S.cinderUntil - now) / 60000) + "m</span>";
   if (now < S.insightUntil) html += ' &nbsp;·&nbsp; <span class="buff" style="color:#4FA8D8">CREST OF INSIGHT ' + Math.ceil((S.insightUntil - now) / 60000) + "m</span>";
   if (now < S.honeyUntil) html += ' &nbsp;·&nbsp; <span class="buff" style="color:#C89B3C">HONEYFRUIT ' + Math.ceil((S.honeyUntil - now) / 60000) + "m</span>";
-  if (now < (S.festivalUntil || 0)) html += ' &nbsp;·&nbsp; <span class="buff" style="color:#E8A0C8">FESTIVAL ' + Math.ceil((S.festivalUntil - now) / 60000) + "m</span>";
+  // v0.61 DEV NOTE 1 (Jerry): "When Festival is active, it should show up as a buff similar to
+  // Hand of Baron and Crest of Cinders."
+  //
+  // IT ALREADY HAD A CHIP AND THE CHIP COULD NEVER FIRE. The line tested `S.festivalUntil`, the
+  // WALL-CLOCK field — and v0.58 note 12 made the festival TICK-denominated so that offline
+  // catch-up expires it at the right game-time. `holdFestival()` sets `S.festivalUntilTick` and
+  // then explicitly sets `S.festivalUntil = 0`. So from v0.58 onward every festival the player
+  // held was invisible, and the only saves that could ever show the chip were pre-v0.58 ones
+  // with a festival still running at load. Two rounds of festival work happened behind this.
+  //
+  // Read `festivalActive()`, the same predicate the rest of the file uses, and report the
+  // remaining time IN THE UNITS THE FESTIVAL IS ACTUALLY DENOMINATED IN. The other four buffs
+  // are wall-clock minutes because they genuinely are; the festival is a game-year, so it says
+  // seasons. A minutes countdown here would be a second wrong-units bug in the same line.
+  if (festivalActive()) {
+    var fSeasons = festivalSeasonsLeft();
+    var fLeft = fSeasons > 0
+      ? fSeasons + (fSeasons === 1 ? " season" : " seasons")
+      : Math.ceil(Math.max(0, (S.festivalUntil || 0) - now) / 60000) + "m";   // pre-v0.58 save
+    html += ' &nbsp;·&nbsp; <span class="buff" style="color:#E8A0C8">FESTIVAL ' + fLeft + "</span>";
+  }
   cal.innerHTML = html;
 
   var col = document.getElementById("resource-col");
@@ -8573,7 +9195,7 @@ function renderWilds(el) {
 
 function renderTrade(el) {
   var mult = tradeYieldMult();
-  var html = '<div class="panel"><h2>Trade</h2><div style="font-size:11px;font-style:italic;margin-bottom:6px">Caravans are your embassies. They cost Culture and nothing else, raise that route\'s yield +2% each (to +60%), open its three cargo slots at 5 / 10 / 15, and steady the Noxian route. Each civilisation deepens ONE of your craft chains — pick the one you want. Trade Docks raise every yield (currently ×' + mult.toFixed(2) + ').</div>';
+  var html = '<div class="panel"><h2>Trade</h2><div style="font-size:11px;font-style:italic;margin-bottom:6px">Caravans are your embassies. They cost Culture and nothing else, raise that route\'s yield +2% each (to +60%), open its three cargo slots at 5 / 10 / 15, and steady the Noxian route. Each civilization deepens ONE of your craft chains — pick the one you want. Trade Docks raise every yield (currently ×' + mult.toFixed(2) + ').</div>';
   // v0.54 directive 3: the Scouting Party is rendered HERE now, with the same markup and
   // the same [data-exp] handler the Wilds uses. The old copy pointed the player at another
   // tab for the button that opens this one.
@@ -8585,7 +9207,7 @@ function renderTrade(el) {
   });
   if (tradeExps.length) {
     html += '<div style="font-size:11px;font-style:italic;margin-bottom:6px;color:var(--gold)">' +
-      (FACTIONS.length - factionsFoundCount()) + ' civilisation' + (FACTIONS.length - factionsFoundCount() > 1 ? 's are' : ' is') +
+      (FACTIONS.length - factionsFoundCount()) + ' civilization' + (FACTIONS.length - factionsFoundCount() > 1 ? 's are' : ' is') +
       ' still out there somewhere.</div><div class="btn-grid">';
     tradeExps.forEach(function (e) {
       var cdLeft = campCooldownLeft(e);
@@ -8659,7 +9281,7 @@ function renderTrade(el) {
     var f = FACTIONS.find(function (x) { return x.id === btn.getAttribute("data-fac"); });
     btn.onclick = function () { tradeCaravan(f.id); };
     btn.onmouseenter = function () {
-      // ZONE 1 is the route's own line of flavour, directly under the civilisation's name.
+      // ZONE 1 is the route's own line of flavour, directly under the civilization's name.
       // ZONE 2 lists the base haul and then every cargo slot the caravans have opened,
       // one per line — a five-caravan route was reading as a paragraph.
       var ys = [f.yieldAmt || f.yieldDesc];
@@ -8668,6 +9290,20 @@ function renderTrade(el) {
         ys.push("+" + fmt(slotAmount(f.id, i, sl.amt)) + " " + RES[sl.res].name + " — " + sl.label +
           " (" + Math.round(slotChance(f.id, i) * 100) + "% a run)");
       });
+      // v0.61 PART 5.3 / DEV NOTE 1 (Jerry): "Trades should show the renown reward."
+      // `TRADE_RENOWN` has been paid on every caravan since v0.59 Part 2.3 and the tooltip has
+      // never mentioned it — `ys` was built from cargo slots only, so the player had no way to
+      // learn that trading is a renown faucet at all.
+      //
+      // READ THE CONSTANTS, DO NOT WRITE "+1". Caitlyn's lead ADDS `CAITLYN_TRADE_RENOWN` on top
+      // (v0.58.1 note 21), so the resolved figure is what gets shown and the two constants are
+      // summed in the same place the payout sums them. A literal here is how the v0.59 payout
+      // and its two tooltips came to disagree with each other in the first place.
+      if (S.techs.callToArms) {
+        var trRen = TRADE_RENOWN + (leaderIs("caitlyn") ? CAITLYN_TRADE_RENOWN : 0);
+        ys.push("+" + trRen + " renown a caravan" +
+          (leaderIs("caitlyn") ? " (" + TRADE_RENOWN + " + " + CAITLYN_TRADE_RENOWN + " under Caitlyn)" : ""));
+      }
       showTooltip(btn, { title: f.name, desc: f.yieldNote, cost: tradeCost(f), yield: ys, flavor: f.motto + "." });
     };
     btn.onmouseleave = hideTooltip;
@@ -8703,7 +9339,20 @@ function renderTrade(el) {
       var hiddenSlots = 0;
       (f.slots || []).forEach(function (sl, i) {
         var at = 5 * (i + 1);
-        if (!ttResKnown(sl.res)) { hiddenSlots++; return; }
+        // v0.61 PART 6.2 / DEV NOTE 10 (Jerry): "the 'deeper cargo slots' message is inaccurate."
+        //
+        // THE LINE WAS TESTING THE WRONG PROPERTY. `ttResKnown` is a resource VISIBILITY test —
+        // "has the player ever seen this resource?" — and the sentence below claims a
+        // CAPABILITY: goods "this settlement has not yet handled". The codebase already has the
+        // capability test and has since v0.50: `slotAvailable(fid, i)` checks that the craft
+        // producing the slot's resource exists and that its `show()` passes.
+        //
+        // THE TWO DISAGREE ON EXACTLY ONE CASE, and it is the reported bug: **can craft it, has
+        // never actually held one.** Jerry's Piltover example is precise — the 10-caravan slot
+        // pays support beams, the beam craft is unlocked and buildable, and because he had not
+        // yet MADE a beam the slot counted as goods the settlement "has not handled". It has
+        // handled them; it simply has none in the barn right now.
+        if (!slotAvailable(fid, i)) { hiddenSlots++; return; }
         ys.push((n >= at && slotUnlocked(fid, i) ? "OPEN" : "at " + at + " caravans") + " — " +
           sl.label + ", " + Math.round(SLOT_CHANCE_FLOOR[i] * 100) + "% a run rising toward " +
           Math.round((SLOT_CHANCE_FLOOR[i] + SLOT_CHANCE_LIMIT[i]) * 100) + "%");
