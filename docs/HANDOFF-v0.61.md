@@ -90,6 +90,20 @@ so. **Check the other `BOOST_LIMIT` families before adding a member to any of th
 with two. That is strictly closer to the source than what RR had — but it is **not** the uncapped
 form the source uses, and §5 of the build report says exactly why.
 
+**Era 3 is 1,210.7 (spread ×1.30, from ×1.92) and THE SPREAD COLLAPSED WITHOUT ANYONE TARGETING
+IT.** That is the largest single-round narrowing this project has recorded. The likely cause is the
+renown re-levelling acting on the champion channel — v0.60 established that channel carries 59.5%
+of the excess spread, and removing the Abyss outlier replaced a bursty charge-multiplied source
+with one rate against a fixed price. **It is an inference, not a measurement. Decompose it.**
+
+**Crystals at cap 96.2% → 94.7%.** §24's lumpy-sink reading is confirmed in direction and the
+magnitude is small: at Icathia the Refineries deliver 33.4/s and a research cost fires ~20 times in
+2,500 years. **Right shape, two orders of magnitude short of the right size.** The Manufactory is
+now visibly not the problem, with a number: its 15 copies drain 6.9% of gross.
+
+**5,000 provisions on trades NEVER BINDS** — the ceiling allows 15 caravans at Sparks, 31 at
+Hexcore, 180 at Icathia. **A flat figure cannot bind across a ceiling that grows ×11 over a run.**
+
 **The tech ladder is 35 techs.** Two `callToArms` children each opening one Discovery became The
 Vanguard Doctrine at 45,000, opening both.
 

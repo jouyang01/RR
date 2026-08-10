@@ -411,6 +411,118 @@ four.*
 
 ---
 
+## 9.5 Pacing — the full-rigour gate
+
+**Three seeds, 2,500 game-years, concurrent. ~97 min wall (the suite runner shared the box for the
+first 20). 9 of 10 pass conditions.**
+
+| figure | v0.60 | **v0.61** | spread | per-seed |
+|---|---|---|---|---|
+| Era 3 | 1,172.5 | **1,210.7** | **×1.30** (was ×1.92) | 992 / 1,210.7 / 1,288.6 |
+| Icathia | 1,348.9 | 1,392.2 | ×1.24 | 1,160.6 / 1,392.2 / 1,444.8 |
+| Sparks | 176.4 | 168.6 | ×1.16 | 168.6 / 181.5 / 156.2 |
+| First champion | 106.1 | 87.3 | **×1.59** | 81.4 / **129.2** / 87.3 |
+| Tenth champion | 1,343.8 | 1,390 | ×1.25 | 1,148.9 / 1,390 / 1,441.4 |
+| First trade | — | 151.4 | **×2.04** | 89.2 / 151.4 / 181.6 |
+| Peak population | 184 | 179 | — | 212 / 179 / 158 |
+| Morale in band | 97% | **100%** | — | 100 / 100 / 100 |
+| **Crystals at cap** | **96.2%** | **94.7%** | — | — |
+| Provisions at cap | — | 19.1% | — | — |
+
+### 9.6 Era 3 barely moved and THE SPREAD COLLAPSED
+
+**Era 3's median went 1,172.5 → 1,210.7, +38.2 — inside the spec's predicted 950–1,200 band at its
+top edge, and a third of the size of the XP move that dominated v0.60.** Six changes pulling in
+opposite directions netted almost to nothing, which is what the spec predicted for a round with no
+single dominant term.
+
+**The spread is the result: ×1.92 → ×1.30.** That is the largest single-round narrowing this
+project has recorded, and **it is the first time the spread has moved without anyone targeting
+it.** v0.60's Part 4 decomposition established that 59.5% of Sparks' excess spread runs through
+the champion channel; **the renown re-levelling acts directly on that channel** — it removes the
+Abyss outlier, which was a bursty, charge-multiplied, high-variance renown source, and replaces
+every camp's payout with one rate against a fixed vigor price. **A narrower renown distribution
+means champions arrive on a narrower schedule, and everything downstream of champions follows.**
+
+That is an inference, not a measurement — Part 4's slice apparatus was not re-run — and it is the
+single most promising thing for the next round to decompose.
+
+### 9.7 The one failing condition, and it is the same one
+
+**`First champion before year 120` FAILS at its `[max]` shape: seed 2 reads 129.2.** Seeds 1 and 3
+read 81.4 and 87.3, and **the median improved from 106.1 to 87.3.** The condition failed at v0.59
+(142), passed at v0.59.1 (105.6), failed at v0.60 (124.0) and fails again here.
+
+**The renown net is the cause and both halves are visible.** §4.1's cut lowered every camp's
+payout; §4.2's festival adds 25 in one lump. **On two seeds the festival arrives early enough to
+more than repay the cut — hence 81.4 and 87.3, both better than v0.60's median — and on one it
+does not, and that seed pays the cut without the offset.** The net is positive at the median and
+negative at the tail: the change made the good case better and the bad case worse, which is a
+variance result, not a level one. **It is a ceiling condition by construction and one seed missing
+by 8% is what a ceiling condition is for.** Reported, not re-based.
+
+### 9.8 Part 10's crystal sink: 96.2% → 94.7%, and that is a real but small result
+
+**Crystals at cap fell 1.5 points.** Three rounds of per-tick burn produced nothing; a lumpy
+research sink produced 1.5 points. **§24's reading is confirmed in direction and the magnitude is
+disappointing**, and the decomposition says why: at Icathia the Refineries deliver **33.4 crystals
+a second** against a research spend measured in hundreds, spent once. **A sink that fires twenty
+times over 2,500 years cannot hold a faucet running at 33/s off its ceiling** — the sink is the
+right *shape* and two orders of magnitude short of the right *size*.
+
+**The Manufactory is now visibly not the problem, with a number**: 15 Manufactories drain 2.56/s
+against 36.97/s gross — **6.9%.** Its burn was never going to matter.
+
+### 9.9 Trade: the additive form is a NERF at low counts, exactly as predicted
+
+The spec predicted the additive form would be a net buff and said it expected to be wrong at low
+caravan counts. **It is wrong in the direction it flagged**, and the readout shows why term by term:
+
+| milestone | trade yield | docks term | caravans term |
+|---|---|---|---|
+| Sparks | **×1.73** | +0.02 | +0.40 |
+| Hexcore | ×2.21 | +0.44 | +0.40 |
+| Icathia | ×3.14 | +1.30 | +0.40 |
+
+At Sparks the settlement holds **one Trade Dock**, so the docks term is +0.02 where the old
+multiplicative form paid `(1 + limitedDR(0.02, 1.0)) ≈ ×1.02` against a separate `×1.30` embassy —
+and four terms near 1.0 multiplied exceed their sum. **`firstTrade`'s ×2.04 spread is the widest
+figure in the table**, which is what a change that bites hardest at exactly the milestone it
+governs looks like.
+
+**The source's shape is still right and the fix is the magnitudes** — which is the spec's own
+instruction, and it should be a deliberate item rather than a quiet revert.
+
+### 9.10 Part 6.3: 5,000 provisions is NOT BINDING, and here is the figure that would be
+
+Dev note 11's own test is *"the provisions ceiling should limit how many caravans can be sent at
+once"*, and the answer is measured at all three milestones:
+
+| milestone | provisions ceiling | caravans the ceiling allows | binding? |
+|---|---|---|---|
+| Sparks | 79,500 | **15** | no |
+| Hexcore | 159,500 | **31** | no |
+| Icathia | 900,338 | **180** | no |
+
+**It never binds.** To limit the settlement to three caravans at once it would need to cost
+**~26,500 at Sparks**, ~53,000 at Hexcore and ~300,000 at Icathia — which is the other half of the
+finding: **a flat figure cannot bind across a ceiling that grows ×11 over the run.** If Jerry wants
+the limiter he described, it has to scale with the provisions ceiling, not sit at a constant.
+
+Provisions time-at-cap is **19.1%**, so the cost is doing real work on the stock even though it
+does not gate the caravan count.
+
+### 9.11 Part 7's prediction, scored
+
+**Correct.** At Icathia the settlement holds **47 academies against 58 observatories**, and the
+three pairings deliver `cataloguing` +0.94, `crossReferencing` +1.16, `greatIndex` +1.16 — the
+Academy→Archive term is the smallest of the three at this fixture, **not the largest.** The
+prediction was that RR builds more academies than observatories; **it builds fewer.** Recorded as
+a wrong prediction: the Archive's amplifier reaches ×3.10 and the Academy's ×2.16, so splitting the
+line raised the ceiling on both buildings rather than concentrating it on one.
+
+---
+
 ## 10. Invariants re-pointed this round, with their superseding item
 
 | suite | assertion | superseded by |
