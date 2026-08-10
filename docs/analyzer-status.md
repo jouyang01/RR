@@ -25,19 +25,22 @@ table wins.
 | Previous build | **v0.59.1**, tagged `v0.59.1` — an OFF-CYCLE round built from Jerry's eight gameplay notes (`OFF-CYCLE-PROTOCOL.md`) |
 | Last consumed spec | **`docs/specs/rr-analyzer-v060-spec.md`** (consumed by v0.60; moved out of the root, not copied) |
 | Last consumed dev notes | `docs/specs/rr-devnotes-v0.59.1.md` (consumed by v0.59.1) |
-| Current spec, awaiting a builder | **NONE.** The root holds no `current-build-spec.md`. The next analyzer pass writes v0.61 against the `v0.60` tag. |
+| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.61, "the converter stack is at HALF the source's upgrade line, and the early ladder is where the debt actually lives".** Written against the `v0.60` tag; carries five builder notes and eleven of Jerry's dev notes. |
 | Live suites | **31 suites, 1,566 `check()` call sites, 1,615 assertions executed, all passing**, under `node tools/run-suites.mjs --selftest`. **The dying-suite class is closed** — every suite prints a `SUITE-END` trailer and the runner fails the round on a missing one, on a non-zero exit at `failed=0`, and on fewer assertions executed than call sites. **Do not run suites with a shell loop that scrapes "N passed"**; that is what hid two dead suites for a round. |
 | Parity ledger | **226 rows — PARITY 72, EASIER 41, HARDER 2, UNVERIFIED 111.** PARITY +9 / UNVERIFIED −9, all from Part 8's retrieval pass against a local clone. |
 | Cap families | **TWO, not three.** `SCHOLAR_CAPS` was deleted at v0.59 Part 5.3. `capFamilyOf()` returns `exempt` / `masonry` / null. Do not re-add a third. |
 | Era 3 | **Reported, not scored** (v0.59 Part 3, Jerry's "907 is okay"). **v0.60 measures 1,172.5 median, spread ×1.92** — up from 785.9/×1.58, and **the move is the XP change**, which slowed every wanderer skill bonus tenfold for the whole run. **The spread question is NOT closed and Part 4 changed its shape**: see the row below. |
 | **Part 4 — the spread decomposition** | Four seed-matched slices, twelve runs. **A reproduces v0.59.1's ×1.58 exactly. B is BIT-IDENTICAL to A on Sparks — 0.0% of the excess spread removed. C removes 59.5%; D equals C exactly**, so D's intervention adds nothing on top of C's. **C and D are UNSCOREABLE on Era 3**: the intervention pushed Sparks 200 → 490 and Icathia past the 1,400-year horizon, so the Era-3 column measures a different game. That is a methodological finding about the slice design, not a result. |
+| **The early rank ladder** | **The 28% debt is the TOP RUNG ONLY.** Matched by bonus, the debt narrows monotonically upward and is worst at the first rung: Kittens grants **+1.25% at 100 XP**, RR first reaches it at **350 — ×3.50**, i.e. 36 minutes against 1 h 57. **RR spends its second rung (Silver, 100 XP) on +1.0%, below the source's first bonus**, so its extra rungs are paid for out of the first hour of the game. v0.61 Part 2 re-prices the low rungs; **the top rung is Jerry's note 4 figure and does not move.** |
+| **Trade yield — RR IS HARDER THAN THE SOURCE** | **Kittens has no trade yield maximum.** `js/diplomacy.js:744-747` + `:250`: an additive, uncapped sum, tradepost `tradeRatio: 0.015` per copy, unbounded in count; the only `Math.min` is inside the pacifism challenge. **RR caps twice** (docks `limitedDR(…,1.0)`, caravans `limitedDR(0.02n, 0.60)`) **and composes four categories multiplicatively.** v0.61 Part 6.1 makes it one additive uncapped category. |
+| **UNVERIFIED must mean one thing** | **85 rows — 38% of the ledger — are classed RR-ORIGINAL and still labelled UNVERIFIED.** A mechanism with no counterpart cannot be "not yet looked up"; it must be argued EASIER or HARDER. v0.61 Part 3 argues all 85 and makes the generator **abort** on RR-ORIGINAL + UNVERIFIED, so the label can only ever mean "RETRIEVABLE and not yet retrieved". |
 | Convergence | Measured at its own **UNLOCK** since v0.59 Part 4, not at Sparks. v0.59: **8.83% median** against a 1% sourced floor, with 17,459 worship banked at Sparks. |
 | §30 | **A deleted id is never reused while its migration exists, and a migration must name the version that retires it.** Reserved ids: `runestone`, `hunterLodge`, `lumberCamp`, `petricite`, `tavern`, `bloomery`, `refinedMetallurgy`, `kindling`. |
 | **Kittens retrieval** | **CLONE THE SOURCE.** `github.com/nuclear-unicorn/kittensgame`, pinned at **`c52985b`** (2026-08-04). Three lookups multiple rounds recorded as dead — `XP_PER_SECOND`, `factoryAutomation`, the production-category census — fell to single greps against a clone. **grep.app silently drops its repo filter; raw fetches get summarised away. Do not use them.** Pin the revision in every citation: line numbers drift. |
 | **`XP_PER_SECOND` — SHIPPED AT PARITY** | `js/village.js:3228` @ `c52985b`, `baseSkillXP = 0.01`/tick = **0.05/s** at 5 ticks/s. **RR shipped 0.05 this round, down from 0.50.** Jerry's note 4 also returned the top two rungs to 7,500 / 11,500 (63.9 h to top rank, the centre of his 50-75 band) and **that closed `XP_CAP`'s staleness for free** — the shipped constant is literally `Math.floor(11500 * 20001 / 9000)` again, and the spec's proposed 40,446 was not needed. |
 | **The ladder is NOT uniformly harder** | The re-rated row was drafted claiming a rung-for-rung threshold match below the top. **It is impossible — RR has NINE rungs, Kittens SEVEN.** Matched by BONUS: RR is harsher at every Kittens rung (×3.50 → ×1.16 as the ladder climbs) **except +12.5%, where it is EASIER at ×0.96**, then re-opens to ×1.28 at the top. **The headline 28% is the top-rung figure only.** |
 | **The bot's job loop — REWRITTEN** | `sim/simcore.mjs` no longer takes the first job in an ordered list. It normalises the requested shares to an 0.85 budget and **assigns the job furthest below its share**, so list order can never again decide what the economy looks like. **This is the fix for two rounds of false balance conclusions** (v0.57 farmers, v0.59.1 tinkerers). **The tinkerer now exists for the first time in the project's history**: 1 at Sparks, 3 at Hexcore, 5 at Icathia, 6 at the end. |
-| **The converter stack — QUANTIFIED, UNACTIONED** | 42 Refineries × `crystals: 0.02` = 0.84/s base delivers **77.33/s** — a **×92.1** stack, of which global bonuses are ×4.66 and **the converter side is ×19.77** against Kittens' `calcinerRatio` ×3.70. **RR is ×5.3 the source on the same footing.** This is the largest un-actioned parity item in the game and it is why the Manufactory's burn has never mattered. **`MANUFACTORY_FUEL` was deliberately NOT raised a third time** — see BUILD REPORT §6. |
+| **The converter stack — QUANTIFIED, AND THE v0.60 COMPARISON CORRECTED** | v0.60 reported the "converter-side stack" at **×19.77** against Kittens' `calcinerRatio` ×3.70 and concluded RR runs ×5.3 the source. **Measured on a maxed state, `convMult` cannot exceed ×5.3728** (×8.0590 with the transient cinder buff): three Discoveries ×1.7969 · infernal drake ×1.4950 · overseer affinity ×2.0000 (capped by the level-10 cap). **The ×19.77 was `convMult × (1 + boosts.crystals)` — two categories, where `calcinerRatio` is one.** Like-for-like, **RR's three conversion Discoveries deliver ×1.797 against the source's ×3.70 — 49%, HALF as strong.** The excess is two RR-original systems multiplying on top, and the divergence is compositional: **the source has one category here, RR has three plus a transient.** v0.61 Part 1. |
 | **The 559/s was never a Refinery figure** | v0.59.1's run had 8–10 Augment Chambers; v0.60's builds zero, because Part 2 changed what the bot staffs. Crystal income is 74/s. **Any future sizing must name which faucet it is sizing against.** |
 | Machine note | **This container has `nproc` = 2.** A three-seed 2,500-year ensemble is ~44–68 min and needs the box to itself; twelve concurrent runs took ~85 min. **Background jobs die when a turn is interrupted — launch long runs with `setsid nohup … & disown`.** |
 
@@ -107,6 +110,109 @@ save/load only). RR's is `w.jx[w.j] += dt` — **1 xp per second worked, Challen
 hours of single-job work**. The rank *thresholds* are already close to source in shape and
 exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
 interim labelled UNVERIFIED — do not invent a citation.
+
+## v0.61 — the analyzer's verification pass
+
+**Verified from a fresh checkout at the `v0.60` tag, from disk.**
+
+**Everything reproduces, and the new harness is the reason it can be said cleanly.** Thirty-one
+suites parsed from their own `SUITE-END` trailers: **1,615 assertions passed, 0 failed, no
+missing trailer, no suite executing fewer assertions than it has `check()` sites, no non-zero
+exit.** `tools/parity-ledger.mjs` re-run: **226 rows — PARITY 72, EASIER 41, HARDER 2, UNVERIFIED
+111**, triage **RETRIEVABLE 26 / RR-ORIGINAL 85 / GENUINELY OPEN 0**, exact.
+
+**Every v0.60 part shipped**, checked by grep: `XP_PER_SECOND = 0.05`; `XP_CAP =
+Math.floor(11500 * 20001 / 9000)` — the constant is now its own derivation; `RANKS` back to
+Grandmaster 7,500 / Challenger 11,500 with gaps 2,700 / 4,000; `AUTOMATION_BASE = 0.02` driving
+both `automationTrigger()` and `automationShare(n)` against `AUTOMATION_CAP = 0.90`;
+`JOB_SHARE_BUDGET = 0.85` with a deficit-ranked pick; `tools/run-suites.mjs` and
+`tests/_selftest-throws.mjs` present.
+
+**Two spot-checks reproduced independently.** The bonus-matched ladder table of §10.1 — all six
+ratios exact (×3.50 / ×1.60 / ×1.33 / ×1.16 / ×0.96 / ×1.28) — and the XP arithmetic
+(11,500 / 0.05 / 3600 = **63.89 h**, `XP_CAP` **25,556**). §10.1's self-correction is sound and
+the bonus-matched framing is the right one.
+
+### The one number that does not decompose as described
+
+**§2 reports the "converter-side stack" at ×19.77 and compares it to Kittens' `calcinerRatio`
+×3.70, concluding RR runs ×5.3 the source.** Measured on a state with every upgrade, every drake
+maxed and all ten champions at level 10:
+
+| term | value |
+|---|---|
+| `clockworkBellows` × `bankedCoals` × `resonanceCoils` | **×1.7969** |
+| `infernal` drake (`strictDR`, cap 0.5) | ×1.4950 |
+| overseer affinity (5 champions × 2 × level, **level caps at 10**) | ×2.0000 |
+| **`convMult` product** | **×5.3728** (×8.0590 with the transient cinder buff) |
+
+**`convMult` cannot exceed ×5.373.** The ×19.77 is `convMult × (1 + boosts.crystals)` — **two
+categories multiplied together** — while `calcinerRatio` is one. **Made like-for-like the finding
+reverses: RR's three conversion Discoveries deliver ×1.797 against the source's ×3.70 — 49%, half
+as strong.** The excess over the source is not in the upgrade line; it is two RR-original systems,
+the infernal drake and the overseer champion affinity, multiplying on top.
+
+**The real divergence is compositional and it is the same shape as the `boosts` finding:** Kittens
+composes conversion strength as **one category of three upgrades**; RR composes it as **three
+multiplicative categories plus a transient**. v0.61 Part 1 ships the term-by-term readout, makes
+the three Discoveries additive, and ledgers the drake and champion terms as RR-original
+categories with their measured ceilings.
+
+### The early rank ladder is where the debt lives
+
+**28% is the top rung and nothing else.** The debt narrows monotonically upward and is worst at
+the very first rung: **Kittens grants +1.25% at 100 XP; RR first reaches it at 350 — ×3.50.** In
+hours, **36 minutes against 1 h 57**. That is the first hour of the game.
+
+**The cause is a rung-count mismatch, not a pricing decision.** RR spends its second rung (Silver,
+100 XP) on +1.0%, *below* Kittens' first bonus, so the player must climb to Gold at 350 to match
+what the source grants at 100. **RR's extra rungs are paid for out of the early game.** v0.61
+Part 2 re-prices the low rungs and leaves the top one — Jerry's note 4 figure — alone.
+
+### Retrieved this round
+
+- **Kittens has NO trade yield maximum.** `js/diplomacy.js:744–747`: `tradeRatio = 1 +
+  getTradeRatio() + policies + pacifism`, and `getTradeRatio()` (`:250`) is
+  `getEffect("tradeRatio") + merchant leader` — **a plain additive sum, no DR, no ceiling**, with
+  the tradepost at `tradeRatio: 0.015` per copy, unbounded in count. The only `Math.min` is inside
+  the pacifism challenge (`js/challenges.js:326`). **RR caps it twice** — docks at
+  `limitedDR(…, 1.0)` and caravans at `limitedDR(0.02n, 0.60)` — **and composes four categories
+  multiplicatively against the source's one additive sum. RR is HARDER here.**
+- **Jarvan's passive and Kittens' Academy land within 2% of each other by magnitude and differ in
+  every other respect.** 20 Academies give `0.01 + 20×0.0005` = **×2.00**, additive into the same
+  accumulator as the base rate; Jarvan at level 10 gives ≈ **×1.97**, multiplicative on the rate,
+  from one champion. **Magnitude parity, shape RR-original** — and RR still has no building that
+  accelerates learning, which is builder note 5's missing-content row.
+
+### Diagnosed from code, for the dev notes
+
+- **The Howling Abyss is a genuine outlier.** Renown per 1,000 vigor: **Abyss 41.67**, Raptors
+  30.00, Sump Crawl 28.57, Wolves/Gromp/Krugs 20.00, Drake Hunt 16.67, **Baron 15.38**, Scouting
+  4.57. The Abyss pays **2.7× the Baron's rate** and is a charge camp, so an empowered run pays ×3
+  on top.
+- **"Deeper cargo slots" tests the wrong property.** `index.html:8711` counts hidden slots with
+  `!ttResKnown(sl.res)` — a **resource-visibility** test — while the sentence claims a
+  **capability**. `slotAvailable(fid, i)` (`:4231`) already computes the capability. The two
+  disagree exactly on *"can craft it, has not yet made one"*, which is Jerry's Piltover beam case.
+- **The trade tooltip never mentions renown** although `TRADE_RENOWN = 1` has been paid since
+  v0.59 (`showTooltip(btn, …)` at `:8671` builds its yield list from cargo slots only).
+- **`holdFestival()` (`:4883`) grants no renown**, and **no faction cost includes provisions**
+  (`tradeCost`, `:4263`).
+- **The spelling is British and consistent** across `:8588` and `:3572`, so dev note 4 is a
+  house-style change rather than a typo fix — worth doing in one pass across the file.
+
+### A reversal Jerry should see stated
+
+v0.60 §6 records his note 5 as **"hold the line on Mana"** and Σ0.75 was left untouched on that
+basis. **Dev note 3 now asks for a fourth mana multiplier.** Both are his calls under §16 and the
+later supersedes the earlier — but the number should travel with it: Kittens' `<res>GlobalRatio`
+has **two members in the entire game (0.30, 0.25)**; a fourth RR member at 0.25 makes it **Σ1.00
+across four**, against the source's two.
+
+### Not measured this round
+
+**The three-seed ensemble was launched at the start of the session and had not finished at
+hand-off.** Every Era-3 and milestone figure in the v0.61 spec is v0.60's own, labelled as such.
 
 ## v0.60 — the analyzer's verification pass
 
