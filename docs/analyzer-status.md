@@ -25,7 +25,7 @@ table wins.
 | Previous build | **v0.60**, tagged `v0.60` — the XP rate found, the dying-suite class closed, the bot's job loop rewritten |
 | Last consumed spec | **`docs/specs/rr-analyzer-v061-spec.md`** (consumed by v0.61; moved out of the root, not copied) |
 | Last consumed dev notes | **Jerry's four v0.61 notes**, recorded in `docs/gameplay-notes.md` |
-| Current spec, awaiting a builder | **NONE.** The root holds no `current-build-spec.md`. The next analyzer pass writes v0.62 against the `v0.61` tag. |
+| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.62**, eleven Parts. Carries six builder notes and **all twelve of Jerry's dev notes (mapping table at the spec's head)**. **Part 8 corrects §31's premise before Jerry rules on it.** |
 | Live suites | **32 suites**, run with `node tools/run-suites.mjs --selftest`. **`tests/test-v61.mjs` is new, 85 assertions.** Do not run suites with a shell loop that scrapes "N passed". |
 | Parity ledger | **226 rows — PARITY 81, EASIER 105, HARDER 15, UNVERIFIED 25.** **All 25 remaining UNVERIFIED rows are RETRIEVABLE; RR-ORIGINAL + UNVERIFIED is ZERO for the first time**, and the generator now ABORTS on that combination. The 86-row argument pass split **EASIER 65 / HARDER 13 / counterpart-found 8** against a predicted 60 / 20 / 5. |
 | **UNVERIFIED has a definition now** | **"RETRIEVABLE and not yet retrieved" — nothing else.** A mechanism with no Kittens counterpart cannot be looked up and must be argued EASIER or HARDER against the nearest source-shaped alternative. **Do not propose a round that "works through the UNVERIFIED backlog" without checking the class first**; 25 rows remain and every one names an identifier. |
@@ -107,6 +107,105 @@ save/load only). RR's is `w.jx[w.j] += dt` — **1 xp per second worked, Challen
 hours of single-job work**. The rank *thresholds* are already close to source in shape and
 exactly at parity at the top (0.1875). Locate the increment before setting a rate, or ship an
 interim labelled UNVERIFIED — do not invent a citation.
+
+## v0.62 — the analyzer's verification pass
+
+**Verified from a fresh checkout at the `v0.61` tag, from disk.**
+
+**Everything reproduces.** Thirty-two suites parsed from their own `SUITE-END` trailers: **1,703
+assertions passed, 0 failed, no missing trailer, no skipped call site, no non-zero exit.**
+`tools/parity-ledger.mjs` re-run: **226 rows — PARITY 81, EASIER 105, HARDER 15, UNVERIFIED 25**,
+triage **RETRIEVABLE 25 / RR-ORIGINAL 0 / GENUINELY OPEN 0**, exact. **Every v0.61 part shipped.**
+
+### The trade loop: Kittens has the same cycles, and a different guard
+
+**v0.61 §5.2 calls the trade→transmute cycle "an unbounded resource loop" and ships
+`TRADE_YIELD_LIMIT = 3.0` — a ceiling the source does not have — to contain it. The premise does
+not survive the source.**
+
+- **Kittens' trades form cycles of exactly this kind**: `lizards` buy minerals → sell wood;
+  `sharks` buy iron → sell catnip; `nagas` sell minerals; `griffins` sell iron.
+- **Kittens ships the raw-producing craft too.** A census of its whole craft list returns
+  **exactly one craft whose output is a base resource: `wood ← catnip`.** RR's transmute is that
+  craft. **None of RR's three legs is unprecedented.**
+- **What bounds the source's loops is a per-trade tax in resources the cycle does not produce** —
+  `baseGoldCost: 15` and `baseManpowerCost: 50` (`js/diplomacy.js:10–11`), deducted **flat**
+  (`:885–886`) while only the `buys` resource scales with volume and only the *yield* scales with
+  `tradeRatio`.
+- **RR already has the identical guard and nobody costed it.** Both legs charge `vigor 175` and
+  `gold 45–68`; the cycle yields steel, mana and timber and **no gold and no vigor**.
+
+**So G > 1 means timber stops being a constraint — and timber is capped, so it sits at its
+ceiling. It does not mean unbounded resources.** v0.62 Part 1 measures the guard and, if it binds,
+removes `TRADE_YIELD_LIMIT` and ships the source's uncapped form, which is what dev note 8 asked
+for.
+
+### The `BOOST_LIMIT` knee audit nobody had run
+
+`limitedDR` is linear only below **0.75·L**. Measured by instrumenting `limitedDR` through one
+`computeRates()` on a fully maxed state:
+
+| family | L | knee | raw Σ | delivered | % of knee | thrown away |
+|---|---|---|---|---|---|---|
+| **vigor** | 1.0 | 0.750 | **5.571** | 0.988 | **743%** | **82%** |
+| **devotion** | 2.0 | 1.500 | **5.024** | 1.938 | **335%** | **61%** |
+| **mana** | 1.0 | 0.750 | 1.465 | 0.935 | 195% | 36% |
+| provisions | 1.5 | 1.125 | 1.300 | 1.244 | 116% | 4% |
+| **crystals** | 2.0 | 1.500 | **1.494** | 1.494 | **99.6%** | 0% |
+| gold | 1.5 | 1.125 | 1.031 | 1.031 | 92% | 0% |
+| culture | 2.0 | 1.500 | 0.387 | 0.387 | 26% | 0% |
+
+**Which bites next: crystals, 0.006 from its knee.** Gold is second at 92%.
+
+**And two families are far past it. Vigor carries a raw Σ of 5.571 into a cap of 1.0 and delivers
+0.988 — 82% of every vigor boost in the game is discarded**, so a +25% vigor upgrade pays roughly
++0.4%. Devotion discards 61%. **Same class as v0.61 §7.1's mana finding, three times worse, in a
+family nobody was watching.** v0.62 Part 2 ships the readout and makes every effect string read
+its **delivered** value; **no `BOOST_LIMIT` is changed** — that is Jerry's under §16.
+
+### Storage: the Storehouse is exact parity and the Warehouse inverts the source
+
+Kittens per copy — barn `catnip 5000 / wood 200 / minerals 250 / iron 50 / gold 10`; warehouse
+`wood 150 / minerals 200 / iron 25 / gold 5`. **The warehouse is smaller than the barn on every
+shared material** (ratios 0.75 / 0.80 / 0.50 / 0.50), winning only on titanium.
+
+**RR's Storehouse copies the barn value for value** — provisions 5,000 / timber 200 / ore 250 /
+gold 10. **RR's Warehouse gives timber 400, ore 300, gold 80 — 2.0×, 1.2× and 8.0× the
+Storehouse.** Dev note 9 is exactly right and the fix is derivable from the source's ratios:
+**timber 150, ore 200, gold 5.** The Harbor matches the source except **ore 500 (source 950)** and
+**gold 200 (source 25)**.
+
+### The crystal sink is the right shape and 0.02% of the faucet
+
+v0.61's research sink moved crystals-at-cap 96.2% → 94.7%. The arithmetic: 33.4 crystals/s over
+2,500 game-years is **66.8 million produced** against roughly **14,000 spent — 0.02%.** No
+rung-scaled research price will ever move that. **The Manufactory failed for the same reason its
+burn is flat while the Refinery's yield is multiplied ×92.** v0.62 Part 7 puts the burn on the
+same multiplier footing as the yield, anchored to Kittens' `calciner` −0.024 against `oilWell`
++0.02 — a primary sink burns 1.2× a primary faucet, per copy. **`MANUFACTORY_FUEL` is not raised a
+fourth time.**
+
+### A correction the analyzer owes on §31
+
+**My claim that RR's stack is "×9.3 the source's" compared RR's WHOLE stack against ONE Kittens
+category** — the same conflation this project has now caught three times, and I made it one
+message after flagging it. **Kittens' full production chain (`game.js:3390–3540`) has roughly
+fourteen multiplicative steps**, not four: season, `GlobalRatio`, `Ratio`, `RatioReligion`,
+`SuperRatio`, the steamworks hack, paragon, pollution, magnetos, reactors, Solar Revolution,
+cosmic radiation, festival cycles, necrocracy. **RR has about eleven — slightly under the source,
+not nine times over it.** v0.62 Part 8 amends §31 so Jerry rules on a corrected question.
+
+### Aurelion Sol, for the record
+
+`fireStarShard()` (`index.html:6678–6688`) is gated on `ritesOfTargon` and fires at
+`STARSHARD_BASE_RATE 0.00006` per tick, scaled by `1 + strictDR(observatories × 0.12, 3.0)` — so
+**once per 4.2 game-years at zero observatories, rising to once per 1.2 at a hundred**. It pays
+`max(120, 6% of the knowledge cap)` and `max(80, 5% of the ore cap)`.
+
+### Not measured this round
+
+**The three-seed ensemble was launched at the start of the session and had not finished at
+hand-off.** Every Era-3 and milestone figure in the v0.62 spec is v0.61's own, labelled as such.
 
 ## v0.61 — the analyzer's verification pass
 
