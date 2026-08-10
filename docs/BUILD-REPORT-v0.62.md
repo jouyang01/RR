@@ -379,3 +379,18 @@ to spend knowledge on while the buildings that raise the ceiling go up.** The fo
 above the band are left alone.
 
 ---
+
+## 12. Operational — the ensemble died once, and `setsid` did not save it
+
+**The first three-seed run reached 45 minutes and was killed when a turn was interrupted, despite
+being launched with `setsid nohup … & disown`** — which operational rule 6 exists precisely to
+prevent, and which has now failed once in the shape it was written for. The relaunched run
+reparented to PID 1 and was verified detached before being left alone.
+
+**What to change:** rule 6 is necessary and not sufficient. **Verify the reparent** (`ps -o ppid=`
+should show 1) rather than assuming `setsid` took, and prefer a harness that writes its per-seed
+results incrementally — the parent buffers child output until every seed finishes, so a run killed
+at 95% of its wall time leaves a log containing only its header. **45 minutes of measurement
+produced two lines.**
+
+---
