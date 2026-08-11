@@ -596,6 +596,116 @@ export async function runSim(page, years, seed = 1) {
           S.buildingsOff = offSave;
           return o;
         })(),
+        // ====================================================================================
+        // v0.64 PART 1 — THE maxPop DECOMPOSITION. Pass condition 3, and it is the instrument
+        // the v0.63 handoff asked for by name: "`maxPop()` is emitted but not decomposed."
+        //
+        // For EVERY building that raises `maxPop`: how many copies stand, what they contribute,
+        // what the NEXT copy costs at the live ratio, and **WHICH RESOURCE IS BINDING ON IT** —
+        // separating the two entirely different ways a housing tier can stop:
+        //
+        //   CEILING-BOUND   the next copy's lump exceeds the resource's own STORAGE CAP, so no
+        //                   amount of production can ever buy it. This is the Longhouse's
+        //                   1,200-provisions component at ratio 1.15 and it is Part 1's whole
+        //                   subject: the 48th copy needs 855,027 provisions in ONE lump.
+        //   STOCK-BOUND     the cap clears the lump but the settlement does not hold it yet.
+        //                   That is a pacing statement, not a wall.
+        //   AFFORDABLE      it could be bought this tick.
+        //
+        // The distinction matters because §24 already taught this project that a fraction cannot
+        // answer a question about an absolute, and "population is capped" cannot distinguish
+        // "the player is saving up" from "the ceiling forbids it" without this split.
+        housing: (() => {
+          const caps = computeCaps();
+          const tiers = BUILDINGS.filter(b => b.pop).map(b => {
+            const n = count(b.id), next = buildingCost(b);
+            // the binding resource on the NEXT copy, ceiling first because a ceiling is absolute
+            const overCap = Object.keys(next).filter(r => caps[r] !== undefined && next[r] > caps[r]);
+            const short = Object.keys(next).filter(r => next[r] > (S.res[r] || 0));
+            // the LAST copy this tier could ever reach: the largest k with base*ratio^(k-1) <= cap
+            // for every ceiling-bound component. Unbounded (null) when no component is capped.
+            const ratio = buildingRatio(b);
+            let ceilingCopies = null;
+            for (const r in b.cost) {
+              if (caps[r] === undefined || !(caps[r] > 0)) continue;
+              const k = Math.floor(Math.log(caps[r] / b.cost[r]) / Math.log(ratio)) + 1;
+              ceilingCopies = ceilingCopies === null ? k : Math.min(ceilingCopies, k);
+            }
+            return {
+              id: b.id, name: b.name, popPerCopy: b.pop, copies: n, contributes: b.pop * n,
+              tech: b.tech || null, visible: buildingVisible(b),
+              nextCost: Object.fromEntries(Object.entries(next).map(([r, v]) => [r, Math.round(v)])),
+              binding: overCap.length ? overCap : (short.length ? short : []),
+              bindingKind: overCap.length ? "CEILING-BOUND" : (short.length ? "stock-bound" : "affordable"),
+              // for a ceiling-bound component, the ceiling itself, so the report can quote both
+              bindingCap: overCap.length ? Math.round(caps[overCap[0]]) : null,
+              ceilingCopies, ceilingPop: ceilingCopies === null ? null : b.pop * ceilingCopies
+            };
+          });
+          // THE TWO-TIER CEILING AS A NUMBER — pass condition 5. Every tier a settlement can
+          // reach WITHOUT the third housing tier's tech, summed at its own maximum.
+          const third = tiers.find(t => t.id === "skyrise");
+          const belowThird = tiers.filter(t => t.id !== "skyrise");
+          return {
+            pop: S.pop, maxPop: maxPop(), atWall: S.pop >= maxPop() - 1,
+            ratioMult: +maxPopRatio().toFixed(4), tiers,
+            twoTierCeiling: belowThird.reduce((a, t) => a + (t.ceilingPop === null ? 0 : t.ceilingPop), 0),
+            thirdTierUnlocked: third ? !!(S.techs[third.tech]) : null,
+            thirdTierCopies: third ? third.copies : null
+          };
+        })(),
+        // ====================================================================================
+        // v0.64 PART 4 — THE MANA BALANCE. Dev note 3 asks whether RR has enough mana
+        // multipliers and the spec refuses to answer it from a fixture: "a fixture of twenty of
+        // everything nets +132/s, but that is not a run."
+        //
+        // NET mana per second and the CONSUMED÷PRODUCED ratio, at every milestone. `gross` is
+        // measured the way `resourceBalance` measures it and for the same reason (§24's trap):
+        // switch off ONLY the converters that CONSUME mana, because switching off every
+        // converter would also silence the ones that make the thing being measured.
+        manaBalance: (() => {
+          const offSave = JSON.parse(JSON.stringify(S.buildingsOff || {}));
+          const eaters = BUILDINGS.filter(b => b.convert && b.convert.input && b.convert.input.mana);
+          S.buildingsOff = JSON.parse(JSON.stringify(offSave));
+          eaters.forEach(b => S.buildingsOff[b.id] = true);
+          const gross = computeRates().mana;
+          S.buildingsOff = offSave;
+          const net = computeRates().mana;
+          const consumed = gross - net;
+          return {
+            net: +net.toFixed(4), gross: +gross.toFixed(4), consumed: +consumed.toFixed(4),
+            consumedOverProduced: gross > 1e-9 ? +(consumed / gross).toFixed(4) : null,
+            held: Math.round(S.res.mana || 0), cap: Math.round(computeCaps().mana || 0),
+            deficit: net < 0,
+            converters: eaters.map(b => ({ id: b.id, n: count(b.id), perCopy: b.convert.input.mana }))
+                              .filter(c => c.n > 0),
+            // the boost line itself, so "is the rail the answer" is checkable without a second run
+            boostRaw: +((computeRates("mana")._knee || {}).mana || {}).raw || 0,
+            boostDelivered: +((computeRates("mana")._knee || {}).mana || {}).delivered || 0
+          };
+        })(),
+        // ====================================================================================
+        // v0.64 PART 6 — THE TRADE PROVISIONS COST, ANSWERED WITH THE NOTE'S OWN TEST.
+        // v0.61 measured this cost as NEVER BINDING. The question a cut has to answer is not
+        // "is it smaller" but "how many caravans does the provisions CEILING allow", which is
+        // `floor(provisions cap / trade cost)` — and separately how many the STOCK allows.
+        tradeProvisions: (() => {
+          const caps = computeCaps();
+          const per = typeof TRADE_PROVISIONS === "number" ? TRADE_PROVISIONS : null;
+          const cheapest = FACTIONS.map(f => tradeCost(f))
+            .reduce((a, c) => (a === null || (c.provisions || 0) < (a.provisions || 0)) ? c : a, null);
+          const cost = cheapest ? (cheapest.provisions || 0) : 0;
+          return {
+            perTrade: per, costWithDiscounts: cost,
+            provisionsCap: Math.round(caps.provisions || 0),
+            provisionsHeld: Math.round(S.res.provisions || 0),
+            caravansCeilingAllows: cost > 0 ? Math.floor((caps.provisions || 0) / cost) : null,
+            caravansStockAllows: cost > 0 ? Math.floor((S.res.provisions || 0) / cost) : null,
+            // time-at-cap TO DATE, so the figure is per-milestone rather than one end-of-run
+            // number. `capTicks` is the same counter `capOutPct` divides at the end of the run.
+            provisionsAtCapPctToDate: +(100 * ((capTicks.provisions || 0) / (tickCount || 1))).toFixed(1)
+          };
+        })(),
         steelPerSec: +computeRates().steel.toFixed(4),
         bloomery: count("bloomery"), forge: count("forge"),
         bardsHearths: count("bardsHearth"), morale: morale(),

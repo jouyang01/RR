@@ -676,6 +676,57 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
     (Math.abs(sum - 100) < 0.5 ? " — fully attributed" : " — NOT FULLY ATTRIBUTED, a contributor is unlabelled"));
 });
 
+// ---- v0.64 PART 1 — THE maxPop DECOMPOSITION, AT EVERY MILESTONE ----
+// HANDOFF v0.63 §6 asked for exactly this by name: "`maxPop()` is emitted but not decomposed.
+// Add a housing/food decomposition to the milestone snapshot FIRST, then size." Every building
+// that raises maxPop, its count, its contribution, and WHICH RESOURCE IS BINDING on the next
+// copy — with a ceiling-bound component distinguished from a stock-bound one, because the two
+// are different problems and only one of them is a wall.
+["sparks", "hexcore", "icathia", "final"].forEach(k => {
+  const h = r.snaps && r.snaps[k] && r.snaps[k].housing;
+  if (!h) return;
+  console.log(`\nmaxPop DECOMPOSITION @${k}: pop ${h.pop} / maxPop ${h.maxPop}` +
+    `${h.atWall ? "  <-- AT THE HOUSING WALL" : ""}   (ratio ×${h.ratioMult})`);
+  console.log(`     ${"building".padEnd(16)} ${"copies".padStart(6)} ${"pop".padStart(5)} ` +
+    `${"maxCopies".padStart(9)} ${"maxPop".padStart(7)}  binding on the next copy`);
+  h.tiers.forEach(t => console.log(
+    `     ${t.name.padEnd(16)} ${String(t.copies).padStart(6)} ${String(t.contributes).padStart(5)} ` +
+    `${String(t.ceilingCopies === null ? "∞" : t.ceilingCopies).padStart(9)} ` +
+    `${String(t.ceilingPop === null ? "∞" : t.ceilingPop).padStart(7)}  ${t.bindingKind}` +
+    (t.binding.length ? ` — ${t.binding.join(", ")}` +
+      (t.bindingCap !== null ? ` (next copy wants ${t.nextCost[t.binding[0]]} against a ceiling of ${t.bindingCap})` : "") : "") +
+    (t.visible ? "" : "   [not yet visible]")));
+  console.log(`     TWO-TIER CEILING (everything below the third housing tier): ${h.twoTierCeiling} population.` +
+    `  Third tier unlocked: ${h.thirdTierUnlocked}, ${h.thirdTierCopies} standing.`);
+});
+
+// ---- v0.64 PART 4 — THE MANA BALANCE, AT EVERY MILESTONE ----
+// Dev note 3 asks whether there are enough mana multipliers. The spec's answer is conditional on
+// a measurement and names it: net mana/s and consumed÷produced at all four milestones, with a
+// fourth discovery shipped ONLY on a measured deficit.
+["sparks", "hexcore", "icathia", "final"].forEach(k => {
+  const m = r.snaps && r.snaps[k] && r.snaps[k].manaBalance;
+  if (!m) return;
+  console.log(`\nMANA BALANCE @${k}: net ${m.net}/s = gross ${m.gross}/s − consumed ${m.consumed}/s` +
+    `   consumed÷produced ${m.consumedOverProduced === null ? "—" : m.consumedOverProduced}` +
+    `${m.deficit ? "   <-- DEFICIT" : ""}`);
+  console.log(`     held ${m.held} / cap ${m.cap}   boost line raw Σ ${m.boostRaw} → delivered ${m.boostDelivered}`);
+  if (m.converters.length) console.log("     consumers: " +
+    m.converters.map(c => `${c.n}× ${c.id} @ ${c.perCopy}/s`).join(" · "));
+});
+
+// ---- v0.64 PART 6 — THE TRADE PROVISIONS COST, ANSWERED WITH THE NOTE'S OWN TEST ----
+// v0.61 measured this cost as never binding. "It does not become a limiter by getting smaller" —
+// so the figure that answers the note is how many caravans the provisions CEILING allows, not
+// whether the number went down.
+["sparks", "hexcore", "icathia", "final"].forEach(k => {
+  const t = r.snaps && r.snaps[k] && r.snaps[k].tradeProvisions;
+  if (!t) return;
+  console.log(`\nTRADE PROVISIONS @${k}: ${t.perTrade}/caravan (paid ${t.costWithDiscounts})` +
+    `   provisions ${t.provisionsHeld} / ${t.provisionsCap}  ·  time-at-cap to date ${t.provisionsAtCapPctToDate}%`);
+  console.log(`     the CEILING allows ${t.caravansCeilingAllows} caravans; the STOCK allows ${t.caravansStockAllows}`);
+});
+
 // ---- v0.62 PART 2 — THE BOOST_LIMIT KNEE AUDIT, EVERY FAMILY, EVERY MILESTONE ----
 // `limitedDR(x, L)` is LINEAR only below 0.75*L. A family whose raw sum has grown past its knee
 // silently discards most of every new member -- and the player is told the advertised figure.
