@@ -146,6 +146,71 @@ shaft at `:9915` — **offset the phases or the two will strobe together.**
 again — never by grep.** That is the v0.61 §3 lesson: the festival chip's assertion grepped for a
 string and passed for two rounds while the feature never fired.
 
+## ANALYZER NOTE for the v0.64 round — the v0.63 rung cap cut the wrong members
+
+**Jerry challenged the v0.63 spec's Part 1 after it had been consumed, and he was right. The
+builder independently recorded the same objection in BUILD-REPORT v0.63 §1.2. This note carries
+the measurement that decides it, and one consequence neither of us had.**
+
+### The per-rung total is not a Kittens invariant; the per-upgrade ratio is
+
+Joining `js/workshop.js` against `js/science.js` at `c52985b`:
+
+| | median | p25 | p75 | max |
+|---|---|---|---|---|
+| **per-upgrade** (upgrade science ÷ its own rung) | **0.87** | **0.73** | **1.00** | 3.33 |
+| per-rung total (Σ upgrades ÷ rung) | 2.43 (analyzer) / 2.07 (builder) | 1.38 | 3.46 | 6.25–8.19 |
+
+**Half the source's own rungs exceed 2.43×** — `writing`, `sattelites`, `steel`, `electronics`,
+`metaphysics` — because a rung's total is simply *per-upgrade × how many upgrades sit on it*, and
+Kittens puts up to six on one tech. **A per-rung ceiling caps the source's normal pattern and
+penalises exactly the techs that unlock the most content.** The per-upgrade ratio, by contrast,
+has a tight IQR of **0.73–1.00**.
+
+**The analyzer's and builder's censuses disagree** — median 2.43 vs 2.07, max 8.19 vs 6.25,
+whole-game 0.50 vs 0.470. **Both were computed by joining upgrades to their unlocking tech; the
+join differs. The v0.64 round should reconcile them once and pin the result**, because three
+rounds have now argued from this table.
+
+### What the cap actually did, measured on the shipped v0.63 file
+
+**It scaled whole rungs proportionally, so it cut the members that were already at parity and left
+the outliers still the largest.** On `ritesOfTargon`:
+
+| discovery | source | before | **after** | vs source IQR 0.73–1.00 |
+|---|---|---|---|---|
+| **`greatLibrary`** | **AUTHORED** | 3.33× | **1.41×** | **still above p75** |
+| `cataloguing` | generated | 0.80× | **0.34×** | **far below p25** |
+| `crossReferencing` | generated | 0.80× | **0.34×** | **far below p25** |
+| `illuminators` | generated | 0.80× | **0.34×** | **far below p25** |
+
+**Across the whole game the generated members' per-upgrade median fell 0.80 → 0.62, minimum
+0.34**, against a source IQR of 0.73–1.00. **`masterOfTheHunt` is now 2.43× — the sole discovery
+on its rung, so the rung cap became its per-upgrade cap — still 2.4× the source's p75.**
+
+**Every discovery above the source's p75 is AUTHORED, not generated.** The generated rule at
+0.80 was never out of parity. `ritesOfTargon`'s 5.73× decomposed exactly as `greatLibrary` 3.33
+plus three generated at 0.80 — **one authored figure was 58% of the rung and 28% of all discovery
+knowledge in the game.**
+
+### What v0.64 should do
+
+1. **Retire `DISCOVERY_RUNG_CAP`** and restore the generated members to `0.8 × K`. The rule is at
+   parity and the cap is taxing it.
+2. **Re-base the two authored outliers to the source's p75 of 1.00 instead** — `greatLibrary`
+   40,000 → **12,000**, `masterOfTheHunt` 12,000 → **3,600**. That is −36,400 taken entirely from
+   the two figures furthest outside the source's spread, against the cap's −47,959 taken mostly
+   from members that were already correct.
+3. **Assert the invariant that actually holds:** RR's per-upgrade median inside **0.73–1.00**,
+   computed from `TECHS` and `UPGRADES` after every load-time mutation.
+4. **Reconcile the two censuses and pin one table.**
+
+**And the standing gap stays open and unclosed:** RR is at **0.0655 discovery-to-tech knowledge
+against the source's ~0.47–0.50**, because every tech from `hexdraulics` up carries zero while all
+22 generated members sit at or below `sparks`. **The source spreads its burden across the whole
+ladder; RR concentrates a seventh of it in the early game.** Spreading it is the faithful fix and
+**must not ship until a round reaches Icathia on all three seeds.**
+
 ## v0.63 — the analyzer's verification pass
 
 **Verified from a fresh checkout at the `v0.62` tag, from disk.**
