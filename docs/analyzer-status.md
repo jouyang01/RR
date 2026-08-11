@@ -25,7 +25,7 @@ table wins.
 | Previous build | **v0.61**, tagged `v0.61` — the converter stack decomposed, the RR-ORIGINAL backlog discharged |
 | Last consumed spec | **`docs/specs/rr-analyzer-v062-spec.md`** (consumed by v0.62; moved out of the root) |
 | Last consumed dev notes | **Jerry's twelve v0.62 notes plus four follow-ups, and his knowledge-sink note**, in `docs/gameplay-notes.md` |
-| Current spec, awaiting a builder | **NONE.** The next analyzer pass writes v0.63 against the `v0.62` tag. |
+| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.63**, ten Parts. Carries four builder notes and **all eleven of Jerry's dev notes**. **Pass condition 1 is that the round finishes on all three seeds** — v0.62 reached Icathia on one. |
 | Live suites | **33 suites, 1,737 `check()` call sites, 1,786 assertions, all passing** under `node tools/run-suites.mjs --selftest`. `tests/test-v62.mjs` is new, 84 assertions. |
 | **PARITY LEDGER — FINISHED** | **225 rows — PARITY 87, EASIER 117, HARDER 21, UNVERIFIED 0.** Every row carries a verdict argued or retrieved against `c52985b`. **The next parity work is MAINTENANCE, not discovery**, and both generator guards (RR-ORIGINAL+UNVERIFIED, and UNVERIFIED without a recorded retrieval attempt) are load-bearing now that the set is empty. |
 | **THE KNEE AUDIT — the round's finding, and a live player-facing bug** | `limitedDR(x, L)` is linear only below **0.75·L**. Measured on a maxed state: **vigor carries raw Σ 4.581 into a cap of 1.0 and delivers 0.985 — 78.5% discarded**, so a +25% vigor upgrade pays about +0.4%. **Devotion discards 52.4%.** Every boost tooltip now reports its DELIVERED value; the readout prints all seven families at every milestone. **NO `BOOST_LIMIT` VALUE MOVED — §16 makes that Jerry's.** |
@@ -145,6 +145,81 @@ shaft at `:9915` — **offset the phases or the two will strobe together.**
 **Both Crest changes are asserted by holding the buff, reading the canvas, expiring it and reading
 again — never by grep.** That is the v0.61 §3 lesson: the festival chip's assertion grepped for a
 string and passed for two rounds while the feature never fired.
+
+## v0.63 — the analyzer's verification pass
+
+**Verified from a fresh checkout at the `v0.62` tag, from disk.**
+
+**Everything reproduces.** Thirty-three suites parsed from their own `SUITE-END` trailers: **1,786
+assertions passed, 0 failed, no missing trailer, no skipped call site, no non-zero exit.**
+`tools/parity-ledger.mjs`: **225 rows — PARITY 87, EASIER 117, HARDER 21, UNVERIFIED 0. THE LEDGER
+IS FINISHED.** Every v0.62 part shipped, including the Warehouse at `timber 150 / ore 200 / gold 5`
+and the Harbor at `ore 950 / gold 25`.
+
+**The report's own verdict — "the round is too harsh, 4 of 10 gates fail" — is right, and the
+cause is not where builder note 1 places it.**
+
+### Dev note 1 confirmed, and the divisor is at parity
+
+**Jerry's claim is right and close.** A join of Kittens' 171 workshop upgrades against the techs
+that unlock them: **139 (81%) carry a science cost**, and the **per-upgrade ratio to its rung has
+a median of 0.90** — `rotaryKiln` ×1.04, `factoryRobotics` ×0.71, `offsetPress` ×0.87, `petri`
+×0.76, exactly his examples. **Total upgrade science per rung: median 2.43×.** The builder's own
+note says RR sits at "2.4 × the rung's own price". **That is the source's figure to two
+significant figures, and halving the divisor to 0.4 × K would move away from parity.**
+
+**RR's whole-game burden is one fifth of the source's, not more.** Read from the mutated
+`UPGRADES` array — the rule is a load-time IIFE at `index.html:3213–3214` that **a literal grep
+does not see**:
+
+| | RR v0.62 | Kittens |
+|---|---|---|
+| discoveries carrying knowledge | 32 of 78 | 139 of 171 |
+| **discovery K ÷ tech K** | **0.099** | **0.50** |
+| per-rung burden, median | 1.60× | 2.43× |
+
+**The overshoot is ONE RUNG.** Every tech from `hexdraulics` (50,000) up carries zero; all 22 set
+members sit at or below `sparks`. **`ritesOfTargon` carries 68,800 — 5.73× its own rung and 48% of
+all discovery knowledge in the game — and `Rites of Targon` is one of the four failing gates**
+(median 76.0 against <75).
+
+**v0.63 Part 1 caps the per-rung burden at Kittens' own median 2.43× instead of cutting the
+divisor**: −34% total, −58% on the offending rung, every compliant rung untouched, and the
+per-upgrade ratio stays at the source's 0.80.
+
+### Dev note 11 settles the one figure v0.62 could not derive
+
+**Steel ≡ iron.** Kittens: barn `ironMax 50`, warehouse `ironMax 25` (0.50), harbor `ironMax 150`.
+RR: **the Storehouse has no steel line at all** (should be 50), **the Warehouse has 100** (should
+be 25 — currently 4× the source's relationship), and **the Harbor's 150 is already exact parity.**
+Part 2 is the one storage change that *relieves* the round.
+
+### Two notes describe things that already shipped
+
+- **Dev note 7 — the Targon halo exists** (`index.html:10368–10378`). It cannot be seen because
+  it is drawn in `PAL.goldBright` centred at `(cx, groundY − 26)`, which is **the exact apex of
+  the gold peak at `:10342`, in the identical colour.** A gold ring on a gold peak. **This is a
+  visibility fix, not a missing feature — telling the builder to add a halo would produce a
+  second one.**
+- **Dev note 6 is half shipped.** `JARVAN_XP_PASSIVE = 15` is generated, but `index.html:1595`
+  still reads *"every worker in the village produces 12% more"* against a shipped
+  `JARVAN_VILLAGE_LEAD = 0.06` — **and the wording still describes the three-job scope the same
+  round widened to eight.** Third literal-drift defect in three rounds; Part 4 ships a general
+  guard.
+
+### The box event's rate has no ceiling
+
+`index.html:6694` — `jackboxes × 0.0002` per tick, linear and uncapped: **one event every ~50
+seconds at 20 boxes**, each writing a chronicle line. **The same building's morale term IS bounded**
+(`strictDR(…, MORALE_BOX_LIMIT)`, `:5701`). The spam is the symptom; the unbounded rate is the
+defect.
+
+### Not measured this round
+
+**The three-seed ensemble was launched at the start of the session and had not finished at
+hand-off.** Every Era-3 and milestone figure in the v0.63 spec is v0.62's own, labelled as such.
+**v0.62 lost two ensembles to container restarts before one completed at 48 minutes — budget three
+attempts.**
 
 ## v0.62 — the analyzer's verification pass
 
