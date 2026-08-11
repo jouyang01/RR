@@ -25,7 +25,7 @@ table wins.
 | Previous build | **v0.61**, tagged `v0.61` — the converter stack decomposed, the RR-ORIGINAL backlog discharged |
 | Last consumed spec | **`docs/specs/rr-analyzer-v063-spec.md`** (consumed by v0.63; moved out of the root) |
 | Last consumed dev notes | **Jerry's eleven v0.63 notes plus the Automated Workshop NaN note**, in `docs/gameplay-notes.md` |
-| Current spec, awaiting a builder | **NONE — v0.63 is shipped and the next spec is not written.** **THE ROUND'S GATE FAILED: Icathia on 1 of 3 seeds (Parts 1+2 build) and 2 of 3 (shipped build), against a condition of 3 of 3.** The diagnosis is in BUILD REPORT v0.63 §0 and it is **population, not knowledge** — the seed that finishes is the seed inside §27's 150-220 band. **The next round should be about population and should MEASURE what caps it before proposing anything** (HANDOFF §6). |
+| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.64**, eight Parts. **Jerry ruled Option B.** Part 1 decomposes the population wall — three housing buildings, the first two capping at 78 — and Part 2 sets the boost rails one family at a time. |
 | Live suites | **33 suites, 1,737 `check()` call sites, 1,786 assertions, all passing** under `node tools/run-suites.mjs --selftest`. `tests/test-v62.mjs` is new, 84 assertions. |
 | **PARITY LEDGER — FINISHED** | **225 rows — PARITY 87, EASIER 117, HARDER 21, UNVERIFIED 0.** Every row carries a verdict argued or retrieved against `c52985b`. **The next parity work is MAINTENANCE, not discovery**, and both generator guards (RR-ORIGINAL+UNVERIFIED, and UNVERIFIED without a recorded retrieval attempt) are load-bearing now that the set is empty. |
 | **THE KNEE AUDIT — the round's finding, and a live player-facing bug** | `limitedDR(x, L)` is linear only below **0.75·L**. Measured on a maxed state: **vigor carries raw Σ 4.581 into a cap of 1.0 and delivers 0.985 — 78.5% discarded**, so a +25% vigor upgrade pays about +0.4%. **Devotion discards 52.4%.** Every boost tooltip now reports its DELIVERED value; the readout prints all seven families at every milestone. **NO `BOOST_LIMIT` VALUE MOVED — §16 makes that Jerry's.** |
@@ -146,6 +146,85 @@ shaft at `:9915` — **offset the phases or the two will strobe together.**
 again — never by grep.** That is the v0.61 §3 lesson: the festival chip's assertion grepped for a
 string and passed for two rounds while the feature never fired.
 
+## v0.64 — the analyzer's verification pass
+
+**Verified from a fresh checkout at the `v0.63` tag, from disk.**
+
+**Everything reproduces.** Thirty-four suites parsed from their own `SUITE-END` trailers: **1,876
+assertions passed, 0 failed, no missing trailer, no skipped call site, no non-zero exit.**
+`tools/parity-ledger.mjs`: **225 rows — PARITY 87, EASIER 117, HARDER 21, UNVERIFIED 0.** Every
+v0.63 part shipped.
+
+### THE POPULATION WALL IS THE HOUSING LADDER — builder note 1's decomposition, done
+
+**RR has exactly three buildings that raise `maxPop`, and the first two cap the settlement at
+78 people.**
+
+| building | pop | ratio | cost | tech | bound by | max pop |
+|---|---|---|---|---|---|---|
+| Shelter | 2 | **2.2** | timber 8 | — | **its ratio** — the 15th costs 497,746 timber | **30** |
+| Longhouse | 1 | 1.15 | timber 220, ore 260, **provisions 1,200** | carpentry (1,000) | **the provisions CEILING** — the 48th needs 855,027 in one lump | **48** |
+| Skyrise Terrace | 2 | 1.15 | hexcrete 4, alloy 20, scaffold 8 | **deepWorks (100,000)** | crafted throughput | unbounded |
+
+**Two RR-original divergences, both against the source:**
+
+1. **The Longhouse's 1,200-provisions component is RR-original.** Kittens' `logHouse` costs wood
+   200 + minerals 250 and **no food** (`js/buildings.js:476–487`). RR's mid tier is therefore
+   gated on the **food ceiling** — which is exactly what v0.62's storage cut lowered, and
+   population went 179 → 135 in that round and has not recovered.
+2. **The tier-2-to-tier-3 tech gap is three times the source's.** Kittens: `construction` 1,300 →
+   `architecture` 42,000, **×32, tech #22 of 64 — 34% up the ladder.** RR: `carpentry` 1,000 →
+   `deepWorks` 100,000, **×100, tech #30 of 35 — 86% up.** **RR asks the player to reach 86% of
+   its tech tree before the settlement can exceed 78 people, and knowledge production scales with
+   population.** That is the deadlock, and it is why two rounds of knowledge relief did not move
+   completion.
+
+**Shelter is NOT the problem** — at ratio 2.2 against the source's 2.5 it is gentler.
+
+### And §0.1's rule disqualifies what the analyzer recommended last session
+
+**In the previous session I told Jerry that uncapping provisions would relieve population. It
+would not.** The Longhouse is gated on the provisions **ceiling** — a 1,200-unit lump at ratio
+1.15 — and Option B raises provisions **production**. **The constraint Option B relieves is not
+the binding one for population.** v0.64 Part 1 states this before proposing anything, per §0.1.
+
+### Option B, ruled by Jerry and sized
+
+**Rails set so each knee clears the family's end-of-run raw sum**, exactly as Solar Revolution's
+limit of 10 sits above its reachable ~4.5 (`js/religion.js:1548–1550`):
+
+| family | raw Σ | delivered now | **new limit** | new knee | delivered after |
+|---|---|---|---|---|---|
+| vigor | 5.522 | 0.988 (**82% discarded**) | **8.0** | 6.00 | 5.522 |
+| devotion | 3.550 | 1.902 (46%) | **5.0** | 3.75 | 3.550 |
+| provisions | 1.900 | 1.378 (28%) | **3.0** | 2.25 | 1.900 |
+| mana | 1.029 | 0.882 (14%) | **2.0** | 1.50 | 1.029 |
+
+**No per-copy source rate needs re-pricing.** RR's knowledge line — hexLab 0.35, observatory 0.25,
+academy 0.20, archive 0.10 — is a **direct port of Kittens' biolab/observatory/academy/library**,
+and knowledge has never carried a `BOOST_LIMIT`. It has run uncapped at the source's rates for the
+project's whole life. **Twenty biolabs give Kittens ×8 on science with no diminishing return; RR's
+vigor uncapped is ×6.52.** Inside the source's normal range.
+
+**Ship one family at a time.** They differ 1.08×–3.3× and two are upstream of global multipliers
+(vigor → champions → `convMult`; devotion → worship → `catReligion`). One ensemble would say the
+round moved and nothing about which part did it.
+
+### Corrections carried into the spec
+
+- **Dev note 3's premise is off by one champion.** The mana passive is **Zilean's** *Administrative
+  Vision +12%* (`:1697`); `SWAIN_KNOWLEDGE_LEAD` (`:1763`) is **knowledge**. And `BOOST_LIMIT.mana`
+  is 1.0 against a Σ of exactly **0.75 — precisely the knee** — so Part 2's rail makes room for
+  Zilean and a fourth discovery to both pay face value **without adding content**.
+- **`DISCOVERY_RUNG_CAP` retires** per dev note 4, which is the analyzer's own correction and the
+  builder's recorded §1.2 objection. The cap cut the members already at parity: generated members'
+  per-upgrade median fell **0.80 → 0.62, minimum 0.34**, against a source IQR of 0.73–1.00, while
+  `greatLibrary` stayed above p75 at 1.41×.
+
+### Not measured this round
+
+**The three-seed ensemble was launched at the start of the session and had not finished at
+hand-off.** Every population, Era-3 and milestone figure in the v0.64 spec is v0.63's own.
 ## ANALYZER NOTE for the v0.64 round — the v0.63 rung cap cut the wrong members
 
 **Jerry challenged the v0.63 spec's Part 1 after it had been consumed, and he was right. The
