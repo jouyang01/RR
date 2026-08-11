@@ -260,7 +260,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.63";
+var VERSION = "v0.64";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -557,9 +557,41 @@ var BUILDINGS = [
   // Deadlock and parity close together instead of the deadlock closing alone.
   // v0.52 Part 2.2: the `unlock` predicate is gone with Timberframe Joinery. Carpentry
   // alone gates it, which is Kittens' logHouse from `construction` exactly.
+  // ==========================================================================================
+  // v0.64 PART 1.2a — THE PROVISIONS COMPONENT IS DELETED. A STRAIGHT PARITY CORRECTION, AND
+  // IT IS THE MECHANISM BY WHICH A STORAGE ROUND COLLAPSED POPULATION.
+  //
+  // **THE SOURCE, VERBATIM.** Kittens' `logHouse`, `js/buildings.js:476-487` @ `c52985b`:
+  //
+  //     name: "logHouse", label: "Log House",
+  //     prices: [ { name: "wood", val: 200 }, { name: "minerals", val: 250 } ],
+  //     priceRatio: 1.15,  effects: { "maxKittens": 1, "manpowerMax": 50 }
+  //
+  // **TWO MATERIALS AND NO FOOD COMPONENT OF ANY KIND.** RR's Longhouse carried a third,
+  // RR-original component — `provisions: 1200` — and it is the only housing cost in either game
+  // that scales with the FOOD CEILING rather than with a material one.
+  //
+  // **WHY THAT IS A WALL AND NOT A PRICE.** At ratio 1.15 the 48th copy's provisions component
+  // is 855,027 in ONE LUMP, which is above the provisions ceiling the storage line can reach —
+  // so the Longhouse was **CEILING-BOUND at 48 copies = 48 population**, and no amount of food
+  // PRODUCTION could ever buy the 49th. Shelter is ratio-bound at ~15 copies (30 pop) by its own
+  // 2.20 ratio. **Shelter + Longhouse = 78, and that was the entire population ceiling of the
+  // game before the Skyrise Terrace, which is gated on `deepWorks` — tech #30 of 35.**
+  //
+  // **AND IT IS THE TRANSMISSION LINE FOR v0.62's COLLAPSE.** §20 cut the provisions ceiling on
+  // Jerry's own directive (Storehouse 7,500 -> 5,000, Harbor 10,000 -> 2,500) and that was a
+  // correct parity fix on its own terms. Because housing was priced against that ceiling, it
+  // also lowered how many Longhouses could ever be built — peak population went 179 -> 135 and
+  // has not recovered in two rounds. **Deleting this component decouples the two: population is
+  // now bound by timber and ore, exactly as the source binds it, and a future storage ruling
+  // cannot reach the housing ladder by accident.**
+  //
+  // The Shelter is NOT touched. At ratio 2.20 against the source's `hut` 2.50 it is already
+  // gentler than the source, and §2 has ruled twice that ratios are assigned by what a building
+  // IS. `caps: { vigor: 50 }` is the source's own `manpowerMax` and stays.
   { id: "longhouse", name: "Longhouse", group: "Village", tech: "carpentry",
     lore: "Room enough for one more family, and warmth enough to share.", effect: "Room for one more wanderer, and somewhere to rest between expeditions.",
-    cost: { timber: 220, ore: 260, provisions: 1200 }, ratio: 1.15, pop: 1, caps: { vigor: 50 } },  // Kittens logHouse: manpowerMax 50; provisions x10 in v0.55 Part 3.3
+    cost: { timber: 220, ore: 260 }, ratio: 1.15, pop: 1, caps: { vigor: 50 } },  // Kittens logHouse js/buildings.js:476-487 — wood 200 + minerals 250, NO food component
   { id: "bardsHearth", name: "Bard's Hearth", group: "Village", tech: "songcraft",
     lore: "Every settlement gets the songs it deserves. Yours are improving.",
     effect: "Culture, and a ceiling to hold it. Bards need an audience, so the output rises with the settlement.",
