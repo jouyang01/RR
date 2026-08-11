@@ -1726,6 +1726,21 @@ var CHAMPS = [
     // state) while making "put Swain in the chair" a real choice: hold him for mana whatever
     // happens, LEAD with him when knowledge is the constraint. The two are now distinct keys
     // and are asserted distinct.
+    //
+    // ==========================================================================================
+    // v0.64 PART 4 — SWAIN CARRIES TWO DIFFERENT SLOTS AND THEY MUST NOT BE CONFLATED. Pass
+    // condition 18, and it exists because a reader who greps one slot gets the other.
+    //
+    //     PASSIVE   `champPassive("mana")`      mana +12%       applies WHENEVER HE IS RECRUITED
+    //     LEAD      `SWAIN_KNOWLEDGE_LEAD 0.25` knowledge +25%  applies ONLY WHILE HE IS LEADING
+    //
+    // **Swain is the game's mana champion AND a knowledge leader, and they are two answers to
+    // two different questions.** A passive is a property of the roster; a lead is a property of
+    // the chair, and only one champion can be in it. The two figures live in two different
+    // places in this file — the `passive:` object below, and `SWAIN_KNOWLEDGE_LEAD` at its own
+    // declaration — and they are ledgered as two rows (`swain`, `swain-lead`), each naming ONLY
+    // its own slot's magnitude, so that a grep for either figure returns exactly one slot.
+    // `test-v64` asserts both the distinctness and the greppability.
     passive: { key: "mana", base: 12, desc: "Administrative Vision: mana production +12%" },
     // v0.58.1 NOTE 20 (Jerry): "Swain leader bonus is abusable. By reducing discovery/knowledge
     // costs, you can toggle it on and off. Let's change it but keep it knowledge focused."
@@ -5347,7 +5362,23 @@ var TRADE_VIGOR_DISCOUNT = 40, TRADE_GOLD_DISCOUNT = 15;
 //
 // **INTERACTS WITH THE STOREHOUSE LINE AND WITH `eatCut`.** A hard provisions sink changes what
 // the Granary is FOR, so the report carries provisions time-at-cap before and after.
-var TRADE_PROVISIONS = 5000;
+// ==========================================================================================
+// v0.64 PART 6 / DEV NOTE 5 (Jerry): "Trade cost 5,000 -> 3,500 provisions."
+//
+// **SHIPPED AS DIRECTED, AND WHAT IT DOES AND DOES NOT DO IS RECORDED RATHER THAN CLAIMED.**
+// v0.61 measured this cost as **NEVER BINDING**: the provisions ceiling allowed 15 caravans at
+// Sparks and 180 at Icathia, so 5,000 was already a STOCK DRAIN rather than a caravan limiter.
+// **3,500 is a gentler stock drain. IT DOES NOT BECOME A LIMITER BY GETTING SMALLER** — a
+// smaller cost lets the ceiling allow MORE caravans, not fewer.
+//
+// The note's own test is therefore answered with a number rather than with the constant:
+// `sim/simcore.mjs`'s `tradeProvisions` snapshot emits **provisions time-at-cap and the caravan
+// count the CEILING allows** at all four milestones, before and after. See BUILD REPORT §7.
+//
+// **AND IT IS REPORTED SEPARATELY FROM PART 1.2a.** Deleting the Longhouse's provisions
+// component and cutting the trade cost both loosen the food economy in the same round; they are
+// two different figures and the report gives two, not one.
+var TRADE_PROVISIONS = 3500;
 function tradeCost(f) {
   var c = {};
   for (var r in f.cost) c[r] = f.cost[r];
