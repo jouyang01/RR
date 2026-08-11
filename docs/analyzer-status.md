@@ -21,11 +21,11 @@ table wins.
 
 | | |
 |---|---|
-| Last shipped build | **v0.62**, tagged `v0.62` — the knee audit, a ceiling withdrawn, and **the parity ledger FINISHED** |
+| Last shipped build | **v0.63**, tagged `v0.63` — the per-rung discovery cap, steel-is-iron, and **STANDING-RULINGS §32: the simulator has ONE random stream** |
 | Previous build | **v0.61**, tagged `v0.61` — the converter stack decomposed, the RR-ORIGINAL backlog discharged |
-| Last consumed spec | **`docs/specs/rr-analyzer-v062-spec.md`** (consumed by v0.62; moved out of the root) |
-| Last consumed dev notes | **Jerry's twelve v0.62 notes plus four follow-ups, and his knowledge-sink note**, in `docs/gameplay-notes.md` |
-| Current spec, awaiting a builder | **`current-build-spec.md` — BUILDER SPEC v0.63**, ten Parts. Carries four builder notes and **all eleven of Jerry's dev notes**. **Pass condition 1 is that the round finishes on all three seeds** — v0.62 reached Icathia on one. |
+| Last consumed spec | **`docs/specs/rr-analyzer-v063-spec.md`** (consumed by v0.63; moved out of the root) |
+| Last consumed dev notes | **Jerry's eleven v0.63 notes plus the Automated Workshop NaN note**, in `docs/gameplay-notes.md` |
+| Current spec, awaiting a builder | **NONE — v0.63 is shipped and the next spec is not written.** **THE ROUND'S GATE FAILED: Icathia on 1 of 3 seeds (Parts 1+2 build) and 2 of 3 (shipped build), against a condition of 3 of 3.** The diagnosis is in BUILD REPORT v0.63 §0 and it is **population, not knowledge** — the seed that finishes is the seed inside §27's 150-220 band. **The next round should be about population and should MEASURE what caps it before proposing anything** (HANDOFF §6). |
 | Live suites | **33 suites, 1,737 `check()` call sites, 1,786 assertions, all passing** under `node tools/run-suites.mjs --selftest`. `tests/test-v62.mjs` is new, 84 assertions. |
 | **PARITY LEDGER — FINISHED** | **225 rows — PARITY 87, EASIER 117, HARDER 21, UNVERIFIED 0.** Every row carries a verdict argued or retrieved against `c52985b`. **The next parity work is MAINTENANCE, not discovery**, and both generator guards (RR-ORIGINAL+UNVERIFIED, and UNVERIFIED without a recorded retrieval attempt) are load-bearing now that the set is empty. |
 | **THE KNEE AUDIT — the round's finding, and a live player-facing bug** | `limitedDR(x, L)` is linear only below **0.75·L**. Measured on a maxed state: **vigor carries raw Σ 4.581 into a cap of 1.0 and delivers 0.985 — 78.5% discarded**, so a +25% vigor upgrade pays about +0.4%. **Devotion discards 52.4%.** Every boost tooltip now reports its DELIVERED value; the readout prints all seven families at every milestone. **NO `BOOST_LIMIT` VALUE MOVED — §16 makes that Jerry's.** |

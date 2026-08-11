@@ -6,7 +6,8 @@ Written for whoever picks this up next, with no memory of this session.
 
 ## 1. READ THIS FIRST — THE ROUND'S GATE FAILED, AND THE CAUSE IS POPULATION
 
-**Pass condition 1 was "Icathia on ALL THREE seeds within 2,500 game-years". It reached ONE.**
+**Pass condition 1 was "Icathia on ALL THREE seeds within 2,500 game-years". It reached ONE on the
+Parts 1+2 build and TWO on the shipped build. Neither is three.**
 
 That is the same score v0.62 got, and the spec predicted Parts 1 and 2 alone would fix it. They
 did not. **But the round is not a wash and the reason is worth a paragraph rather than a line:**
@@ -17,7 +18,7 @@ did not. **But the round is not a wash and the reason is worth a paragraph rathe
 | Rites of Targon [median, < 75] | **76.0 FAIL** | **69.3 PASS** |
 | First champion [max, < 120] | **129.6 FAIL** | **110.2 PASS** |
 | peak population [median, 150–220] | **135 FAIL** | **136 FAIL** |
-| Icathia on 3 seeds | 1 of 3 | **1 of 3** |
+| Icathia on 3 seeds | 1 of 3 | **1 of 3** (2 of 3 on the shipped build — §3) |
 
 **THE DIAGNOSIS IS ONE LINE OF THE ENSEMBLE OUTPUT:**
 
@@ -54,7 +55,49 @@ finished: 225 rows, UNVERIFIED 0.**
 
 ---
 
+## 2a. AND THERE ARE TWO ENSEMBLES, BECAUSE OF §32 — READ THIS BEFORE QUOTING A NUMBER
+
+**STANDING-RULINGS §32 is new this round and it changes how every pacing figure in this project
+must be read.** `sim/simcore.mjs:21` gives the whole game ONE xorshift stream, so **the number of
+`Math.random()` calls a code path makes is part of the seed.** Part 6 changes how often a random
+event fires. **The shipped build's seeds are therefore a FRESH SAMPLE, not a delta.**
+
+| | **gate ensemble (Parts 1+2)** | **shipped ensemble** |
+|---|---|---|
+| comparable to v0.62 seed-for-seed | **YES** | **NO — re-rolled** |
+| Icathia | 1 of 3 | **2 of 3** (1,473.8 / 1,704.3 / never) |
+| Era 3 | unscoreable (1 seed) | **982.8** (843.2–1,122.3) — the shortest measured |
+| peak population | 136 (136/134/180) | **148** (154/148/99) — seed 1 INSIDE the band |
+| **crystals time-at-cap** | 96.2% | **25.0%** (28.4/25.0/42.1) |
+| first champion spread | ×1.30 | **×3.51** |
+| Sparks spread | ×1.01 | **×1.71** |
+| conditions failing | **1 of 10** | 5 of 10 |
+
+**Quote the gate ensemble for anything compared against v0.62. Quote the shipped ensemble for
+anything about the shipped file — above all the crystal result, which is unambiguous.**
+
+**The exploding spreads are the champion gate, not the balance.** Sparks requires a Piltover/Zaun
+champion (§4, the 3-of-10 sanctioned exception), so a re-rolled stream that draws those three late
+pushes Sparks and everything downstream late. **The tight Sparks medians this project has quoted
+for many rounds are partly an artefact of three seeds that agreed.**
+
+---
+
 ## 3. The four things v0.63 should change about how you work
+
+**THE NUMBER OF RANDOM DRAWS IS PART OF THE SEED — §32, and it is the finding of the round.** A
+change that altered no rate, no price and no multiplier moved Rites of Targon from y69.3 to y90.1
+on the same seed: Part 6's chronicle batching returned early before the line that picks a message
+string, one draw fewer per suppressed event. **Fixed by drawing first and branching second, and the
+neutrality is PROVED**: the shipped file with Part 6's rate reverted to linear reproduces the Parts
+1+2 build's seed-1 figures **to the digit** (69.3 / 84.9 / 193.2 / 270.8). **That reproduction also
+proves Parts 3, 4, 5, 7, 8.2 and dev note 1 are collectively pacing-neutral over 300 game-years.**
+
+**RULE OUT THE OBVIOUS SUSPECT BY MEASUREMENT, NOT BY ARGUMENT.** The first hypothesis for the
+regression was Part 3.3's renown cut, which the spec had itself predicted would bite. **Reverting
+ALL of Part 3's magnitudes changed the 300-year seed-1 run by NOTHING** — the government
+philosophies are gated behind `callToArms` and the bot never reaches them. Two runs, four minutes,
+and the round's whole diagnosis turned.
 
 **A GUARD FINDS MORE THAN THE DEFECT THAT PROMPTED IT — WRITE THE GUARD, NOT THE FIX.** Jerry
 reported ONE NaN tooltip. The guard written for it found **three more instances of the same
@@ -184,10 +227,13 @@ Also still yours:
    disagreement is recorded** (build report §1.2). If a future round wants to tighten it, 2.07 is
    the better-sourced number — but note the cap's justification is CONCENTRATION (one rung carrying
    48% of the game's total), not that 5.73× was out of the source's range, because it was not.
-4. **Crystals time-at-cap is the one Part 8.2 target still to be read** — see §11 of the build
-   report for the shipped-build figure. If it is still above 70%, the sink's SHAPE is now right
-   (stock-referenced, self-regulating) and only `CRYSTAL_SINK_MAX` needs moving, which is a
-   one-constant change rather than a fifth attempt at `MANUFACTORY_FUEL`.
+4. **Part 8.2 CLEARED ITS TARGET AND THE MARGIN IS LARGE — do not tune it further without a
+   reason.** Crystals time-at-cap **95.6% → 25.0%**, met on all three seeds against a "<70% on at
+   least one" condition. The final-state decomposition reads **drain 12.34/s against gross 11.10/s
+   — 111% of gross, net −1.245/s** — the sink exceeds the faucet near the ceiling, which is the
+   fixed point the design wanted. `MANUFACTORY_FUEL` was not touched for the fifth round. **If a
+   future round wants it gentler, `CRYSTAL_SINK_MAX` is the one constant to move**, and the curve
+   is inert below half fill by construction.
 5. **The ledger is finished, so parity work is MAINTENANCE.** The generator aborts on
    RR-ORIGINAL+UNVERIFIED and on an unverified row with no recorded retrieval attempt.
 

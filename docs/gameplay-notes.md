@@ -519,3 +519,57 @@ down gets quietly re-proposed by the next spec.
   source.** RR's ten hand-authored knowledge costs have always run **0.70×–3.33×** their tech's
   rung; the generated rule sat at **0.10×**. Raised to **0.8 × K**, the low end of the file's own
   band. At most three knowledge Discoveries sit on any tech, so it is a sink and not a wall.
+
+## v0.63 — Jerry's eleven notes, and the one that found four defects
+
+- ~~**"Every workshop upgrade costs science in Kittens — confirm and match."**~~ — **note 1, and
+  the confirmation is exact: 133 of Kittens' 143 priced workshop upgrades (93%) carry science, at
+  a median 0.882x their unlocking tech's rung.** RR's 0.80 is at parity, so the divisor did NOT
+  move. What moved is the DISTRIBUTION: `ritesOfTargon` carried 68,800 on a 12,000 rung — 5.73x,
+  and 48% of the game's entire discovery knowledge. A per-rung cap at Kittens' own 2.43x cuts it
+  58% and the whole-game total 34%, and leaves every compliant rung untouched.
+- ~~**"Piltover Concord: craft +8%, crafting costs −3.5%."**~~ — **note 2.** The cut is on the
+  PRICE, not a second yield term, and the tooltip states the resolved pair: **+11.9% output per
+  unit of input**, because a player should not have to multiply two numbers off a tooltip.
+- ~~**"Demacian Accord: timber and ore production +8.5%."**~~ — **note 3, and it is a SCOPE change
+  as much as a magnitude one.** The old effect was a building-GROUP multiplier; this is
+  resource-keyed and lands in the boosts accumulator. Neither timber nor ore is a `BOOST_LIMIT`
+  family, so it is **delivered in full** — against four families that discard 14%-82% of theirs.
+- ~~**"Noxian Doctrine: +33% hunt renown and +7.5% hunt yields."**~~ — **note 4.** Renown 1.5 ->
+  1.33; the yield term is ADDITIVE into the existing camp category, because §31 forbids adding a
+  multiplicative one until Jerry rules.
+- ~~**"All philosophies cost 10k culture."**~~ — **note 5.** The material components stay; the
+  note names culture only.
+- ~~**"Jarvan's tooltips updated."**~~ — **note 6, and the lead had been WRONG FOR TWO ROUNDS.**
+  It said "every worker in the village produces 12% more" against a shipped 0.06, and "in the
+  village" described a three-job scope that had become all eight. Generated now — and the general
+  guard that ships with it (no champion tooltip may carry a percentage no constant produces)
+  immediately found Heimerdinger's inlined 0.85.
+- ~~**"Targon banner is missing the golden halo."**~~ — **note 7, and NOTHING WAS ADDED.** The
+  halo has rendered every frame since v0.62 at `outer: 9`, **centred on the peak's exact apex, in
+  the peak's own colour**, inside a silhouette of half-width 15. A visibility bug, not a missing
+  feature. Now saturated gold at outer 16, asserted from the rendered pixels.
+- ~~**"Insight's blue lights should be more prominent."**~~ — **note 8.** 6 -> 9 motes at 2.25x
+  scale, **total lit area x3.4**. Size and count before alpha: a 2px square at 30% alpha does not
+  become prominent when you raise the alpha, it becomes a brighter smudge.
+- ~~**"Cinders' red glow looks weird — floating red lights instead."**~~ — **note 9, and the two
+  translucent RECTANGLES are deleted rather than dimmed.** The objection is to the shape and no
+  alpha fixes a shape. Ten embers on per-ember phases, from the forge bed and the moving hammer.
+- ~~**"Reduce the box random-event chance."**~~ — **note 10, and it turned out to be the most
+  consequential change in the round for a reason nobody could have predicted.** The rate was
+  linear and uncapped on a building whose copies are permanent; it is bounded now with the same
+  `strictDR` the same building's MORALE term already used (20 boxes −45%, 40 boxes −68%). **But
+  rate-limiting the chronicle line re-rolled every seeded run in the project** — one
+  `Math.random()` call fewer per suppressed event, against a single global stream. See
+  STANDING-RULINGS §32.
+- ~~**"Steel in RR is the analogue of iron in Kittens."**~~ — **note 11, and it settles a figure
+  v0.62 could not derive and got wrong.** Storehouse gains `steel 50` (barn `ironMax`), Warehouse
+  100 -> 25 (x0.50, the same ratio the source's warehouse takes on coal and gold), Harbor
+  unchanged at 150 — already exact parity. **v0.62 had put steel on the titanium row by guessing
+  at its role; the note names the mapping and the ratio follows from it.**
+- ~~**"The automated workshop tooltip shows NaN%."**~~ — **the dev note, and ONE REPORTED SYMPTOM
+  FOUND FOUR DEFECTS.** It was a load-order bug (operational rule 11, third instance). The guard
+  written for it — no generated string may contain NaN, undefined or Infinity — failed immediately
+  on `pressureRegulators` ("burn NaN% less") and `rollingPress` ("prints undefined
+  parchment/second"), and a companion guard on NUMBERS found `MANUFACTORY_FUEL` undefined inside
+  the BUILDINGS literal, invisible because `computeRates()` rewrites that field every call.

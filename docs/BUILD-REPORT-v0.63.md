@@ -495,16 +495,105 @@ found, and the class closed by a suite rather than by a player noticing.**
 
 ---
 
-## 11. The ensemble — measured
+## 11. The ensembles — TWO of them, and §32 is why there had to be two
 
-*(filled in below from the final run on the shipped build)*
+**Three-seed 2,500-year runs. 81 and 61 minutes wall. Both completed; neither was lost.**
+
+### 11.1 The gate ensemble — Parts 1+2, and this is the round's PACING RESULT
+
+This is the like-for-like comparison against v0.62, and it is the only one that is: **Parts 1 and
+2 make no random-consuming change, so their seeds line up with v0.62's seed-for-seed** (§32).
+
+| condition | v0.62 | **Parts 1+2** | |
+|---|---|---|---|
+| **Icathia on all three seeds** | 1 of 3 | **1 of 3** (seed 3, y1,835.2) | **FAIL — the gate** |
+| Rites of Targon [median, <75] | **76.0 FAIL** | **69.3** — 69.3/80.4/69.3 | **PASS** |
+| First champion [max, <120] | **129.6 FAIL** | **110.2** — 84.9/97.3/110.2 | **PASS** |
+| Peak population [median, 150–220] | **135 FAIL** | **136** — 136/134/180 | **FAIL** |
+| Sparks [max, <500] | | 195.7 — 193.2/195.7/193.9 | PASS |
+| Chemtech→Hexcore [max, <400] | | 117.4 — 117.4/101.8/75.5 | PASS |
+| the other four | pass | pass | PASS |
+| **failing** | **4 of 10** | **1 of 10** | |
+
+### 11.2 The shipped ensemble — a FRESH DRAW, not a comparison
+
+Part 6's rate change alters how often a random event fires, so the shipped build's stream is
+re-rolled (§32). **These three seeds are a new sample and must not be read as a delta.**
+
+| | median | per seed |
+|---|---|---|
+| **Icathia** | **2 of 3** | 1,473.8 / 1,704.3 / never |
+| Era 3 | **982.8** (843.2–1,122.3, ×1.33) | the shortest Era 3 this project has measured |
+| peak population | **148** | **154** / 148 / 99 — **seed 1 is INSIDE §27's band** |
+| **crystals time-at-cap** | **25.0%** | 28.4 / 25.0 / 42.1 |
+| Rites of Targon | 84.8 | 61.1 / 85.6 / 84.8 |
+| first champion | 206.3 | 206.3 / 140.1 / **491.7** — spread **×3.51** |
+| Sparks | 630.6 | 630.6 / 582 / 998 — spread **×1.71** |
+| **failing** | **5 of 10** | |
+
+**Read the spreads, not the medians.** First champion ×3.51 and Sparks ×1.71 against the gate
+ensemble's ×1.30 and ×1.01, on a build whose only behavioural difference is how often a box
+misbehaves. **That is §32's signature, and Sparks' champion gate (§4, the 3-of-10 exception) is
+the amplifier**: three seeds that draw a Piltover/Zaun champion late produce a late Sparks and
+everything downstream slides with it.
+
+### 11.3 Pass condition 20 — the one target this round CLEARS outright
+
+**Crystals time-at-cap: 95.6% (v0.62) → 96.2% (Parts 1+2) → 25.0% (shipped).** The condition asks
+for below 70% **on at least one seed**; it is met on **all three**. The decomposition at the median
+seed's final state:
+
+```
+CRYSTAL DECOMPOSITION @final: net -1.245/s = gross 11.0969/s  -12.3419/s drain
+  26 refineries · 11 manufactories · 5 tinkerers · 16 augment chambers
+     -12.341897/s  -111.22%   11x Hexdraulic Manufactory (consumes)
+```
+
+**The drain is 111% of gross — the sink now exceeds the faucet near the ceiling, and net flow is
+negative there.** That is the fixed point Part 8.2 was designed around: the stock falls, the fill
+falls, the multiplier falls with it, and the system settles wherever net flow is zero. Compare
+v0.61's 6.9% and v0.62's 28.9%, both of which left the stock filling. **`MANUFACTORY_FUEL` was not
+touched for the fifth round running** — the change is the drain's *dimension*, not its magnitude.
+
+### 11.4 Pass condition 8 — the steel ceiling, before and after
+
+Absolute ceilings at the four milestones on the median seed, from the readout built for this:
+
+| milestone | steel held / cap | stores |
+|---|---|---|
+| sparks | 79 / 10,986 | 8 / 52 / 2 |
+| chemtech | 36 / 63,750 | 17 / 64 / 13 |
+| hexcore | 25 / 59,028 | 17 / 64 / 13 |
+| deepWorks | **82,996 / 83,020** | 17 / 64 / 13 |
+
+**Steel is nowhere near its ceiling until the last milestone, where it pins.** So the Warehouse cut
+(100 → 25) costs nothing through most of the run and the Storehouse line (0 → 50) buys nothing
+either — **Part 2 is a parity correction with no measurable pacing effect, which is what it should
+be, and it is stated rather than claimed as a win.** The single-seed 150-year attribution says the
+same thing more sharply: the Part 1 and Part 2 prefixes return **byte-identical** milestone figures.
+
+### 11.5 Predicted vs measured
+
+| slice | spec's prediction | **measured** |
+|---|---|---|
+| s1 per-rung discovery cap | Era 3 −120 to −40 | **Rites −8.4, first champion −47.0 on seed 1 at 150y. Era 3 unscoreable in isolation.** |
+| s2 steel lines | −40 to −10 | **0.0 — byte-identical to s1** |
+| s3 philosophies | −30 to +30 | **0.0 at 300y seed 1 — the government group is gated behind `callToArms` and the bot has not reached it. Reverting ALL of Part 3's magnitudes changes nothing.** |
+| s4 banners, tooltips, box rate | **0.0 — "no pacing effect"** | **WRONG, and it is the round's finding. The box rate re-rolls the entire stream (§32).** |
+| s5 crystal sink | +20 to +80 | **crystals 96.2% → 25.0% at cap; Era 3 median 982.8** |
+| **shipped** | **Icathia 3 of 3, Era 3 1,250–1,450** | **Icathia 2 of 3, Era 3 982.8** |
+
+**The spec's binary prediction — "Parts 1 and 2 alone restore completion" — is falsified (§0).
+Its s4 prediction of "no pacing effect" is also falsified, and more interestingly**: a change
+described as cosmetic-plus-a-rate-cut turned out to be the only change in the round capable of
+moving every milestone in the game, for a reason that has nothing to do with balance.
 
 ---
 
 ## 12. Suites
 
-**34 suites. 1,825 `check()` call sites, 1,874 assertions executed, 1,874 passed, 0 failed.** No
-missing trailer, no skipped call site, no non-zero exit. `tests/test-v63.mjs` is **88 assertions**.
+**34 suites. 1,827 `check()` call sites, 1,876 assertions executed, 1,876 passed, 0 failed.** No
+missing trailer, no skipped call site, no non-zero exit. `tests/test-v63.mjs` is **90 assertions**.
 
 **Parity ledger regenerated: 225 rows — PARITY 87, EASIER 117, HARDER 21, UNVERIFIED 0.** The
 ledger stays finished. Three rows re-argued this round (Storehouse, Warehouse, Harbor), all with
