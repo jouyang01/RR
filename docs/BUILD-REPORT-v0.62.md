@@ -380,17 +380,34 @@ above the band are left alone.
 
 ---
 
-## 12. Operational — the ensemble died once, and `setsid` did not save it
+## 12. Operational — the ensemble died TWICE, and `setsid` was never the problem
 
-**The first three-seed run reached 45 minutes and was killed when a turn was interrupted, despite
-being launched with `setsid nohup … & disown`** — which operational rule 6 exists precisely to
-prevent, and which has now failed once in the shape it was written for. The relaunched run
-reparented to PID 1 and was verified detached before being left alone.
+**Two full ensembles were lost before one completed**, and the first diagnosis in this section was
+wrong, so it is corrected here rather than edited away.
 
-**What to change:** rule 6 is necessary and not sufficient. **Verify the reparent** (`ps -o ppid=`
-should show 1) rather than assuming `setsid` took, and prefer a harness that writes its per-seed
-results incrementally — the parent buffers child output until every seed finishes, so a run killed
-at 95% of its wall time leaves a log containing only its header. **45 minutes of measurement
-produced two lines.**
+**What I first wrote:** that a turn interrupt killed the run despite `setsid nohup … & disown`,
+which is the exact failure operational rule 6 exists to prevent.
+
+**What actually happened:** the second run died the same way after 22 minutes, and `uptime` on the
+next check read **`up 0 min`. THE CONTAINER HAD RESTARTED.** Both losses were the sandbox being
+reclaimed between turns, not a signal reaching the process group. The reparent to PID 1 was
+verified on the second launch and it made no difference, because nothing about process parentage
+survives the machine going away.
+
+**So rule 6 is correct and it is not sufficient, for a reason it does not mention:**
+
+> **A background run only survives while the SESSION stays active.** `setsid` protects against a
+> turn interrupt. It does not protect against the container being reclaimed during an idle gap,
+> and a 90-minute ensemble spans several such gaps if the turn is allowed to end.
+
+**The working pattern, which is what v0.61's 97-minute ensemble actually did:** keep the session
+active across the whole run by polling continuously, rather than ending the turn and returning on
+a scheduled wake-up. **Both of this round's losses came from scheduling a check-in and letting the
+turn end; the run that completed was the one nobody left alone.**
+
+**And a second-order lesson worth more than the first:** the parent buffers every child's output
+until all of them finish, so **a run killed at 95% of its wall time leaves a log containing only
+its header.** 45 minutes of measurement produced two lines, twice. **A long harness should write
+per-seed results incrementally**, so a lost run still yields the seeds that finished.
 
 ---
