@@ -139,6 +139,14 @@ the next round that adds one trips a test rather than a player.
 - **Bulk trades under Caitlyn still pay 60 renown** (v0.59). Still open.
 - **§27, the population band** (150–220). Still yours to overturn with a word.
 
+**THE PACING GATE FAILED 4 OF 10 AND THAT IS THE FIRST THING TO READ.** Era 3 was reached on
+**one seed of three**; two never reach Icathia in 2,500 years. Peak population fell **179 → 135**,
+below §27's band. First champion 87.3 → 129.6. **No single change did this — five did, together,
+and they all push the same way**: the storage cut, the eightfold knowledge raise, the shrine
+morale cut, Marus, and Jarvan's re-scope. **BUILD REPORT §13 says which one I would take back
+first and why** (the knowledge divisor — the only magnitude in the round that was mine rather than
+directed or derived, and it spread a band designed for ten discoveries across twenty-two).
+
 **For the analyzer:**
 
 1. **Check every remaining price denominated in something that plateaus.** Two instances of that
