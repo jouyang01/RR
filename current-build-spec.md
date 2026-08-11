@@ -253,11 +253,15 @@ same slice as Part 1.
 `coalgasVent` 0.3, `hexQuarry` 0.6, `shimmerRefinery` 0.5, `chemForgeworks` 0.5 per copy per
 second. **That is a genuinely large sink and the note is right to ask.**
 
-**The multipliers are three discoveries and one champion — and it is not Swain.** `boosts.mana`
-takes `leylineCalibration` 0.30, `trueIceCellars` 0.20, `hexresonance` 0.25 (**Σ 0.75**), plus
-`champPassive("mana")`, which is **Zilean's** *Administrative Vision, +12%* (`:1697`).
-**`SWAIN_KNOWLEDGE_LEAD` is `boosts.knowledge`, not mana** (`:1763`) — the note's premise is off
-by one champion and the spec should say so rather than build on it.
+**The multipliers are three discoveries and Swain, exactly as the note says.** `boosts.mana` takes
+`leylineCalibration` 0.30, `trueIceCellars` 0.20 and `hexresonance` 0.25 — **Σ 0.75** — plus
+`champPassive("mana")`, which is **Swain's** *Administrative Vision, +12%* (`index.html:1683–1697`).
+
+**Swain carries two different slots and they must not be conflated.** His **passive** is the mana
+boost, shipped at v0.59 Part 8 note 5 precisely so it would stop duplicating his lead; his
+**lead** is `SWAIN_KNOWLEDGE_LEAD = 0.25` into `boosts.knowledge` (`:1763`, `:6378`). **A passive
+applies whenever he is recruited; a lead applies only while he is leading.** So Swain is the mana
+champion *and* a knowledge leader, and a reader who greps one slot will get the other wrong.
 
 **Part 2 answers most of this without adding content.** `BOOST_LIMIT.mana` is **1.0** and Σ0.75 is
 **exactly the knee**, so today the three discoveries deliver in full but *any* fourth member is
@@ -389,7 +393,7 @@ ensemble the box; v0.62 lost two ensembles to container restarts.
 | 15 | Era-tier audit | every building, its era, its gating material — **reported before any cost change** |
 | 16 | New gates | craftable at the building's own tech, asserted by both audit graphs |
 | 17 | Mana | net/s and consumed÷produced at four milestones; fourth discovery **only on a measured deficit** |
-| 18 | Zilean correction | ledgered — the mana passive is Zilean's, not Swain's |
+| 18 | Swain's two slots | ledgered — **passive = mana +12%, lead = knowledge +25%**; asserted as distinct slots so neither grep can find the other |
 | 19 | `TRADE_PROVISIONS` | 3,500; allowed caravan count reported; separated from Part 1.2a |
 | 20 | `CRYSTAL_SINK_MAX` | **untouched** |
 | 21 | Unchanged | `capFamilyOf()` two families · audits 0/0 · Σ 4.35/1.80 · `CONSUMPTION` 4.25 · ratio 1.17647 · `XP_PER_SECOND` 0.05 · the rank ladder |
@@ -442,8 +446,8 @@ maximum (**Shelter 15 copies → 30 pop; Longhouse 48 → 48 pop; Skyrise unboun
 **78-population two-tier ceiling**, and the lump cost of the Nth copy of each; `:2782`
 `BOOST_LIMIT`; `:3430` `DISCOVERY_RUNG_CAP`; `:5215` `TRADE_PROVISIONS`; `:834` the Coalgas Vent's
 `{ timber 250, ore 420, steel 20 }`; `:2768` the three mana discoveries summing **0.75 — exactly
-`BOOST_LIMIT.mana`'s knee**; `:1697` **Zilean's** mana passive against `:1763` `SWAIN_KNOWLEDGE_LEAD`,
-which is knowledge; `:4243` `CRYSTAL_SINK_MAX`; the seven mana-consuming converters.
+`BOOST_LIMIT.mana`'s knee**; `:1683–1697` **Swain's** mana passive (+12%) against `:1763`/`:6378` `SWAIN_KNOWLEDGE_LEAD`
+(+25% knowledge) — **two different slots on the same champion**; `:4243` `CRYSTAL_SINK_MAX`; the seven mana-consuming converters.
 
 **Measurements taken this session:** all 34 suites re-run from disk and parsed from their own
 trailers (**1,876 passed, 0 failed, no missing trailer, no skipped site, no non-zero exit**);

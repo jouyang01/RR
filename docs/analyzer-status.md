@@ -212,10 +212,16 @@ round moved and nothing about which part did it.
 
 ### Corrections carried into the spec
 
-- **Dev note 3's premise is off by one champion.** The mana passive is **Zilean's** *Administrative
-  Vision +12%* (`:1697`); `SWAIN_KNOWLEDGE_LEAD` (`:1763`) is **knowledge**. And `BOOST_LIMIT.mana`
-  is 1.0 against a Σ of exactly **0.75 — precisely the knee** — so Part 2's rail makes room for
-  Zilean and a fourth discovery to both pay face value **without adding content**.
+- **Dev note 3's premise is CORRECT — the mana champion is Swain, and the analyzer's first
+  reading was wrong.** `passive: { key: "mana", base: 12 }` belongs to **Swain**
+  (`index.html:1683–1697`); Zilean's passive is `respawn`. **Swain carries two different slots:**
+  his **passive** is the mana boost (shipped at v0.59 Part 8 note 5 so it would stop duplicating
+  his lead) and his **lead** is `SWAIN_KNOWLEDGE_LEAD = 0.25` into `boosts.knowledge`
+  (`:1763`, `:6378`). A passive applies whenever he is recruited; a lead only while he leads.
+  **Grepping one slot finds the other and gets the attribution backwards — which is exactly what
+  happened here.** And `BOOST_LIMIT.mana` is 1.0 against a Σ of exactly **0.75 — precisely the
+  knee** — so Part 2's rail makes room for Swain's 12% and a fourth discovery to both pay face
+  value **without adding content**.
 - **`DISCOVERY_RUNG_CAP` retires** per dev note 4, which is the analyzer's own correction and the
   builder's recorded §1.2 objection. The cap cut the members already at parity: generated members'
   per-upgrade median fell **0.80 → 0.62, minimum 0.34**, against a source IQR of 0.73–1.00, while
