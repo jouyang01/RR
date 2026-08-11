@@ -135,9 +135,19 @@ check("Lunari Vigil: devotion +12%, and its cap clause is scoped to the Shrine's
   Math.abs(fx.devotion - 1.12) < 0.01 && fx.lunariCap > 1 && fx.lunariCap <= 1.25 &&
   Math.abs(fx.lunariNoShrines - 1) < 1e-9,
   `×${fx.lunariCap.toFixed(3)} with 20 shrines, ×${fx.lunariNoShrines.toFixed(3)} with none`);
-check("Demacian Accord: village +6%", Math.abs(fx.village - 1.06) < 0.005, fx.village.toFixed(3));
+// RE-POINTED v0.63, superseded by PART 3.2 / DEV NOTE 3: the Demacian Accord is no longer a
+// village-GROUP multiplier at all. Jerry's note is "timber and ore production +8.5%", which is a
+// RESOURCE scope — it lands in `policyBoost()` and reaches every source of those two resources
+// rather than one building group. The old fixture measured provisions from Farmsteads, which the
+// policy correctly no longer touches; asserting 1.06 there would now be asserting the bug.
+// The new form is in `test-v63` (`policyBoost("timber") === POLICY_DEMACIA_RATE`); what is kept
+// here is that the retired scope is GONE, so a future round cannot quietly restore it.
+check("Demacian Accord no longer multiplies the village group (v0.63 Part 3.2: resource scope)",
+  Math.abs(fx.village - 1.0) < 1e-9, fx.village.toFixed(3));
 check("Piltover Concord: craft +8%", Math.abs(fx.craft - 1.08) < 0.005, fx.craft.toFixed(3));
-check("Noxian Doctrine: expedition renown ×1.5", fx.renownBase === 1 && fx.renown === 1.5);
+// RE-POINTED v0.63, superseded by PART 3.3 / DEV NOTE 4: renown ×1.5 -> ×1.33, with a new
+// +7.5% camp-yield term as the other half of the same note.
+check("Noxian Doctrine: expedition renown ×1.33 (v0.63 Part 3.3)", fx.renownBase === 1 && fx.renown === 1.33);
 
 // spec rule: no option in a group is the "correct" pick — costs match within a group
 const parity = await page.evaluate(() =>

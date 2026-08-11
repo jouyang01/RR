@@ -388,6 +388,15 @@ console.log("\nv0.55 — FOOD, CAMPS, DRAKES, XP");
     console.log(`   ${" ".padEnd(10)} held/cap: ` + ["provisions", "timber", "ore", "steel", "gold",
       "crystals", "zaunore", "coalgas", "hexore", "shimmer", "culture", "renown"]
       .filter(k => h[k] !== undefined).map(k => `${k} ${(h[k] * 100).toFixed(0)}%`).join(" "));
+    // v0.63 Part 2 — the ABSOLUTE ceilings, because "report the steel ceiling before and after"
+    // is a question about the number, not about the fill.
+    if (s2.storage.cap) {
+      const sc = s2.storage.storeCounts || {};
+      console.log(`   ${" ".padEnd(10)} ceilings: ` + ["provisions", "timber", "ore", "steel", "gold", "crystals", "mana"]
+        .filter(k => s2.storage.cap[k] !== undefined)
+        .map(k => `${k} ${s2.storage.held[k]}/${s2.storage.cap[k]}`).join("  ") +
+        `   [storehouse ${sc.storehouse ?? "?"} · warehouse ${sc.warehouse ?? "?"} · harbor ${sc.harbor ?? "?"}]`);
+    }
   }
 });
 // ---- v0.53 Part 2: the crystal sink, in the unit Part 2.2 asks for ----

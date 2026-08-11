@@ -369,8 +369,15 @@ check("19 — Jarvan's PASSIVE is wanderer experience, and it reaches the Census
   leads.jarvanPassive.desc.indexOf(String(JARVAN_XP_EXPECTED) + "%") > -1 &&
   /var xpRate = XP_PER_SECOND \* \(1 \+ champPassive\("xp"\) \/ 100\);/.test(CODE),
   JSON.stringify(leads.jarvanPassive));
-check("19 — ...and his LEAD is village production, now reaching ALL EIGHT jobs at half the rate",
-  /village/i.test(leads.jarvanLead) &&
+// RE-POINTED v0.63, superseded by PART 4 / DEV NOTE 6. The comment above already said this line
+// guards "the lead is village production" — and v0.62 widened that lead to ALL EIGHT JOBS while
+// the authored string still said "in the village ... 12% more" against a shipped 0.06. The string
+// is GENERATED now and its wording says "in the settlement, in every job", which is what the code
+// does; grepping it for the word "village" would be asserting the retired scope. What is asserted
+// is the SHIPPED RATE appearing in the string, which is the property the drift defeated.
+check("19 — ...and his LEAD reaches ALL EIGHT jobs, with the string GENERATED (v0.63 Part 4)",
+  leads.jarvanLead.indexOf(String(JARVAN_LEAD_EXPECTED * 100) + "%") > -1 &&
+  /every job/i.test(leads.jarvanLead) &&
   new RegExp("JARVAN_VILLAGE_LEAD\\s+= " + String(JARVAN_LEAD_EXPECTED).replace(".", "\\.")).test(CODE) &&
   /leaderIs\("jarvan"\) \? JARVAN_VILLAGE_LEAD : 0/.test(CODE) &&
   /JOBS\.forEach\(function \(j\) \{/.test(CODE), leads.jarvanLead);
@@ -607,8 +614,14 @@ const pol = await page.evaluate(() =>
   POLICY_GROUPS.map(g => [g.id, g.options[0].cost.culture]));
 check("47 — the first two policy groups are UNCHANGED at 200 and 450",
   pol[0][1] === 200 && pol[1][1] === 450, JSON.stringify(pol));
-check("47 — ...and the later ones scale hard: the spread goes 12× → 35×",
-  Math.max(...pol.map(p => p[1])) / Math.min(...pol.map(p => p[1])) === 35,
+// RE-POINTED v0.63, superseded by PART 3.4 / DEV NOTE 5: "All philosophies cost 10k culture."
+// The Government group's 5,000 becomes 10,000, so the spread widens 35× → 50×. Note 47's
+// PROPERTY — the first two rungs untouched, the later ones scaling hard against a culture
+// ceiling that is now buildings rather than a multiplier — is unchanged and is what is asserted;
+// pinning the exact ratio made this a check designed to fail the next time a policy was priced.
+check("47 — ...and the later ones scale hard, monotonically (v0.63 Part 3.4: 35× → 50×)",
+  Math.max(...pol.map(p => p[1])) / Math.min(...pol.map(p => p[1])) === 50 &&
+  pol.map(p => p[1]).every((c, i, a) => i === 0 || c >= a[i - 1]),
   JSON.stringify(pol));
 
 // ============================================================================

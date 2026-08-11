@@ -454,30 +454,6 @@ var RES = {
 // the cap change should ship without the rate change. Measured in BUILD REPORT §6.
 var MARUS_DEVOTION = 0.03;         // 4 x the Shrine's 0.0075/s, itself Kittens' faithPerTickBase
 var MARUS_DEVOTION_CAP = 200;      // dev note 10, directed
-// ==========================================================================================
-// v0.63 DEV NOTE 1, SECOND AND THIRD INSTANCES — FOUND BY THE GUARD, NOT BY A PLAYER.
-//
-// Jerry's note names ONE NaN tooltip (the Automated Workshop's). The guard written for it —
-// "no generated `effect`/`desc`/`lore` string may contain NaN, undefined or Infinity" — was run
-// once and immediately failed on **two more upgrades nobody had reported**:
-//
-//     pressureRegulators  "Hexdraulic Manufactories burn NaN% less Hextech Crystal."
-//     rollingPress        "Each Manufactory prints undefined parchment/second."
-//
-// Same cause, third and fourth occurrence: `MANUFACTORY_FUEL_CUT` and `MANUFACTORY_PARCHMENT`
-// were declared ~1,100 lines BELOW the `UPGRADES` array that concatenates them into strings.
-// **`MANUFACTORY_FUEL` was worse and quieter still** — it is read inside the `BUILDINGS` literal
-// at the Manufactory's `convert.input.crystals`, so the building shipped with an `undefined`
-// fuel cost that only self-healed because `computeRates()` rewrites that field from state every
-// call. A defect that repairs itself on the first tick is a defect nobody can see.
-//
-// All three are hoisted HERE, above `BUILDINGS`, which is the first array that reads any of
-// them. Their derivation comments stay where the mechanism is. **This is what the guard buys:
-// one reported symptom, four instances found, and the class closed by a suite rather than by a
-// player noticing.**
-var MANUFACTORY_FUEL = 0.024;             // 1.2 x the Refinery's own 0.02/copy, per js/buildings.js @ c52985b
-var MANUFACTORY_FUEL_CUT = 0.5;           // 48.2 A — Pressure Regulators halve it
-var MANUFACTORY_PARCHMENT = 0.005;        // 48.2 B — Jerry's figure, verbatim
 var BUILDINGS = [
   { id: "manaWell", name: "Mana Well", group: "Village",
     lore: "A spring where wild magic pools.", effect: "A steady trickle of mana, and somewhere to keep it.",
@@ -4231,8 +4207,8 @@ var DRAKE_PER_KILL = { infernal: 0.05, ocean: 0.06, mountain: 0.06, cloud: 0.10,
 // anchor (Kittens' `calciner` burns 0.024 against an `oilWell`'s 0.02, a 1.2x sink-to-faucet
 // ratio) taking effect on the SAME MULTIPLIER FOOTING AS THE YIELD. The scaling is the change;
 // the constant going down is what stops it being a fourth raise. See the converter block.
-// v0.63 DEV NOTE 1: MANUFACTORY_FUEL and MANUFACTORY_FUEL_CUT are HOISTED above `BUILDINGS` —
-// both were read in array literals declared ~1,100 lines above this point. See the block there.
+var MANUFACTORY_FUEL = 0.024;             // 1.2 x the Refinery's own 0.02/copy, per js/buildings.js @ c52985b
+var MANUFACTORY_FUEL_CUT = 0.5;           // 48.2 A — Pressure Regulators halve it
 // v0.63 PART 8.2 — the crystal sink's STOCK reference. See the long note at the burn site in
 // computeRates() for why a share of gross could not hit a target expressed about the stock.
 // `CRYSTAL_SINK_BASE` is deliberately `AUTOMATION_BASE`'s own 2% — one idiom, one constant's
@@ -4255,7 +4231,7 @@ function crystalSinkFillMult() {
   if (!(cap > 0)) return 1;
   return crystalSinkMultAt((S.res.crystals || 0) / cap);
 }
-// v0.63 DEV NOTE 1: MANUFACTORY_PARCHMENT is HOISTED above `BUILDINGS` for the same reason.
+var MANUFACTORY_PARCHMENT = 0.005;        // 48.2 B — Jerry's figure, verbatim
 // 48.2 C — the yearly automatic craft. One of each, once a game-year, per Manufactory.
 // v0.59.1 NOTE 7.2 (Jerry): "Automated Workshop discovery should work just like the Kitten's
 // Workshop Automation upgrade."

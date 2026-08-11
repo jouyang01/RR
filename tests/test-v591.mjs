@@ -283,9 +283,15 @@ check("7 — the Manufactory costs far more crystals, and the ratio is UNTOUCHED
 // against an `oilWell`'s `oilPerTickBase: 0.02` — a 1.2x sink-to-faucet ratio), **taking the same
 // multiplier the yield takes.** Scoped to the fuel line only: every other converter input stays
 // flat, because inputs-flat/outputs-multiplied is the SOURCE'S OWN asymmetry (v0.61 §3).
-check("7.1 — ...and it BURNS on the YIELD'S OWN FOOTING: 0.024/copy, multiplied like the output",
+// RE-POINTED v0.63, superseded by PART 8.2. The faucet-side footing above is KEPT — it worked,
+// taking the drain 6.9% -> 28.9% of gross — and a THIRD factor joins it: `crystalSinkFillMult()`,
+// keyed to the STOCK's fill. v0.62's Part 7 fixed the dimension of the multiplier and its target
+// still failed, because a drain expressed as a share of the FAUCET cannot empty a STOCK that has
+// been full for 2,500 years. What is asserted is the same property — the fuel line is multiplied
+// where every other converter input is flat — plus the new stock reference.
+check("7.1 — ...and it BURNS on the YIELD'S OWN FOOTING, now with a STOCK reference (v0.63 Part 8.2)",
   fac.fuel === 0.024 &&
-  /if \(b\.id === "manufactory" && i2 === "crystals"\) \{\s*inAmt \*= convMult \* \(1 \+ \(boosts\.crystals \|\| 0\)\);/.test(CODE),
+  /if \(b\.id === "manufactory" && i2 === "crystals"\) \{\s*inAmt \*= convMult \* \(1 \+ \(boosts\.crystals \|\| 0\)\) \* crystalSinkFillMult\(\);/.test(CODE),
   `${fac.fuel}/s per copy before multipliers, ${fac.burnAtTen}/s at ten copies`);
 check("7 — all three Manufactory discoveries are dearer, and dearer IN CRYSTALS",
   fac.discoveries.pressureRegulators === 600 && fac.discoveries.rollingPress === 450 &&

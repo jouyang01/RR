@@ -448,9 +448,28 @@ const price = await page.evaluate(() => {
       const u = UPGRADES.find(x => x.id === id);
       return u.cost.crystals === Math.round((techK[u.tech] || 0) / DISCOVERY_CRYSTAL_DIVISOR);
     }),
+    // RE-POINTED v0.63, superseded by PART 1's per-rung cap. `round(K / divisor)` is still what
+    // the GENERATOR produces, but five rungs then scale down proportionally to Kittens' 2.43x
+    // per-rung figure, so the shipped cost is `<=` the generated one rather than `===` it. The
+    // durable property — the cost DERIVES from the rung, so a re-homed Discovery reprices itself
+    // — is unchanged; what moved is that the rung's TOTAL is now bounded as well as each leaf.
     knowledgeRuleHolds: DISCOVERY_KNOWLEDGE_SET.every(id => {
       const u = UPGRADES.find(x => x.id === id);
-      return u.cost.knowledge === Math.round((techK[u.tech] || 0) / DISCOVERY_KNOWLEDGE_DIVISOR);
+      const generated = Math.round((techK[u.tech] || 0) / DISCOVERY_KNOWLEDGE_DIVISOR);
+      return u.cost.knowledge > 0 && u.cost.knowledge <= generated;
+    }),
+    // ...and the cap is DEMONSTRATED to be what moved them. A rung the cap SCALED lands on its
+    // own ceiling (K x 2.43, floored per member); a rung it left alone sits strictly below it and
+    // must still read EXACTLY `round(K / divisor)`. Detecting "was scaled" by proximity to the
+    // ceiling rather than by comparing to the generated figure keeps this non-circular.
+    knowledgeUncappedRungsExact: DISCOVERY_KNOWLEDGE_SET.every(id => {
+      const u = UPGRADES.find(x => x.id === id);
+      const K = techK[u.tech] || 0;
+      const members = UPGRADES.filter(x => x.tech === u.tech && x.cost && x.cost.knowledge);
+      const rungSum = members.reduce((a, x) => a + x.cost.knowledge, 0);
+      const atCeiling = rungSum >= K * DISCOVERY_RUNG_CAP - members.length;
+      if (atCeiling) return u.cost.knowledge <= Math.round(K / DISCOVERY_KNOWLEDGE_DIVISOR);
+      return u.cost.knowledge === Math.round(K / DISCOVERY_KNOWLEDGE_DIVISOR);
     }),
     // exemptions: the tool, storage and timber lines stay on their own materials
     axeLineTaxed: AXE_LINE.map(u => u[0]).filter(id => DISCOVERY_KNOWLEDGE_SET.indexOf(id) > -1),
@@ -485,7 +504,8 @@ check("note 3 — MORE, not all, of the discoveries cost knowledge: 10 → 32 of
 // the rung, so a re-homed Discovery reprices itself and a tech reprice cannot leave its leaves
 // behind. The divisor is read from the constant rather than pinned.
 check("note 3 — the rule derives from the tech's own rung, so a re-homed Discovery reprices itself",
-  price.knowledgeRuleHolds && price.knowledgeDivisor > 0);
+  price.knowledgeRuleHolds && price.knowledgeDivisor > 0 && price.knowledgeUncappedRungsExact,
+  "v0.63 Part 1: `<=` the generated figure, and EXACTLY it on every rung the 2.43x cap did not touch");
 check("note 3 — an OUTFIT is not a METHOD: the axe, saw and storage lines take no knowledge",
   price.axeLineTaxed.length === 0 && price.sawLineTaxed.length === 0 && price.storeLineTaxed.length === 0,
   [...price.axeLineTaxed, ...price.sawLineTaxed, ...price.storeLineTaxed].join(", ") || "none");

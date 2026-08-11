@@ -324,11 +324,19 @@ export async function runSim(page, years, seed = 1) {
           const withAll = computeCaps();
           const stripped = {}; for (const k in owned) if (STORE.indexOf(k) < 0) stripped[k] = owned[k];
           S.upgrades = stripped; const without = computeCaps(); S.upgrades = owned;
-          const o = { owned: STORE.filter(u => owned[u]).length, delivered: {}, heldOverCap: {} };
+          const o = { owned: STORE.filter(u => owned[u]).length, delivered: {}, heldOverCap: {},
+                      // v0.63 Part 2: the ABSOLUTE ceiling, not just the fill fraction. The
+                      // spec asks for the steel ceiling reported before and after, and a
+                      // fill fraction cannot answer that — a ceiling that doubles while the
+                      // stock doubles reads identically at 100%/100%.
+                      cap: {}, held: {} };
           for (const rr in withAll) {
             if (without[rr] > 0) o.delivered[rr] = +(withAll[rr] / without[rr]).toFixed(4);
             if (withAll[rr] > 0) o.heldOverCap[rr] = +((S.res[rr] || 0) / withAll[rr]).toFixed(3);
+            o.cap[rr] = Math.round(withAll[rr] || 0);
+            o.held[rr] = Math.round(S.res[rr] || 0);
           }
+          o.storeCounts = { storehouse: count("storehouse"), warehouse: count("warehouse"), harbor: count("harbor") };
           return o;
         })(),
         // ---- v0.60 PART 3.1 — THE CRYSTAL DECOMPOSITION, AND NO SIZING ----

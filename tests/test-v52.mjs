@@ -263,9 +263,16 @@ check("3.2 — the Shimmer Refinery is recost downward: plating 4 + alloy 3, 580
 check("3.2 — ...and its conversion and ratio are UNTOUCHED, so only the price moved",
   p35.refConvert.output.shimmer === 0.05 && p35.refConvert.input.coalgas === 0.2 &&
   p35.refConvert.input.mana === 0.5 && p35.refRatio === 1.15, JSON.stringify(p35.refConvert));
-check("5.1 — Keeping the Rolls is a BRANCH on Songcraft's own rung: 1,300 knowledge + 60 culture",
-  p35.rollCost.knowledge === 1300 && p35.rollCost.culture === 60 &&
-  p35.rollTech === "songcraft" && p35.songcraft === 1300, JSON.stringify(p35.rollCost));
+// RE-POINTED v0.63, superseded by PART 1's per-rung cap. `songcraft` carried 4,420 of discovery
+// knowledge against a 1,300 rung — **3.40×**, over Kittens' 2.43× per-rung figure — so all three
+// of its Discoveries scale down proportionally and this one lands at 929. **The PROPERTY v0.52
+// shipped is that this is a BRANCH on Songcraft's own rung rather than a rung above it, and that
+// is unchanged and is what is asserted now**; the authored 1,300 was the pre-cap expression of
+// it. Pinning the literal made this a check that any per-rung rule was bound to fail.
+check("5.1 — Keeping the Rolls is a BRANCH on Songcraft's own rung (v0.63 Part 1: capped to 929)",
+  p35.rollCost.knowledge === 929 && p35.rollCost.culture === 60 &&
+  p35.rollTech === "songcraft" && p35.songcraft === 1300 &&
+  p35.rollCost.knowledge <= p35.songcraft, JSON.stringify(p35.rollCost));
 check("5.1 — the roster detail is hidden until researched (selectors confirmed, v0.53 Part 5.4)",
   p35.censusLocked && p35.censusOpen && p35.censusOpenSelectors);
 check("5.1 — ...and job assignment is NOT gated on it", p35.jobsUngated);

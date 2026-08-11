@@ -145,9 +145,18 @@ check("3/8 — the WAREHOUSE takes the source's own ratios off RR's Storehouse f
 check("3/8 — ...and the source ratio is CITED per line, not asserted from memory",
   /0\.75 x 200, Kittens' wood ratio/.test(RAW) && /0\.80 x 250, Kittens' minerals ratio/.test(RAW) &&
   /0\.50 x  10, Kittens' gold ratio/.test(RAW));
-check("3/8 — STEEL is KEPT at 100, and the retention is ARGUED rather than left silent",
-  store.warehouse.steel === 100 && /titanium x5\.00/.test(RAW) && /Steel is RR's/.test(RAW),
-  "Kittens' warehouse WINS on the late metal (titanium ×5.00); steel is RR's late metal");
+// RE-POINTED v0.63, superseded by PART 2 / DEV NOTE 11 (Jerry): "Steel in RR is the analogue of
+// iron in Kittens." **This round's argument was WRONG and it is worth saying which half.** v0.62
+// kept steel at 100 on the reasoning that the source's warehouse WINS on the late metal
+// (titanium x5.00) and that steel is RR's late metal. The first half is true and the second is
+// role-guessing: Jerry's mapping puts steel on IRON, which the warehouse LOSES on at x0.50 like
+// coal and gold. So steel 100 -> 25 and the Storehouse gains the 50 it never had. **The v0.62
+// note is CORRECTED IN PLACE rather than deleted, because the retracted reasoning is the reason
+// the retraction is legible.**
+check("3/8 — STEEL moves 100 -> 25 (v0.63 Part 2: steel is iron, not titanium)",
+  store.warehouse.steel === 25 && /THAT ARGUMENT IS RETIRED BY DEV NOTE 11/.test(RAW) &&
+  /Steel is NOT RR's titanium; it is RR's iron/.test(RAW),
+  "barn ironMax 50 -> warehouse ironMax 25 = x0.50, the same ratio it takes on coal and gold");
 // PASS CONDITION 9 — the Harbor's two outliers
 check("3/9 — the HARBOR takes the source's ore 950 and gold 25",
   store.harbor.ore === 950 && store.harbor.gold === 25,
@@ -404,9 +413,18 @@ check("6.5/19a — the light positions DERIVE from the sprite geometry, not from
 check("6.4/6.5/19a — both read the SAME buff expression the rest of the file uses",
   /var cinderUp = simNow\(\) < S\.cinderUntil;/.test(CODE) &&
   /if \(simNow\(\) < S\.insightUntil\)/.test(CODE));
-check("6.4/6.5/19a — and NEITHER glow is synced to an existing animation cycle",
-  /Math\.sin\(f \* 0\.23\)/.test(CODE) && /f \* 0\.11 \+ m \* 1\.7/.test(CODE),
-  "cinder f×0.23 against the hammer's 6-frame cycle; insight f×0.11 with a per-mote phase offset");
+// RE-POINTED v0.63, superseded by PART 5.3 / DEV NOTE 9 (Jerry): "Cinders' red glow looks weird
+// — floating red lights instead." **There is no Cinders GLOW any more**, so `f * 0.23` — the
+// rectangles' own alpha rate — is gone with them. The PROPERTY this line guards is that neither
+// crest effect shares a period with an animation already in its scene, and it survives the
+// change: the embers run on `f * 0.5` with a per-ember `e * 2.3` stride against the hammer's
+// six-frame swing, exactly as the motes run on `f * 0.11 + m * 1.7`.
+check("6.4/6.5/19a — and NEITHER crest effect is synced to an existing animation cycle",
+  /wrap\(f \* 0\.5 \+ e \* 2\.3, 24\) \/ 24/.test(CODE) && /f \* 0\.11 \+ m \* 1\.7/.test(CODE) &&
+  !/Math\.sin\(f \* 0\.23\)/.test(CODE),
+  "cinder embers f×0.5 with a per-ember 2.3 stride against the hammer's 6-frame cycle; " +
+  "insight f×0.11 with a per-mote phase offset. A particle field that shares a phase reads as " +
+  "one moving object, which is the failure mode both strides exist to avoid.");
 
 // ============================================================================
 // PART 6a — Jarvan
@@ -480,8 +498,13 @@ const sink = await page.evaluate(() => {
 check("7/20 — `MANUFACTORY_FUEL` is NOT raised a fourth time: it is 0.024, the SOURCE's per-copy anchor",
   sink.fuel === 0.024 && /oilPerTickCon: -0\.024/.test(RAW) && /oilPerTickBase`? ?: ?0\.02/.test(RAW),
   "Kittens' calciner burns 0.024 against an oilWell's 0.02 — a 1.2× sink-to-faucet ratio, per copy");
-check("7/20 — the burn is on the SAME FOOTING as the yield: it takes convMult and boosts.crystals",
-  /if \(b\.id === "manufactory" && i2 === "crystals"\) \{\s*inAmt \*= convMult \* \(1 \+ \(boosts\.crystals \|\| 0\)\);/.test(CODE));
+// RE-POINTED v0.63, superseded by PART 8.2. **This round's fix is KEPT and a third factor joins
+// it.** The faucet-side footing worked — the drain went 6.9% -> 28.9% of gross, x4.2 — and its
+// target still failed at 95.6% time-at-cap, because a drain expressed as a share of the FAUCET
+// cannot empty a STOCK that has been full for 2,500 years. `crystalSinkFillMult()` adds the
+// stock reference on the AUTOMATION_BASE idiom.
+check("7/20 — the burn is on the yield's footing AND keyed to the stock (v0.63 Part 8.2)",
+  /if \(b\.id === "manufactory" && i2 === "crystals"\) \{\s*inAmt \*= convMult \* \(1 \+ \(boosts\.crystals \|\| 0\)\) \* crystalSinkFillMult\(\);/.test(CODE));
 check("7/20 — ...so the drain TRACKS the faucet: its share of gross holds as the multipliers rise",
   sink.bareShare !== null && sink.upShare !== null &&
   Math.abs(sink.upShare - sink.bareShare) < 0.02,
@@ -542,9 +565,12 @@ const kn = await page.evaluate(() => {
   const tk = {}; TECHS.forEach(t => tk[t.id] = (t.cost && t.cost.knowledge) || 0);
   return {
     divisor: DISCOVERY_KNOWLEDGE_DIVISOR,
+    // RE-POINTED v0.63 (Part 1's per-rung cap): the GENERATOR still emits `round(K / divisor)`,
+    // but five rungs then scale down proportionally, so the shipped figure is `<=` that.
     ruleHolds: DISCOVERY_KNOWLEDGE_SET.every(id => {
       const u = UPGRADES.find(x => x.id === id);
-      return u.cost.knowledge === Math.round((tk[u.tech] || 0) / DISCOVERY_KNOWLEDGE_DIVISOR);
+      return u.cost.knowledge > 0 &&
+             u.cost.knowledge <= Math.round((tk[u.tech] || 0) / DISCOVERY_KNOWLEDGE_DIVISOR);
     }),
     ratios: DISCOVERY_KNOWLEDGE_SET.map(id => {
       const u = UPGRADES.find(x => x.id === id);
@@ -565,10 +591,18 @@ const kn = await page.evaluate(() => {
     })()
   };
 });
-check("note 1 — the discovery knowledge cost rises EIGHTFOLD: K/10 → 0.8 × K",
+// RE-POINTED v0.63, superseded by PART 1's per-rung cap. **The DIVISOR is UNCHANGED at 1.25 and
+// that is this round's finding, not a reversal**: a census of Kittens' 143 priced workshop
+// upgrades puts the source's per-upgrade science at a median 0.882 of its unlocking tech's rung,
+// so RR's 0.80 is at parity and v0.62's own proposal to halve it would have moved AWAY from the
+// source. What changed is that five rungs whose TOTAL exceeded Kittens' 2.43x per-rung figure
+// now scale down proportionally, so the per-upgrade ratio is `<= 0.8` rather than `=== 0.8`.
+check("note 1 — the divisor is UNCHANGED at 1.25 (0.8 × K); the CAP is what moved (v0.63 Part 1)",
   kn.divisor === 1.25 && kn.ruleHolds &&
-  kn.ratios.every(r => Math.abs(r - 0.8) < 0.01),
-  `divisor ${kn.divisor}, every generated cost at ${kn.ratios[0]}× its tech's rung`);
+  kn.ratios.every(r => r > 0 && r <= 0.8 + 1e-9) &&
+  kn.ratios.some(r => Math.abs(r - 0.8) < 0.01),
+  `divisor ${kn.divisor}; generated costs at or under 0.8× their rung, and EXACTLY 0.8× on every ` +
+  `rung the 2.43× cap did not touch`);
 check("note 1 — ...and 0.8× is derived from THIS FILE'S OWN authored band, not invented",
   /The authored band is 0\.70x to 3\.33x/.test(RAW) &&
   /slabCutting          350 on mining        500   =  0\.70 x the rung/.test(RAW),
@@ -576,10 +610,21 @@ check("note 1 — ...and 0.8× is derived from THIS FILE'S OWN authored band, no
 check("note 1 — it is a SINK and not a wall: at most three knowledge discoveries sit on any one tech",
   kn.maxPerTech === 3,
   `max ${kn.maxPerTech} per tech = at most 2.4× the rung, spread over three separate purchases`);
-check("note 1 — the four authored figures above the band are LEFT ALONE",
-  kn.authored.greatLibrary === 40000 && kn.authored.masterOfTheHunt === 12000 &&
-  kn.authored.beastLore === 2500 && kn.authored.chemtechDistillation === 3000,
-  JSON.stringify(kn.authored));
+// RE-POINTED v0.63, superseded by PART 1's per-rung cap. **The GENERATOR still leaves authored
+// figures alone — `if (u.cost.knowledge === undefined)` is untouched — but the CAP does not,
+// and it must not.** The objection the cap answers is to a RUNG's total, and an authored figure
+// is as much a part of that total as a generated one: `greatLibrary`'s 40,000 was 58% of the
+// 68,800 that made `ritesOfTargon` carry 48% of the game's discovery knowledge. Exempting it
+// would have meant scaling the two generated leaves to near zero to hit the same ceiling.
+// **`beastLore` is the control**: `abyss` sits at 2.05x, under the cap, so its authored 2,500 is
+// untouched — which demonstrates that the cap and not the generator is what moved the others.
+check("note 1 — the generator still leaves authored figures alone; only the RUNG CAP scales them",
+  kn.authored.beastLore === 2500 &&
+  kn.authored.greatLibrary < 40000 && kn.authored.masterOfTheHunt < 12000 &&
+  kn.authored.chemtechDistillation < 3000 &&
+  /Never overwrite an authored knowledge cost/.test(RAW) &&
+  /authored and generated alike/.test(RAW),
+  JSON.stringify(kn.authored) + " — beastLore untouched because `abyss` was already under 2.43×");
 
 // ============================================================================
 // PASS CONDITION 24 — the unchanged set

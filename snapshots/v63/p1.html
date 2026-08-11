@@ -260,7 +260,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.63";
+var VERSION = "v0.62";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -454,30 +454,6 @@ var RES = {
 // the cap change should ship without the rate change. Measured in BUILD REPORT §6.
 var MARUS_DEVOTION = 0.03;         // 4 x the Shrine's 0.0075/s, itself Kittens' faithPerTickBase
 var MARUS_DEVOTION_CAP = 200;      // dev note 10, directed
-// ==========================================================================================
-// v0.63 DEV NOTE 1, SECOND AND THIRD INSTANCES — FOUND BY THE GUARD, NOT BY A PLAYER.
-//
-// Jerry's note names ONE NaN tooltip (the Automated Workshop's). The guard written for it —
-// "no generated `effect`/`desc`/`lore` string may contain NaN, undefined or Infinity" — was run
-// once and immediately failed on **two more upgrades nobody had reported**:
-//
-//     pressureRegulators  "Hexdraulic Manufactories burn NaN% less Hextech Crystal."
-//     rollingPress        "Each Manufactory prints undefined parchment/second."
-//
-// Same cause, third and fourth occurrence: `MANUFACTORY_FUEL_CUT` and `MANUFACTORY_PARCHMENT`
-// were declared ~1,100 lines BELOW the `UPGRADES` array that concatenates them into strings.
-// **`MANUFACTORY_FUEL` was worse and quieter still** — it is read inside the `BUILDINGS` literal
-// at the Manufactory's `convert.input.crystals`, so the building shipped with an `undefined`
-// fuel cost that only self-healed because `computeRates()` rewrites that field from state every
-// call. A defect that repairs itself on the first tick is a defect nobody can see.
-//
-// All three are hoisted HERE, above `BUILDINGS`, which is the first array that reads any of
-// them. Their derivation comments stay where the mechanism is. **This is what the guard buys:
-// one reported symptom, four instances found, and the class closed by a suite rather than by a
-// player noticing.**
-var MANUFACTORY_FUEL = 0.024;             // 1.2 x the Refinery's own 0.02/copy, per js/buildings.js @ c52985b
-var MANUFACTORY_FUEL_CUT = 0.5;           // 48.2 A — Pressure Regulators halve it
-var MANUFACTORY_PARCHMENT = 0.005;        // 48.2 B — Jerry's figure, verbatim
 var BUILDINGS = [
   { id: "manaWell", name: "Mana Well", group: "Village",
     lore: "A spring where wild magic pools.", effect: "A steady trickle of mana, and somewhere to keep it.",
@@ -668,17 +644,7 @@ var BUILDINGS = [
     // Kittens `js/buildings.js:765-767`: barn `var effects = { "catnipMax": 5000, "woodMax":
     // 200, ... }`. RR's timber 200 was already exact; provisions 7,500 was x1.5 the source,
     // and it was the only column on this building that was not at parity.
-    //
-    // v0.63 PART 2 / DEV NOTE 11 (Jerry): "Steel in RR is the analogue of iron in Kittens."
-    // **That mapping settles the one figure v0.62 could not derive.** That round re-based the
-    // Warehouse and Harbor from the barn's ratios and KEPT steel at 100 with the stated reason
-    // "steel has no Storehouse figure to take a ratio from." With steel = iron there is one:
-    // Kittens barn `js/buildings.js:781` **`ironMax: 50`** — verified from a fresh clone at
-    // `c52985b`. The Storehouse gains a steel ceiling it has never had.
-    // **This is the one storage change in three rounds that goes the RELIEVING direction**, and
-    // it lands on the cheapest storage building in the game — `timber 50` at ratio 1.75, the
-    // first store a player builds.
-    cost: { timber: 50 }, ratio: 1.75, caps: { provisions: 5000, timber: 200, ore: 250, steel: 50, mana: 100, gold: 10 } },
+    cost: { timber: 50 }, ratio: 1.75, caps: { provisions: 5000, timber: 200, ore: 250, mana: 100, gold: 10 } },
   // v0.47 Part 1.4(b): Carpentry, not Mining. It costs beam 2, and beams are a Carpentry
   // recipe now — at tech "mining" (rank 4) it would be visible for three ranks with an
   // uncraftable input. It is also parity: Kittens' `construction` unlocks warehouse AND
@@ -725,17 +691,8 @@ var BUILDINGS = [
     //             source's warehouse WINS on the late metal (titanium x5.00). **Steel is RR's
     //             late metal and the Warehouse keeping it is the source's own shape**, not an
     //             exemption. Argued in the ledger rather than left as a silent survivor.
-    //
-    // **v0.63 PART 2 — THAT ARGUMENT IS RETIRED BY DEV NOTE 11.** Jerry: "Steel in RR is the
-    // analogue of iron in Kittens." Steel is NOT RR's titanium; it is RR's iron, and iron is a
-    // material the source's warehouse LOSES on like every other: barn `ironMax: 50`, warehouse
-    // `ironMax: 25` — **x0.50, the same ratio as coal and gold** (`js/buildings.js:781, 847`).
-    //     steel   100 -> 25   = 0.50 x the Storehouse's new 50, Kittens' iron ratio
-    // The v0.62 reading put steel on the titanium row by role-guessing at "RR's late metal";
-    // the note names the mapping outright and the ratio follows from it. At 100 this building
-    // was at **4x the source's relationship to the barn** — the last surviving inversion.
     // ==========================================================================================
-    caps: { timber: 150, ore: 200, steel: 25, gold: 5 },
+    caps: { timber: 150, ore: 200, steel: 100, gold: 5 },
     capsIf: { upgrade: "chemtechSilos", caps: { provisions: 750 } } },
   // v0.47 Part 1.4(c): the Harbor costs gear 20, and gear is Smelting-gated. At tech
   // "trade" (1,200) it was visible one rank before its input existed.
@@ -755,10 +712,6 @@ var BUILDINGS = [
     // `minerals 950` was LOW, and `gold 200` against the source's `gold 25` was 8x HIGH — the
     // same gold inflation the Warehouse carried.** Both take the source's figure directly;
     // mana and crystals are RR-original and stay.
-    // v0.63 PART 2: **`steel: 150` IS ALREADY EXACT PARITY WITH `js/buildings.js:929`
-    // `ironMax: 150` AND MUST NOT MOVE.** Two of the three steel lines were corrections this
-    // round; this one was right before dev note 11 arrived and is asserted unchanged so that a
-    // future round tidying "all three steel figures" trips a test.
     caps: { provisions: 2500, timber: 700, ore: 950, steel: 150, gold: 25, mana: 150, crystals: 20 } },
   { id: "archive", name: "Archive", group: "Industry",
     lore: "What survived the wars, shelved.", effect: "Somewhere to keep what you know, and scholars who gather it faster.",
@@ -1589,33 +1542,6 @@ var JARVAN_XP_PASSIVE = 15;
 function jarvanPassiveDesc() {
   return "Demacian Command: wanderers earn experience " + JARVAN_XP_PASSIVE + "% faster";
 }
-// ==========================================================================================
-// v0.63 PART 4 / DEV NOTE 6 (Jerry): "Jarvan's tooltips updated."
-//
-// **HALF OF THIS SHIPPED AT v0.62 AND THE HALF THAT DID NOT IS THE THIRD LITERAL-DRIFT DEFECT
-// IN THREE ROUNDS.** The passive above is generated from its constant. The LEAD was not: it read
-// `"Demacian Standard — every worker in the village produces 12% more"` against a shipped
-// `JARVAN_VILLAGE_LEAD = 0.06`. **The tooltip said 12%, the game paid 6%** — and it had been
-// wrong in the OTHER direction about scope in the same round, because v0.62 Part 6a.1 widened
-// the lead from three jobs to all eight and "in the village" describes the retired scope.
-//
-// The constant is HOISTED here from the leader-constants block below `CHAMPS` for operational
-// rule 11 — it is read while the `CHAMPS` array literal is built, and a `var` declared after it
-// is `undefined` at that instant. Its derivation comment stays with the other leader constants.
-//
-// **THE CLASS IS RETIRED WITH A GUARD, NOT WITH THIS ONE FIX.** v0.59's renown tooltips,
-// v0.61's `petriciteResonators`, this. `test-v63` fails if any champion `lead` or
-// `passive.desc` string contains a percentage literal that is not produced by a constant — so
-// the next authored "12%" fails a suite rather than surviving two rounds in front of a player.
-var JARVAN_VILLAGE_LEAD = 0.06;
-function jarvanLeadDesc() {
-  return "Demacian Standard — every worker in the settlement, in every job, produces " +
-         pctOfLead(JARVAN_VILLAGE_LEAD) + "% more";
-}
-// A local percentage formatter. `pctOf` (Part 3) is declared with the policy magnitudes ~2,000
-// lines below and CHAMPS is built before it — the same rule 11 that caused this defect would
-// cause another one if this string borrowed it.
-function pctOfLead(x) { return String(Math.round(x * 1000) / 10); }
 var CHAMPS = [
   { id: "shaco", name: "Shaco", cls: "Assassin", cost: { plumes: 60 },
     passive: { key: "camp", base: 15, desc: "Ambush: camp yields +15%" },
@@ -1666,7 +1592,7 @@ var CHAMPS = [
     // becomes about x1.58, so the coincidence is gone and the row is re-rated in the same round
     // the constant moves** — the §2.1-of-v0.59.1 rule, which has already caught this project once.
     passive: { key: "xp", base: JARVAN_XP_PASSIVE, desc: jarvanPassiveDesc() },
-    lead: jarvanLeadDesc(),   // v0.63 Part 4 — GENERATED; the authored "12%" was wrong for two rounds
+    lead: "Demacian Standard — every worker in the village produces 12% more",
     flavor: "A prince without a throne still stands like one.",
     skill: "Cataclysm — walls rise where he plants his standard" },
   { id: "caitlyn", name: "Caitlyn", cls: "Marksman", cost: { gold: 500 },
@@ -1758,8 +1684,7 @@ var SHACO_REFUND_CHANCE   = 0.20;   // note 24
 // v0.62 PART 6a.1 — 0.12 -> 0.06, and the halving is paid for by COVERAGE: the lead reached
 // three of eight jobs and now reaches all eight. Weighted against the bot's own shares that is
 // roughly 0.066 -> 0.060, near-neutral in total output and a different shape.
-// v0.63 PART 4: **HOISTED above `var CHAMPS`** so `jarvanLeadDesc()` can read it while the array
-// literal is built (operational rule 11). Declared once, up there; this comment is the signpost.
+var JARVAN_VILLAGE_LEAD   = 0.06;   // note 19 — the lead his passive vacated; v0.62 6a.1 halved for all-job scope
 var SWAIN_KNOWLEDGE_LEAD  = 0.25;   // note 20 — a FLOW effect, so it cannot be toggled for free
 var CAITLYN_TRADE_RENOWN  = 5;      // note 21 — her lead, ADDED to TRADE_RENOWN since v0.59 Part 2.3
 // v0.59 PART 2.3 — the baseline every leader gets for a completed caravan. One constant so the
@@ -1775,12 +1700,6 @@ var TIMEWARP_MAX_MS       = 5 * 60 * 1000;
 // only live at 5:00 is the automatic trigger with an extra click.
 var TIMEWARP_GAIN_RATE    = 0.25;   // banks a quarter-second of warp per real second led
 var TIMEWARP_SPEED        = 1.5;
-// v0.63 PART 4 — NAMED THIS ROUND. Heimerdinger's lead was the ONE leader magnitude still
-// inlined: `craftCostMult()` read a bare `0.85` and the tooltip authored "15%" beside it. That
-// is the exact shape of the defect dev note 6 reports on Jarvan, one champion over, and the
-// no-literal-percentages guard found it. Naming it puts the tooltip's 15% within reach of a
-// constant (`(1 - HEIMER_CRAFT_COST) * 100`) instead of leaving it unanchored.
-var HEIMER_CRAFT_COST     = 0.85;
 function champDef(id) { return CHAMPS.find(function (c) { return c.id === id; }); }
 // v0.56 Part 3 — Leona's lead text, DERIVED. The prose said "Deepwinter and cold snaps never
 // touch the harvest" and that was accurate: the clause floored farmMult at 1 and deleted the
@@ -2228,30 +2147,6 @@ function convDiscoveryOf(id) {
   for (var i = 0; i < CONV_DISCOVERY_LINE.length; i++) if (CONV_DISCOVERY_LINE[i][0] === id) return CONV_DISCOVERY_LINE[i][1];
   return 0;
 }
-// ==========================================================================================
-// v0.63 DEV NOTE 1 (Jerry): "The automated workshop tooltip shows NaN%."
-//
-// **IT IS OPERATIONAL RULE 11 IN ITS THIRD SHAPE, AND THE THIRD SHAPE IS THE QUIET ONE.** The
-// Automated Workshop's `effect` string is built from these constants INSIDE the `UPGRADES` array
-// literal (`"...stands at " + Math.round(automationTrigger() * 100) + "% of its ceiling..."`),
-// and they were declared ~1,100 lines BELOW that array. A `var` is hoisted as `undefined`, so
-// `AUTOMATION_BASE` was `undefined` at the instant the string was concatenated: `1 - undefined`
-// is `NaN`, `Math.round(NaN * 100)` is `NaN`, and the tooltip read **"stands at NaN% of its
-// ceiling ... NaN% of the pile per copy, to a NaN% ceiling"** for two rounds.
-//
-// **The two earlier instances CRASHED THE PAGE and were caught the same day** — `undefined.map`
-// and `undefined[key]` both throw. This one produced a valid string containing three NaNs, so
-// nothing threw, no suite failed, and it took a player looking at the tooltip to find it. That
-// is the general lesson and it is why the fix ships with a guard rather than a hoist alone:
-// **`test-v63` walks every `effect`, `desc` and `lore` string in `UPGRADES`, `TECHS`,
-// `BUILDINGS` and `CRAFTS` and fails on `NaN`, `undefined` or `Infinity`** — a load-order defect
-// in any generated string now fails a suite instead of shipping.
-//
-// Hoisted verbatim; the derivation comment stays with `manufactoryYear()` where the mechanism is.
-var AUTOMATION_BASE = 0.02;               // js/buildings.js:1309 — drives the trigger AND the share
-var AUTOMATION_CAP = 0.90;                // js/buildings.js:1311 — Math.min(..., 0.9)
-function automationTrigger() { return 1 - AUTOMATION_BASE; }                       // 98%
-function automationShare(n) { return Math.min(AUTOMATION_BASE * (n + 1), AUTOMATION_CAP); }
 // ============================================================================
 // v0.61 PART 7 / DEV NOTE 2 (Jerry): "Cataloguing and The Great Index unlock together and do
 // the same thing; the Great Index should move to Sparks."
@@ -2832,39 +2727,6 @@ function boostMemberOf(id) {
   for (var i = 0; i < BOOST_MEMBERS.length; i++) if (BOOST_MEMBERS[i].id === id) return BOOST_MEMBERS[i];
   return null;
 }
-// ==========================================================================================
-// v0.63 PART 7 — THE ADD-A-BOOST RULE. **NO `BOOST_LIMIT` VALUE MOVES THIS ROUND EITHER.**
-//
-// v0.62's end-of-run audit found FOUR families past their knee, not the two a maxed static probe
-// had predicted — vigor discarding **82.1%** of its raw Sigma, devotion 46.4%, provisions 27.5%,
-// mana 14.3%. **`cultivation` advertises +10% and pays 1.2%.** Provisions and mana crossed during
-// a real run even though the static probe put them under, which is the finding: **the static
-// probe is not the instrument; the end-of-run audit is.**
-//
-// **THIS PART SHIPS NO RE-BALANCE.** Raising four caps in a round that already overshot would be
-// reckless, and §16 makes cap magnitudes Jerry's in any case.
-//
-// WHAT SHIPS IS THE RULE, AS A TEST RATHER THAN AS A PARAGRAPH: **no boost may be added or
-// re-sized without its marginal delivery quoted first.** `boostDeliveryLine()` has computed that
-// number at render time since v0.62; the obligation is what was missing. `BOOST_SIGMA_OF_RECORD`
-// is this round's declared Sigma per family, and `test-v63` fails if the live table disagrees
-// with it. **A future round that adds a member cannot make the suite pass without editing this
-// object, and editing it is the moment the report must carry that family's before/after
-// delivered value** — the delivery figure is the price of admission, not an afterthought.
-//
-// **THE ASYMMETRY MUST BE STATED, NOT ASSUMED.** Part 3.2 of this round adds a resource boost on
-// **timber and ore**, and NEITHER IS A `BOOST_LIMIT` FAMILY: they never touch `limitedDR`, so the
-// Demacian Accord's +8.5% is **DELIVERED IN FULL, 0% discarded**, against four families in this
-// table that discard between 14% and 82% of theirs. A reader who assumes the two behave alike
-// will size the next one wrong. `boostFamilyIsBounded()` is the one place that question is asked.
-var BOOST_SIGMA_OF_RECORD = { gold: 0.45, provisions: 0.10, mana: 0.75, crystals: 0.50,
-                              devotion: 0.25, knowledge: 0.10 };
-function boostSigmaLive() {
-  var o = {};
-  BOOST_MEMBERS.forEach(function (m) { o[m.family] = +(((o[m.family] || 0) + m.amt).toFixed(6)); });
-  return o;
-}
-function boostFamilyIsBounded(family) { return BOOST_LIMIT[family] !== undefined; }
 function boostKnee(family) { return 0.75 * (BOOST_LIMIT[family] || 0); }
 // The share of an ADDITIONAL raw point that a family would actually deliver at its current
 // loading — 1.0 while linear, falling toward 0 as the asymptote is approached. This is the
@@ -3673,31 +3535,6 @@ function discoveryEffect(id) {
 // 47 are the same design move seen from the supply side and the demand side, and they only work
 // together: this scaling against v0.58's x6.43 multiplier stack would have been a speed bump.
 // ==========================================================================================
-// ==========================================================================================
-// v0.63 PART 3 — THE PHILOSOPHY MAGNITUDES, DECLARED ABOVE `POLICY_GROUPS`.
-//
-// Operational rule 11: `POLICY_GROUPS` is an array literal and its `desc` strings are
-// concatenated while it is being built, so anything they read must exist by this line. Dev note
-// 1 this round was that rule biting for the third time (the Automated Workshop's three NaN%);
-// declaring these here rather than beside `policyMult()` is the whole of the remedy.
-//
-// `pctOf` turns a fraction into the percentage a player reads, trimming float noise —
-// `1 - 0.965` is `0.03500000000000003` in IEEE754 and a tooltip should not say so.
-function pctOf(x) { return String(Math.round(x * 1000) / 10); }
-var POLICY_GOV_CULTURE   = 10000;   // dev note 5 — was 5,000 on all three
-var POLICY_PILTOVER_YIELD = 1.08;   // dev note 2, first half — ALREADY SHIPPED, unchanged
-var POLICY_PILTOVER_COST  = 0.965;  // dev note 2, second half — crafting costs -3.5%, on PRICE
-var POLICY_DEMACIA_RATE   = 0.085;  // dev note 3 — timber and ore production +8.5%
-var POLICY_NOXUS_RENOWN   = 1.33;   // dev note 4, first half — was 1.5
-var POLICY_NOXUS_HUNT     = 0.075;  // dev note 4, second half — +7.5% camp yield
-// dev note 3's SCOPE, stated where the magnitude is. The retired effect was `policyMult
-// ("village")` — a BUILDING-GROUP scope that multiplied the Village group's whole output. This
-// is a RESOURCE scope and it lands in `policyBoost()`, i.e. in the `boosts` accumulator, which
-// reaches every source of timber and ore (jobs, buildings, converters) rather than one group.
-// **Neither `timber` nor `ore` is a `BOOST_LIMIT` family, so the +8.5% is DELIVERED IN FULL** —
-// unlike vigor, devotion, provisions and mana, four families v0.62's knee audit found past
-// their knee. Part 7 requires that asymmetry to be stated rather than assumed.
-var POLICY_DEMACIA_RES = ["timber", "ore"];
 var POLICY_GROUPS = [
   { id: "growth", name: "Growth or Quality",
     blurb: "Is this settlement known for taking people in, or for what its people accomplish?",
@@ -3744,39 +3581,16 @@ var POLICY_GROUPS = [
       { id: "lunariVigil", name: "Lunari Vigil", cost: { culture: 7000, devotion: 600 },
         desc: "Some truths only keep at night. Devotion production +12% and Devotion cap +25%." }
     ] },
-  // ==========================================================================================
-  // v0.63 PART 3 / DEV NOTES 2, 3, 4, 5 (Jerry) — THE FOUR GOVERNMENT PHILOSOPHIES.
-  //
-  // All three descriptions are GENERATED from the constants below, not authored. Dev note 6 in
-  // the same batch is a tooltip that drifted from its constant (Jarvan's lead, Part 4) and this
-  // group would have been the next one to drift: it now carries five magnitudes across three
-  // options, and every one of them is read from the constant that delivers it.
-  //
-  //   note 2  Piltover Concord   craft yields +8% (already shipped) AND crafting costs -3.5%
-  //   note 3  Demacian Accord    timber and ore production +8.5%  — a RESOURCE scope, replacing
-  //                              the old village-group scope; see POLICY_DEMACIA_RES below
-  //   note 4  Noxian Doctrine    renown 1.5 -> 1.33 AND a new +7.5% hunt yield
-  //   note 5  all three          culture 5,000 -> 10,000
-  //
-  // **THE MATERIAL COMPONENTS STAY.** The note names culture only. `piltoverConcord` therefore
-  // still asks `knowledge 3000` — and that now sits on the same resource as Part 1's discovery
-  // costs, so the round's report carries the two together rather than as unrelated items.
   { id: "government", name: "Government",
     blurb: "Which nation's philosophy did your settlement finally embrace? Choose one — the other two close forever.",
     req: function (s) { return s.techs.callToArms; }, prereq: "growth",
     options: [
-      { id: "demacianAccord", name: "Demacian Accord", cost: { culture: POLICY_GOV_CULTURE, timber: 800, ore: 600 },
-        desc: "Order, duty, and a well-kept ledger. Timber and Ore production +" +
-              pctOf(POLICY_DEMACIA_RATE) + "%." },
-      { id: "piltoverConcord", name: "Piltover Concord", cost: { culture: POLICY_GOV_CULTURE, knowledge: 3000 },
-        desc: "Progress, measured and repeatable. Craft yields +" + pctOf(POLICY_PILTOVER_YIELD - 1) +
-              "% and crafting costs " + pctOf(1 - POLICY_PILTOVER_COST) + "% less — together, " +
-              // The RESOLVED pair, because a cost cut and a yield rise COMPOUND and a player
-              // should not have to multiply two numbers off a tooltip to know what they bought.
-              pctOf(POLICY_PILTOVER_YIELD / POLICY_PILTOVER_COST - 1) + "% more output per unit of input." },
-      { id: "noxianDoctrine", name: "Noxian Doctrine", cost: { culture: POLICY_GOV_CULTURE, steel: 250 },
-        desc: "Strength is proven outside the walls. Expeditions earn " + pctOf(POLICY_NOXUS_RENOWN - 1) +
-              "% more Renown and all camp yields rise " + pctOf(POLICY_NOXUS_HUNT) + "%." }
+      { id: "demacianAccord", name: "Demacian Accord", cost: { culture: 5000, timber: 800, ore: 600 },
+        desc: "Order, duty, and a well-kept ledger. Village production +6%." },
+      { id: "piltoverConcord", name: "Piltover Concord", cost: { culture: 5000, knowledge: 3000 },
+        desc: "Progress, measured and repeatable. Craft yields +8%." },
+      { id: "noxianDoctrine", name: "Noxian Doctrine", cost: { culture: 5000, steel: 250 },
+        desc: "Strength is proven outside the walls. Expeditions earn 50% more Renown." }
     ] }
 ];
 function hasPolicy(id) { return !!(S.policies && S.policies[id]); }
@@ -3813,27 +3627,14 @@ function buyPolicy(id) {
 function policyMult(key) {
   switch (key) {
     case "camp":    return hasPolicy("openRange") ? 1.12 : 1;
-    case "craft":   return hasPolicy("piltoverConcord") ? POLICY_PILTOVER_YIELD : 1;
+    case "craft":   return hasPolicy("piltoverConcord") ? 1.08 : 1;
     case "trade":   return (hasPolicy("frontierCharter") ? 1.10 : 1) * (hasPolicy("isolationistLedger") ? 0.90 : 1);
     case "worker":  return hasPolicy("sanctuaryWardens") ? 1.06 : 1;
-    // v0.63 Part 3.2: the Demacian Accord LEAVES this scope. Dev note 3 asks for timber and ore
-    // production, which is a resource scope; it is delivered in `policyBoost()`. The key stays
-    // because `computeRates()` reads it unconditionally and a `village` group with no policy in
-    // it should return 1 rather than not exist.
-    case "village": return 1;
-    case "renown":  return hasPolicy("noxianDoctrine") ? POLICY_NOXUS_RENOWN : 1;
+    case "village": return hasPolicy("demacianAccord") ? 1.06 : 1;
+    case "renown":  return hasPolicy("noxianDoctrine") ? 1.5 : 1;
   }
   return 1;
 }
-// v0.63 Part 3.1, second half of dev note 2 — the crafting-cost cut, applied to the PRICE.
-// **It is deliberately NOT a second yield term.** A yield term and a cost cut are different
-// mechanisms with different consequences: a yield term multiplies output and leaves the input
-// alone, a cost cut lowers the input and therefore also raises how MANY crafts a given stock
-// can buy. Folding this into `policyMult("craft")` would have made the tooltip's "+8%" a lie in
-// the other direction and, worse, it would have compounded with itself inside `test-v41`'s
-// timber -> Demacia -> steel -> Piltover -> mana -> transmute -> timber loop guard, which is the
-// one circuit in this file that must stay under gain 1. On the price it enters the guard once.
-function policyCraftCostMult() { return hasPolicy("piltoverConcord") ? POLICY_PILTOVER_COST : 1; }
 // Additive fractions folded into the production boost table
 function policyBoost(res) {
   var b = 0;
@@ -3845,9 +3646,6 @@ function policyBoost(res) {
   if (res === "knowledge" && hasPolicy("academyCharter")) b += 0.08;
   if (res === "devotion" && hasPolicy("lunariVigil")) b += 0.12;
   if (res === "vigor" && hasPolicy("solariDiscipline")) b += 0.12;
-  // v0.63 Part 3.2 / dev note 3 — the Demacian Accord, re-scoped from a building group to two
-  // resources. See POLICY_DEMACIA_RES for why the scope changed and where the term lands.
-  if (hasPolicy("demacianAccord") && POLICY_DEMACIA_RES.indexOf(res) >= 0) b += POLICY_DEMACIA_RATE;
   return b;
 }
 // Vigor cost multiplier — the axis Open Range also operates on, so the two compete
@@ -4231,31 +4029,9 @@ var DRAKE_PER_KILL = { infernal: 0.05, ocean: 0.06, mountain: 0.06, cloud: 0.10,
 // anchor (Kittens' `calciner` burns 0.024 against an `oilWell`'s 0.02, a 1.2x sink-to-faucet
 // ratio) taking effect on the SAME MULTIPLIER FOOTING AS THE YIELD. The scaling is the change;
 // the constant going down is what stops it being a fourth raise. See the converter block.
-// v0.63 DEV NOTE 1: MANUFACTORY_FUEL and MANUFACTORY_FUEL_CUT are HOISTED above `BUILDINGS` —
-// both were read in array literals declared ~1,100 lines above this point. See the block there.
-// v0.63 PART 8.2 — the crystal sink's STOCK reference. See the long note at the burn site in
-// computeRates() for why a share of gross could not hit a target expressed about the stock.
-// `CRYSTAL_SINK_BASE` is deliberately `AUTOMATION_BASE`'s own 2% — one idiom, one constant's
-// worth of meaning — so `1 - CRYSTAL_SINK_BASE` is the same 98% trigger the Automated Workshop
-// uses. `CRYSTAL_SINK_FLOOR` is where the ramp starts; below it this Part is inert.
-var CRYSTAL_SINK_BASE = 0.02;
-var CRYSTAL_SINK_FLOOR = 0.50;
-var CRYSTAL_SINK_MAX = 8;
-function crystalSinkTrigger() { return 1 - CRYSTAL_SINK_BASE; }   // 98%, the AUTOMATION_BASE idiom
-// Pure in its argument so a test can walk the curve without a settlement.
-function crystalSinkMultAt(fill) {
-  if (!(fill > CRYSTAL_SINK_FLOOR)) return 1;
-  var t = Math.min(1, (fill - CRYSTAL_SINK_FLOOR) / (crystalSinkTrigger() - CRYSTAL_SINK_FLOOR));
-  return 1 + (CRYSTAL_SINK_MAX - 1) * t;
-}
-function crystalSinkFillMult() {
-  // `computeCaps()` does not call `computeRates()` — checked, not assumed — so reading the
-  // ceiling from inside the rate computation is not circular.
-  var cap = computeCaps().crystals;
-  if (!(cap > 0)) return 1;
-  return crystalSinkMultAt((S.res.crystals || 0) / cap);
-}
-// v0.63 DEV NOTE 1: MANUFACTORY_PARCHMENT is HOISTED above `BUILDINGS` for the same reason.
+var MANUFACTORY_FUEL = 0.024;             // 1.2 x the Refinery's own 0.02/copy, per js/buildings.js @ c52985b
+var MANUFACTORY_FUEL_CUT = 0.5;           // 48.2 A — Pressure Regulators halve it
+var MANUFACTORY_PARCHMENT = 0.005;        // 48.2 B — Jerry's figure, verbatim
 // 48.2 C — the yearly automatic craft. One of each, once a game-year, per Manufactory.
 // v0.59.1 NOTE 7.2 (Jerry): "Automated Workshop discovery should work just like the Kitten's
 // Workshop Automation upgrade."
@@ -4306,9 +4082,10 @@ function crystalSinkFillMult() {
 // The BASE difference (ceiling vs stockpile) is minor in practice because the trigger only fires
 // within 2% of the ceiling — said rather than fixed silently — but it is fixed anyway, because
 // "minor" is an argument for not worrying, not an argument for staying wrong.
-// v0.63 DEV NOTE 1 — `AUTOMATION_BASE`, `AUTOMATION_CAP`, `automationTrigger()` and
-// `automationShare()` ARE HOISTED ABOVE `var UPGRADES`. See the block beside `CONV_DISCOVERY_LINE`
-// for the full statement of operational rule 11; the comment that stood here is preserved above.
+var AUTOMATION_BASE = 0.02;               // js/buildings.js:1309 — drives the trigger AND the share
+var AUTOMATION_CAP = 0.90;                // js/buildings.js:1311 — Math.min(..., 0.9)
+function automationTrigger() { return 1 - AUTOMATION_BASE; }                       // 98%
+function automationShare(n) { return Math.min(AUTOMATION_BASE * (n + 1), AUTOMATION_CAP); }
 // input -> output, at the ordinary craft price, exactly as the recipes charge it.
 var AUTOMATION_PAIRS = [{ from: "timber", to: "beam" }, { from: "ore", to: "stoneSlab" }];
 var DRAKE_CAP = { infernal: 0.5, ocean: 0.6, mountain: 0.6, cloud: 1.0, hextech: 0.6 };
@@ -4443,12 +4220,6 @@ function campYieldMult(isLuxury) {
   if (S.upgrades.atlasGauntletsUp) sum += 0.5;
   if (S.upgrades.jessedHawks) sum += 0.5;
   if (hasPolicy("openRange")) sum += 0.1;
-  // v0.63 Part 3.3, second half of dev note 4. ADDITIVE INTO THE EXISTING CAMP CATEGORY, not a
-  // new multiplicative one — §31 forbids adding a category until Jerry rules, and this is a
-  // hunt-yield term exactly like the five Discoveries and Open Range beside it. It therefore
-  // passes through `limitedDR(_, CAMP_YIELD_LIMIT)` like every other member, so its DELIVERED
-  // value at a full stack is well under its nominal 7.5% — stated, not assumed.
-  if (hasPolicy("noxianDoctrine")) sum += POLICY_NOXUS_HUNT;
   sum += traitBonus("trailblazer");
   return (1 + limitedDR(sum, isLuxury ? LUXURY_CAMP_YIELD_LIMIT : CAMP_YIELD_LIMIT)) * campEmpowered;
 }
@@ -5906,43 +5677,6 @@ var MORALE_SHRINE_LIMIT = 25;
 // conditioned it on: the shrine term measured 79.2% of total morale, above the stated half.
 var MORALE_SHRINE_RATE = 0.25;
 var MORALE_BOX_LIMIT = 20;
-// v0.63 PART 6 — the box EVENT rate, bounded the way the box MORALE term already was.
-// `BOX_EVENT_RATE` is the unchanged per-box-per-tick probability; `BOX_EVENT_LIMIT` is the
-// asymptote on the box-count multiplier, so the rate can never exceed 0.0002 * (5 + 10) =
-// 0.0030/tick however many boxes arrive. Declared beside `MORALE_BOX_LIMIT` deliberately: the
-// two ceilings on one building belong in one place, and the reason this Part exists is that
-// for two rounds only one of them had a ceiling at all.
-var BOX_EVENT_RATE = 0.0002;
-var BOX_EVENT_LIMIT = 10;
-function boxEventRate(n) {
-  n = n || 0;
-  return BOX_EVENT_RATE * (Math.min(5, n) + strictDR(Math.max(0, n - 5), BOX_EVENT_LIMIT));
-}
-// v0.63 PART 6, second half — THE CHRONICLE BATCH, rate-limited INDEPENDENTLY of the event.
-//
-// The note is about the log, and halving a rate is not the same thing as fixing a log. The
-// chronicle's job is to tell a player what happened while they were not watching; sixty lines
-// of the same event tells them nothing and buries what they did need to see. **This is the same
-// failure v0.59.1 note 5 already fixed for bulk hunts, and it is fixed the same way.**
-//
-// Below BOX_LOG_MIN_GAP_S of game time since the last box line, the event still FIRES and still
-// moves resources — the mechanic is untouched — but its line is suppressed and counted. The
-// next line past the gap carries the tally: "the boxes were busy this season (+N)". A player
-// therefore never loses the information, only the sixty separate rows of it.
-var BOX_LOG_MIN_GAP_S = 300;    // 300 game-seconds ~ 1 game-season at TICK_MS 200
-var boxLogLast = -1e9, boxLogSuppressed = 0;
-function boxLogAllow() {
-  var now = simNow() / 1000;
-  if (now - boxLogLast < BOX_LOG_MIN_GAP_S) { boxLogSuppressed++; return false; }
-  boxLogLast = now;
-  return true;
-}
-function boxLogFlush() {
-  if (boxLogSuppressed > 0) {
-    addLog("The boxes were busy this season (" + boxLogSuppressed + " more mischiefs and treats, tallied).", "event");
-    boxLogSuppressed = 0;
-  }
-}
 // Pass an object to collect the term-by-term breakdown. The tooltip renders that
 // object rather than re-deriving the arithmetic — Part 3's fix. The old tooltip
 // had drifted two versions and invented 70 points of crowding at 130 wanderers.
@@ -6612,36 +6346,8 @@ function computeRates(bdRes) {
       // making every input scale would be a parity regression dressed as a fix. What is being
       // corrected here is one primary sink that was sized against one point on a x92 curve.
       // ======================================================================================
-      // ======================================================================================
-      // v0.63 PART 8.2 — AND THE SINK IS NOW KEYED TO THE STOCK'S FILL, NOT ONLY TO THE FAUCET.
-      //
-      // **v0.62 Part 7 WORKED AND ITS TARGET STILL FAILED, and both halves of that sentence are
-      // load-bearing.** The drain went 6.9% -> **28.9% of gross**, a x4.2 improvement, and it now
-      // tracks the faucet as the multipliers grow — that part is fixed and stays. But crystals
-      // still sat at cap **95.6% of every tick** against a <70% target, because **a drain
-      // expressed as a share of the FAUCET cannot empty a STOCK that has been full for 2,500
-      // years.** 27 Refineries deliver 14.69/s gross against a 4.57/s drain: the stock still
-      // fills, only slower. A share of gross is the wrong DIMENSION for a target that names a
-      // property of the stock, and no value of that share is right at more than one point.
-      //
-      // **THE SIZING MUST BE STOCK-REFERENCED BECAUSE THE TARGET IS, and RR already has the
-      // idiom** — `AUTOMATION_BASE`, the Automated Workshop's rule keyed to
-      // `value >= maxValue * (1 - base)`, which is Kittens' `js/buildings.js:1309` verbatim.
-      // The same 2% sets the trigger here. Above half fill the burn ramps; at the trigger it is
-      // at its ceiling; below half fill it returns to exactly the v0.62 footing and this Part
-      // does nothing at all.
-      //
-      // **IT SELF-REGULATES, WHICH IS THE POINT.** Burn harder near the ceiling, lighter away
-      // from it: if the drain overshoots, fill falls, the multiplier falls with it and the stock
-      // recovers — a negative feedback loop with a fixed point wherever net flow is zero, rather
-      // than a magnitude that is wrong everywhere except where it was chosen. `S.res[r]` is
-      // clamped at 0 by the tick loop, so no fill-keyed burn can drive a resource negative.
-      //
-      // **`MANUFACTORY_FUEL`'s FLAT VALUE IS UNCHANGED AT 0.024** — the source's own per-copy
-      // figure (`calciner` `oilPerTickCon: -0.024` against `oilWell` `oilPerTickBase: 0.02`).
-      // **FOUR ROUNDS RAISED IT AND NONE OF THEM MOVED THE STOCK**; a fifth was not going to.
       if (b.id === "manufactory" && i2 === "crystals") {
-        inAmt *= convMult * (1 + (boosts.crystals || 0)) * crystalSinkFillMult();
+        inAmt *= convMult * (1 + (boosts.crystals || 0));
       }
       rates[i2] -= inAmt;
       track(i2, n + "× " + b.name + " (consumes)", -inAmt);
@@ -7052,37 +6758,8 @@ function step(dt, ticks) {
     if (S.eventTimer >= 75 && Math.random() < probOver(0.002, ticks)) { S.eventTimer = 0; fireRandomEvent(); }
   }
 
-  // ==========================================================================================
-  // v0.63 PART 6 / DEV NOTE 10 (Jerry): "Reduce the box random-event chance."
-  //
-  // **TWO THINGS ARE WRONG AND THE NOTE ONLY NAMES ONE.** What shipped was
-  // `Math.random() < probOver(S.jackboxes * 0.0002, ticks)` — **linear in the box count, with
-  // nothing capping it.** At 20 Jack in the Boxes that is 0.004/tick x 5 ticks/s = **one event
-  // every 50 seconds, roughly 16 game-days**, and every one writes a chronicle line. At 40 boxes
-  // it doubles again, and boxes are permanent, so it only ever goes up.
-  //
-  // **The spam is the symptom; the unbounded rate is the defect** — and it is the same shape as
-  // the `BOOST_LIMIT` families in Part 7: a term sized for the count it was written at and never
-  // given a ceiling. **The same building's MORALE term is already bounded** eleven hundred lines
-  // above (`2*min(5,n) + strictDR(2*max(0,n-5), MORALE_BOX_LIMIT)`, v0.58.1 note 32) — so one
-  // effect of one building was capped and the other was not, in the same round.
-  //
-  // SHIPPED: the identical shape, in the identical primitive. The first five boxes stay LINEAR
-  // — the whimsy is the point at low counts and that is exactly the concession the morale term
-  // makes — and everything past five goes through `strictDR`, which bites from the first unit
-  // and has a true asymptote:
-  //
-  //     rate = BOX_EVENT_RATE * (min(5,n) + strictDR(n - 5, BOX_EVENT_LIMIT))
-  //
-  //   boxes      5        20                40                       infinity
-  //   was     0.0010   0.0040            0.0080                      unbounded
-  //   now     0.0010   0.00206           0.00250                     0.0030 (asymptote)
-  //   events/game-year   was 1 per 16 game-days at 20 boxes; see the report for the measured
-  //                      chronicle lines per game-year before and after.
-  //
-  // **The morale term is NOT touched** — its constant, its shape and its five-box knee are all
-  // unchanged, and `test-v63` asserts that so this Part cannot be read as re-tuning the boxes.
-  if (S.jackboxes > 0 && Math.random() < probOver(boxEventRate(S.jackboxes), ticks)) fireMischief();
+  // Shaco's boxes: mischief scales with count
+  if (S.jackboxes > 0 && Math.random() < probOver(S.jackboxes * 0.0002, ticks)) fireMischief();
 
   // Poros multiply (they do that) — rarely. Herd growth lives in the Pastures, not the chronicle.
   if (S.res.poros >= 2 && Math.random() < probOver(0.00004, ticks)) {
@@ -7439,9 +7116,6 @@ function fireMischief() {
   var r = stealable[Math.floor(Math.random() * stealable.length)];
   var amt = S.res[r] * JACK_TRICK_FRACTION;
   S.res[r] -= amt;
-  // v0.63 Part 6: the EFFECT is unconditional; only the LINE is rate-limited. See boxLogAllow().
-  if (!boxLogAllow()) return;
-  boxLogFlush();
   var msg = MISCHIEF[Math.floor(Math.random() * MISCHIEF.length)].replace("%s", RES[r].name.toLowerCase());
   addLog(msg + " (−" + fmt(amt) + ")", "dark");
 }
@@ -7452,8 +7126,6 @@ function fireTreat() {
   var amt = eventAmount(r, 50, computeRates(), computeCaps());
   if (amt <= 0) amt = (S.seenMax[r] || 0) > 0 ? 1 : 5;   // an unseen resource still arrives
   gain(r, amt);
-  if (!boxLogAllow()) return;
-  boxLogFlush();
   var msg = TREATS[Math.floor(Math.random() * TREATS.length)].replace("%s", RES[r].name.toLowerCase());
   addLog(msg + " (+" + fmt(amt) + ")", "event");
 }
@@ -7526,12 +7198,7 @@ function craftYield(id) {
   return y;
 }
 // UPGRADE!!!: while Heimerdinger leads, crafts consume 20% fewer materials
-// v0.63 Part 3.1: the Piltover Concord's crafting-cost cut joins the ONE function every recipe
-// price already passes through, so `craftCostOf`, `batchTimes`, `qcLinks`, the Manufactory's
-// automation budget and the bot all see the same price. Multiplicative against Heimerdinger's
-// 0.85 because they are different categories — a leader and a policy — which is what Kittens'
-// Law permits between categories (STANDING-RULINGS §19/§23a).
-function craftCostMult() { return (leaderIs("heimerdinger") ? HEIMER_CRAFT_COST : 1) * policyCraftCostMult(); }
+function craftCostMult() { return leaderIs("heimerdinger") ? 0.85 : 1; }
 // v0.41 §2.6: the Yordle Workshop has no business making alchemy more efficient, and
 // the craftYield() coupling was what made the Timber -> Demacia -> Steel -> Piltover
 // -> Mana -> transmute -> Timber circuit a net-positive faucet. Flat yield; Riverstone
@@ -10237,18 +9904,6 @@ document.getElementById("btn-wipe").onclick = function () {
   // INSIGHT in #4FA8D8), so the banner and the chip speak the same visual language. `PAL.red` is
   // the UI's danger red and would read as an error rather than as a forge.
   var CINDER_GLOW = "#E8622D", INSIGHT_GLOW = "#4FA8D8";
-  // v0.63 PART 5.1 — the Targon halo's geometry, NAMED so a test can assert the separation from
-  // the peak rather than re-deriving it. The peak is `pixTriangle(cx, groundY - 16, 30, 10)`:
-  // half-width 15. HALO_OUTER MUST EXCEED THAT or the ring hides inside the silhouette, which is
-  // the whole of dev note 7.
-  var TARGON_PEAK_HALFWIDTH = 15;
-  var HALO_OUTER = 16, HALO_INNER = 12, HALO_ALPHA_FLOOR = 0.45;
-  // v0.63 PART 5.2 / DEV NOTE 8 — Insight's motes, raised on SIZE and COUNT before alpha. Six
-  // motes at 1.5x scale and an alpha floor of 0.30 washed out rather than reading as lights.
-  var INSIGHT_MOTES = 9, INSIGHT_MOTE_SCALE = 2.25, INSIGHT_ALPHA_FLOOR = 0.45;
-  // v0.63 PART 5.3 / DEV NOTE 9 — the Cinders embers. The two translucent rectangles are DELETED;
-  // this is their replacement and the count is what makes it read as lights rather than a glow.
-  var CINDER_EMBERS = 10;
 
   function clamp(n, lo, hi) { return n < lo ? lo : (n > hi ? hi : n); }
   function hexToRgb(h) {
@@ -10451,40 +10106,21 @@ document.getElementById("btn-wipe").onclick = function () {
     //
     // Read from `simNow() < S.insightUntil`, the same expression the rest of the file uses, and
     // asserted by holding the buff, reading the canvas, expiring it and reading again.
-    // ======================================================================================
-    // v0.63 PART 5.2 / DEV NOTE 8 (Jerry): "Insight's blue lights should be more prominent."
-    //
-    // **SIZE AND COUNT BEFORE ALPHA, and that ordering is the finding.** The shipped motes were
-    // six, at `1.5 * scale` px, on `0.30 + 0.30*|sin|`. At `scale` 1 that is a 2px square — and
-    // a 2px square at 30% alpha does not become prominent when you raise the alpha, it becomes
-    // a slightly brighter smudge. **Alpha raises LUMINANCE; size and count raise LEGIBILITY**,
-    // and "should be more prominent" is a legibility complaint about lights that read as noise.
-    //
-    // SHIPPED: **9 motes at 2.25x scale with the alpha floor at 0.45** — count 6 -> 9 (+50%),
-    // area 2.25 sq px -> 5.06 sq px per mote (x2.25), total lit area **x3.4**, and the dimmest
-    // frame is now half again as bright as before. All three are named constants above.
-    //
-    // **The three new anchors are the SHELF MIDPOINTS**, taken from this function's own geometry
-    // exactly as the first six are — the motes had clustered at the top and bottom of each shelf
-    // with a gap through the middle, which is where the eye actually rests.
     if (simNow() < S.insightUntil) {
       var anchors = [
         [leftX + sw * 0.5, shelfY + sh * 0.25], [leftX + sw * 0.5, shelfY + sh * 0.7],
         [rightX + sw * 0.5, shelfY + sh * 0.25], [rightX + sw * 0.5, shelfY + sh * 0.7],
         [leftX - lw * 0.5 - lampGap, lampY + lh * 0.4],
-        [rightX + sw + lw * 0.5 + lampGap, lampY + lh * 0.4],
-        [leftX + sw * 0.5, shelfY + sh * 0.48], [rightX + sw * 0.5, shelfY + sh * 0.48],
-        [(leftX + sw + rightX) * 0.5, shelfY + sh * 0.35]
-      ].slice(0, INSIGHT_MOTES);
+        [rightX + sw + lw * 0.5 + lampGap, lampY + lh * 0.4]
+      ];
       spriteCtx.fillStyle = INSIGHT_GLOW;
-      var moteSide = Math.max(1, Math.round(INSIGHT_MOTE_SCALE * scale));
       for (var m = 0; m < anchors.length; m++) {
-        // each mote orbits its anchor on its own phase so the nine never move as one
+        // each mote orbits its anchor on its own phase so the six never move as one
         var t = f * 0.11 + m * 1.7;
         var ox = Math.cos(t) * (5 * scale), oy = Math.sin(t * 0.8) * (4 * scale);
-        spriteCtx.globalAlpha = INSIGHT_ALPHA_FLOOR + 0.30 * Math.abs(Math.sin(t));
+        spriteCtx.globalAlpha = 0.30 + 0.30 * Math.abs(Math.sin(t));
         spriteCtx.fillRect(Math.round(anchors[m][0] + ox), Math.round(anchors[m][1] + oy),
-                           moteSide, moteSide);
+                           Math.max(1, Math.round(1.5 * scale)), Math.max(1, Math.round(1.5 * scale)));
       }
       spriteCtx.globalAlpha = 1;
     }
@@ -10683,55 +10319,17 @@ document.getElementById("btn-wipe").onclick = function () {
       // ASSERTED by expiring the crest and re-reading the canvas — not by grepping for this
       // branch, which is precisely how v0.61 §3's festival chip passed for two rounds.
       var cinderUp = simNow() < S.cinderUntil;
+      if (cinderUp) {
+        ctx.globalAlpha = 0.10 + 0.12 * Math.abs(Math.sin(f * 0.23));
+        px(cx - 12, groundY - 10, 24, 8, CINDER_GLOW);
+        px(cx + 1, groundY + hy - 6, 13, 9, CINDER_GLOW);
+        ctx.globalAlpha = 1;
+      }
       px(cx - 9, groundY - 8, 18, 4, mix(PAL.text, "#000000", 0.2));
       px(cx - 4, groundY - 11, 8, 3, mix(PAL.text, "#000000", 0.2));
       px(cx - 2, groundY - 14, 4, 3, mix(PAL.text, "#000000", 0.2));
       px(cx + 6, groundY + hy, 3, 11, shade(PAL.borderGold, -10));
       px(cx + 3, groundY + hy - 4, 9, 5, mix(PAL.text, "#000000", 0.15));
-      // ====================================================================================
-      // v0.63 PART 5.3 / DEV NOTE 9 (Jerry): "Cinders' red glow looks weird — floating red
-      // lights instead."
-      //
-      // **THE TWO RECTANGLES ARE DELETED, NOT DIMMED.** What shipped at v0.62 was
-      // `px(cx-12, groundY-10, 24, 8)` and `px(cx+1, groundY+hy-6, 13, 9)` — **two filled
-      // 24x8 and 13x9 rectangles** in `CINDER_GLOW` at alpha 0.10-0.22. At this resolution a
-      // translucent rectangle does not read as a glow; it reads as **a block**, which is what
-      // "looks weird" means, and the v0.62 note beside them ("FAINT MEANS FAINT") was solving
-      // the wrong problem: the objection is to the SHAPE, and no alpha fixes a shape.
-      // **Leaving a low-alpha glow underneath the embers would be the same weirdness quieter.**
-      //
-      // **THE SCENE ALREADY HAS THE IDIOM AND IT IS USED RATHER THAN INVENTED** — the lore
-      // banner's Insight motes (Part 5.2) and this scene's own `phase === 3` spark burst, six
-      // lines below, are both per-mote-phase point lights. Embers are those, given a rise.
-      //
-      //   * TEN embers, on per-mote phases (`i * 2.3`, an irrational-ish stride against the
-      //     period) so they never rise as one — the failure mode of a particle field that
-      //     shares a phase is that it reads as a single moving object.
-      //   * Two SOURCES, because the note names two things: the forge bed (`cx-10..cx+10`) and
-      //     the hammer head, which MOVES with the six-frame swing (`groundY + hy`). Odd-indexed
-      //     embers take the hammer, so half the field tracks the animation and half does not.
-      //   * They rise and fade: alpha is `sin(pi * t)`, zero at both ends of the cycle, so an
-      //     ember appears from nothing and dies out rather than popping.
-      //   * **DRAWN AFTER THE ANVIL AND HAMMER**, so they float in FRONT of the metal. The
-      //     rectangles were drawn before it and were partly occluded by the thing they were
-      //     supposed to be lighting.
-      //
-      // Asserted by holding the crest, reading the canvas, expiring it and reading again — the
-      // pixel count in `CINDER_GLOW` must be non-zero held and zero lapsed, and the two
-      // rectangles' own footprints must be absent from the source (v0.61 §3: a grep for the
-      // branch is not a test, but a grep for a DELETED literal is a check that a delete stuck).
-      if (cinderUp) {
-        for (var e = 0; e < CINDER_EMBERS; e++) {
-          var et = wrap(f * 0.5 + e * 2.3, 24) / 24;          // 0..1, own phase per ember
-          var fromHammer = (e % 2) === 1;
-          var ex = fromHammer ? cx + 7 + Math.sin((f + e * 7) * 0.19) * 3
-                              : cx - 10 + hash(e) * 20 + Math.sin((f + e * 11) * 0.17) * 2;
-          var ey = (fromHammer ? groundY + hy - 4 : groundY - 4) - et * 20;
-          ctx.globalAlpha = 0.85 * Math.sin(et * Math.PI);
-          px(ex, ey, 1.5, 1.5, CINDER_GLOW);
-        }
-        ctx.globalAlpha = 1;
-      }
       if (phase === 3) {
         for (var i = 0; i < 5; i++) {
           var ang = (i / 5) * Math.PI - Math.PI / 2;
@@ -10835,46 +10433,17 @@ document.getElementById("btn-wipe").onclick = function () {
       //
       // DO NOT restore the square, and DO NOT remove the crescent. Both instructions are Jerry's
       // and they are two different objects.
-      // ====================================================================================
-      // v0.63 PART 5.1 / DEV NOTE 7 (Jerry): "Targon banner is missing the golden halo."
-      //
-      // **IT IS NOT MISSING. IT HAS BEEN DRAWN SINCE v0.62 AND IT CANNOT BE SEEN — this is a
-      // visibility bug, and the cause is not the alpha.** The golden peak two lines above is
-      // `pixTriangle(cx, groundY - 16, 30, 10, PAL.goldBright)`: base half-width **15**, height
-      // 10, **apex at `groundY - 26`**. The halo was centred at `(cx, groundY - 26)` — the
-      // apex EXACTLY — with `outer 9`, in `PAL.goldBright`, **the peak's own colour.** A gold
-      // ring of radius 9 centred on the apex of a gold triangle whose half-width is 15 is
-      // *entirely inside the silhouette* for its lower half and identically coloured for the
-      // rest. It rendered every frame and there was nothing to see.
-      //
-      // **SHIPPED: separated from the peak on all three axes the spec offers, not two.**
-      //   colour  PAL.goldBright (#F0E6D2, pale cream) -> PAL.gold (#C89B3C, saturated gold).
-      //           A SATURATED gold against the peak's near-white also reads as "golden halo",
-      //           which is the words of the note.
-      //   radius  outer 9 -> HALO_OUTER 16, which EXCEEDS the peak's half-width of 15, so the
-      //           ring clears the silhouette instead of hiding inside it. inner 6 -> 12 keeps
-      //           the band 4px, the same weight as the crescent's.
-      //   alpha   floor 0.35 -> HALO_ALPHA_FLOOR 0.45.
-      //
-      // **The `f * 0.17` RATE IS UNCHANGED and that is deliberate** — v0.62's note beside it is
-      // still the live reason: the light shaft below pulses on `f * 0.3` and a halo on the same
-      // rate strobes with it. A different rate, not merely a different offset.
-      //
-      // `test-v63` asserts BOTH separations from the rendered canvas — the halo's colour differs
-      // from the peak's, and HALO_OUTER exceeds the peak's half-width — so "invisible again"
-      // fails a suite rather than needing a third dev note. **DO NOT restore the square and DO
-      // NOT touch the crescent** (212, 26, 11): both instructions are Jerry's.
       (function drawSummitHalo(hx, hy, outer, inner) {
-        ctx.globalAlpha = HALO_ALPHA_FLOOR + 0.25 * Math.abs(Math.sin(f * 0.17));
+        ctx.globalAlpha = 0.35 + 0.25 * Math.abs(Math.sin(f * 0.17));
         for (var dy = -outer; dy <= outer; dy++) {
           for (var dx = -outer; dx <= outer; dx++) {
             var d2 = dx * dx + dy * dy;
             if (d2 > outer * outer || d2 < inner * inner) continue;       // the ring only
-            px(hx + dx, hy + dy, 1, 1, PAL.gold);
+            px(hx + dx, hy + dy, 1, 1, PAL.goldBright);
           }
         }
         ctx.globalAlpha = 1;
-      })(cx, groundY - 26, HALO_OUTER, HALO_INNER);
+      })(cx, groundY - 26, 9, 6);
       ctx.globalAlpha = 0.3 + 0.3 * Math.abs(Math.sin(f * 0.3));
       px(cx - 2, 0, 4, groundY - 28, PAL.goldBright);
       ctx.globalAlpha = 1;
