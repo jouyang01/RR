@@ -452,8 +452,46 @@ var RES = {
 // devotion, devotion feeds worship through the Ascent, and worship feeds `catReligion`. If
 // Convergence at its own unlock falls below the 1% sourced floor the cut has gone too far and
 // the cap change should ship without the rate change. Measured in BUILD REPORT §6.
-var MARUS_DEVOTION = 0.03;         // 4 x the Shrine's 0.0075/s, itself Kittens' faithPerTickBase
-var MARUS_DEVOTION_CAP = 200;      // dev note 10, directed
+// ==========================================================================================
+// v0.64 DEV NOTE 4 (Jerry): "Devotion comes too quickly still. Remove devotion/second from Marus
+// Omegnum — instead, make it just increase devotion cap by 250. Marus should be the PRIMARY way
+// to increase devotion cap. Have Chapel give .015 devotion/second instead. Have Shrine of Solari
+// give 50 devotion cap instead."
+//
+// **ALL FOUR FIGURES ARE DIRECTED AND ALL FOUR SHIP EXACTLY AS STATED.** What this note does is
+// not a magnitude cut dressed up — **it is a ROLE separation**, and it is the same shape of move
+// §29 made for the culture and devotion CEILINGS one ruling earlier:
+//
+//     BEFORE                              AFTER
+//     Shrine    0.0075/s  +75 cap         Shrine    0.0075/s   +50 cap
+//     Chapel    0.025/s   (culture cap)   Chapel    0.015/s    (culture cap)
+//     Sanctum   multiplier                Sanctum   multiplier      [unchanged]
+//     Marus     0.03/s    +200 cap        Marus     NO RATE    +250 cap
+//
+// **Every building on the faith curve used to do both jobs; now the top of it does exactly one.**
+// The Marus Omegnum becomes the settlement's devotion CEILING and produces nothing, so the
+// player's reason to climb is capacity rather than compounding — and devotion, unlike every
+// material, feeds `worship` and thence `catReligion`, which multiplies the whole economy. **A
+// producer at the top of that curve is the one place in the game where a rate compounds into a
+// global multiplier, which is what the note is feeling when it says "too quickly".**
+//
+// **THE SOURCE DOES NOT CONTRADICT ANY OF THIS, WHICH IS WHY IT CAN SHIP AS DIRECTED.** RR's
+// devotion producers are ported rates and the ports are unchanged in KIND: the Shrine keeps
+// Kittens' temple `faithPerTickBase 0.0015` x5 = 0.0075/s exactly (v0.47 Part 2), and the Chapel
+// keeps Kittens' chapel as its model. The Chapel's 0.025 -> 0.015 is a magnitude change against
+// the source's 0.005/tick and is labelled **RR-ORIGINAL / HARDER** in the ledger rather than as
+// a parity fix — §17's precedent, and the reason that entry was worth keeping.
+//
+// **THE MARUS RATE IS NOT ZERO BY DELETING A LINE — the `prod` key is REMOVED.** A `prod:
+// { devotion: 0 }` would still be enumerated by `effectLines()` and would print "0/second",
+// which is a tooltip that advertises a thing the building does not do.
+//
+// **REPORT THE CONVERGENCE EFFECT.** This is the second consecutive round to cut Marus, and the
+// v0.62 note that first cut it required the same check: if Convergence at its own unlock falls
+// below the 1% sourced floor, the cut has gone too far. Measured in BUILD REPORT §9.
+var MARUS_DEVOTION_CAP = 250;      // dev note 4 — directed, and the Marus is now the PRIMARY ceiling
+var SHRINE_DEVOTION_CAP = 50;      // dev note 4 — directed, was 75
+var CHAPEL_DEVOTION = 0.015;       // dev note 4 — directed, was 0.025
 // ==========================================================================================
 // v0.63 DEV NOTE 1, SECOND AND THIRD INSTANCES — FOUND BY THE GUARD, NOT BY A PLAYER.
 //
@@ -1272,7 +1310,10 @@ var BUILDINGS = [
     // feedback loop (buildings -> acolytes -> devotion -> wealth -> buildings) that turned
     // a x10 Worship range into x1,256.
     effect: "Devotion and a ceiling for it — and pilgrims bring stories, which is culture.",
-    cost: { timber: 120, mana: 200, culture: 40, ore: 150 }, ratio: 1.15, prod: { devotion: 0.0075, culture: 0.005 }, caps: { devotion: 75, culture: 15 } },
+    // v0.64 DEV NOTE 4 — devotion cap 75 -> 50, directed. The RATE is untouched at 0.0075/s,
+    // which is Kittens' temple `faithPerTickBase 0.0015` x 5 exactly (v0.47 Part 2) and the one
+    // devotion figure in the file at verified source parity.
+    cost: { timber: 120, mana: 200, culture: 40, ore: 150 }, ratio: 1.15, prod: { devotion: 0.0075, culture: 0.005 }, caps: { devotion: SHRINE_DEVOTION_CAP, culture: 15 } },
   // ==========================================================================================
   // v0.58 PART 2 — THE CHAPEL. Kittens' middle faith producer, and RR never ported it.
   //
@@ -1327,8 +1368,10 @@ var BUILDINGS = [
   { id: "chapel", name: "Chapel of the Dawn", group: "Targon", tech: "ritesOfTargon",
     lore: "Smaller than the Marus, warmer than the Shrine, and never empty.",
     effect: "The middle of the climb: steady devotion, and a congregation that keeps the stories.",
+    // v0.64 DEV NOTE 4 — devotion 0.025 -> 0.015, directed. The CULTURE half is untouched at the
+    // source's `culturePerTickBase 0.05` x 5 = 0.25/s, so only the half the note names moves.
     cost: { ore: 600, culture: 120, parchment: 12 }, ratio: 1.15,
-    prod: { devotion: 0.025, culture: 0.25 }, caps: { culture: 200 },
+    prod: { devotion: CHAPEL_DEVOTION, culture: 0.25 }, caps: { culture: 200 },
     unlock: function (s) { return count("shrine") >= 2; } },
   { id: "sanctum", name: "Aspect's Sanctum", group: "Targon", tech: "ritesOfTargon",
     lore: "Where the Aspects' gaze falls longest, the air itself hums.",
@@ -1337,13 +1380,15 @@ var BUILDINGS = [
     unlock: function (s) { return count("shrine") >= 4; } },
   { id: "marus", name: "Marus Omegnum", group: "Targon", tech: "ritesOfTargon",
     lore: "The golden city atop the mountain. Few climb; fewer are chosen.",
-    effect: "Devotion at scale, needing no workers, and a ceiling to match.",
+    effect: "The settlement's devotion ceiling, raised further than anything else can raise it.",
     // v0.58.1 NOTE 13 (Jerry): "Marus Omegnum should only be unlocked after reaching 1500
     // worship." The Sanctum count stays as the structural prerequisite and WORSHIP joins it —
     // the golden city at the summit should be earned by the climb, not by masonry. 1,500 is
     // just past Kittens' own 1,000-worship Solar Revolution gate (STANDING-RULINGS, the
     // Convergence anchor), so it lands one step beyond the source's only sited faith threshold.
-    cost: { gold: 800, ore: 400, steel: 60, crystals: 40, culture: 150 }, ratio: 1.15, prod: { devotion: MARUS_DEVOTION }, caps: { devotion: MARUS_DEVOTION_CAP },
+    // v0.64 DEV NOTE 4 — the `prod` key is REMOVED, not zeroed. The Marus is a ceiling now and
+    // nothing else; a zero rate would still be enumerated and printed by `effectLines()`.
+    cost: { gold: 800, ore: 400, steel: 60, crystals: 40, culture: 150 }, ratio: 1.15, caps: { devotion: MARUS_DEVOTION_CAP },
     unlock: function (s) { return count("sanctum") >= 3 && (s.worship || 0) >= 1500; } }
 ];
 
@@ -2436,7 +2481,30 @@ var SAW_LINE = [["reinforcedSaw", 0.20], ["steelSaw", 0.20], ["hexsteelSaw", 0.1
                     ["seasonedTimberworks", 0.25]];
 // E1: these raise a BUILDING's per-copy term rather than opening a multiplicative
 // slot of their own, so ore stays one category however many upgrades feed it.
-var MINERALS_LINE = { mine: ["zauniteDrills", 0.05], quarry: ["sumpVentilation", 0.05] };
+// v0.64 DEV NOTE 1 (Jerry): "Sump Ventilation improves Quarry, Quarry cannot be built yet.
+// Let's change this to an ore production bonus."
+//
+// **THE NOTE IS EXACTLY RIGHT AND THE TECH LADDER SAYS SO.** Sump Ventilation sits on
+// `sumpEcology` — knowledge 60,000 + plating 30. The Petricite Quarry sits on `petricite` —
+// knowledge 65,000 **+ 65 Morellonomicon**, a tier-5 craft. So the Discovery unlocks on a
+// cheaper, earlier rung than the only building it touches, and a player who buys it gets a
+// button that improves a building they cannot build. **It was an upgrade to a building, not an
+// upgrade to a resource, and the building was behind it on the ladder.**
+//
+// **THE QUARRY'S ORE TERM IS NOT WEAKENED.** `MINERALS_LINE` keeps the Mine's rung
+// (`zauniteDrills`) and loses only the Quarry's entry; the Quarry's own `jobBoost.miner 0.35`
+// is untouched, and §5 forbids touching the id in any case. What changes is where Sump
+// Ventilation's 5% LANDS: it becomes a member of `boosts.ore`, so it reaches every source of
+// ore — miners, the Mine, the Quarry once it exists — rather than one building's miner slice.
+//
+// **IT LANDS IN AN EXISTING ADDITIVE ACCUMULATOR, NOT A NEW CATEGORY.** §31 is an OPEN QUESTION
+// and forbids adding a multiplicative category until Jerry rules; `boosts.ore` is the same
+// accumulator the Demacian Accord's ore term uses (and, as of this round, the same accumulator
+// that now actually has a key — see `computeRates()`). Ore is not a `BOOST_LIMIT` family, so
+// the 5% is **DELIVERED IN FULL**, which is a larger delivery than the +5% miner slice was
+// paying inside the Quarry's own multiplier chain.
+var MINERALS_LINE = { mine: ["zauniteDrills", 0.05] };
+var SUMP_VENTILATION_ORE = 0.05;   // dev note 1 — the same 5%, re-homed from the Quarry to ore
 function lineSum(line) {
   var s = 0;
   line.forEach(function (u) { if (S.upgrades[u[0]]) s += u[1]; });
@@ -2511,10 +2579,14 @@ function hoeDesc(id) {
 // v0.61 PART 1 — the three conversion Discoveries describe themselves from CONV_DISCOVERY_LINE,
 // so a reprice cannot leave a stale percentage on a button. They are ADDITIVE with each other:
 // the wording says "adds", not "increases by", because three of these held is +65%, not +80%.
+// v0.64 DEV NOTE 2 — the SCOPE in this string was accurate and is now superseded. It said "every
+// WORKED converter", which was true and was the defect: the Sump Mine and the Coalgas Vent are
+// converters too. A converter is any building with a `convert` block, full stop.
 function convDiscDesc(id, extra) {
   var v = convDiscoveryOf(id);
   return (extra ? extra + " " : "") + "Adds +" + Math.round(v * 100) +
-    "% to converter output (Forge, Refinery and every worked converter). The conversion " +
+    "% to EVERY converter's output — the Forge, the Refineries, and the Zaun extractors that " +
+    "turn ore, timber and mana into Zaun Ore, Coalgas and Hexcrystal Ore. The conversion " +
     "Discoveries add together rather than compounding.";
 }
 function masterworkDesc() {
@@ -2952,7 +3024,11 @@ var BOOST_MEMBERS = [
   { id: "resonanceCoils",      family: "crystals",   amt: 0.25, kind: "upgrade" },   // v0.54 directive 16
   { id: "tributeReliquaries",  family: "crystals",   amt: 0.25, kind: "upgrade" },   // v0.45 Part 6
   { id: "solariHymn",          family: "devotion",   amt: 0.25, kind: "wtech"   },
-  { id: "ritesOfInsight",      family: "knowledge",  amt: 0.10, kind: "wtech"   }
+  { id: "ritesOfInsight",      family: "knowledge",  amt: 0.10, kind: "wtech"   },
+  // v0.64 DEV NOTE 1 — re-homed from `MINERALS_LINE.quarry`. Same 5%, now on the RESOURCE.
+  // `ore` is NOT a `BOOST_LIMIT` family, so it is delivered in full — see the note at
+  // `MINERALS_LINE` for why the Quarry was the wrong carrier and `boosts.ore` is the right one.
+  { id: "sumpVentilation",     family: "ore",        amt: SUMP_VENTILATION_ORE, kind: "upgrade" }
 ];
 function boostMemberOf(id) {
   for (var i = 0; i < BOOST_MEMBERS.length; i++) if (BOOST_MEMBERS[i].id === id) return BOOST_MEMBERS[i];
@@ -2983,8 +3059,14 @@ function boostMemberOf(id) {
 // Demacian Accord's +8.5% is **DELIVERED IN FULL, 0% discarded**, against four families in this
 // table that discard between 14% and 82% of theirs. A reader who assumes the two behave alike
 // will size the next one wrong. `boostFamilyIsBounded()` is the one place that question is asked.
+// v0.64 — EDITED, WHICH IS THE POINT OF THE RULE. `ore: 0.05` joins because dev note 1 re-homes
+// Sump Ventilation onto the resource. **The delivered figure, as the rule requires: `ore` is not
+// a `BOOST_LIMIT` family, so its raw Sigma 0.05 is DELIVERED IN FULL, 0% discarded — against the
+// +5% miner slice it used to pay inside the Petricite Quarry's own chain, on a building the
+// player cannot yet build.** Before: 0% of the game reached (the Quarry is gated on `petricite`,
+// 65,000 knowledge + 65 Morellonomicon, a later rung than the Discovery's own). After: 100%.
 var BOOST_SIGMA_OF_RECORD = { gold: 0.45, provisions: 0.10, mana: 0.75, crystals: 0.50,
-                              devotion: 0.25, knowledge: 0.10 };
+                              devotion: 0.25, knowledge: 0.10, ore: 0.05 };
 function boostSigmaLive() {
   var o = {};
   BOOST_MEMBERS.forEach(function (m) { o[m.family] = +(((o[m.family] || 0) + m.amt).toFixed(6)); });
@@ -3204,9 +3286,11 @@ var UPGRADES = [
   { id: "keepingTheRolls", name: "Keeping the Rolls", cost: { culture: 60, knowledge: 1300 }, tech: "songcraft",
     lore: "The songs were always going to need the names anyway.",
     effect: "Unlocks the Census — every wanderer gets a name on a page, a trade beside it, and a rank that climbs."},
+  // v0.64 DEV NOTE 1 — the effect is a RESOURCE boost now, not a building's miner slice. The
+  // string is generated from the constant so it cannot drift from what the engine adds.
   { id: "sumpVentilation", name: "Sump Ventilation", cost: { plating: 60, gold: 2500 }, tech: "sumpEcology",
     lore: "Air moves, so the crews can. The Sump was never short of ore — only of people willing to stay in it.",
-    effect: "Every Quarry's miner bonus rises 35% → 40%."},
+    effect: "All Ore production +" + Math.round(SUMP_VENTILATION_ORE * 100) + "%."},
   { id: "seasonedTimberworks", name: "Seasoned Timberworks", cost: { beam: 60, gear: 30 }, tech: "sparks",
     lore: "Cut, stacked, and left alone for a season. Impatience is the expensive part.",
     effect: sawDesc("seasonedTimberworks")},
@@ -3300,11 +3384,15 @@ var UPGRADES = [
     effect: masterworkDesc()},
   // v0.54, DEV DIRECTIVE 16. Hex-Capacitors is RENAMED and RESHAPED. It was a flat +50% on
   // crystal production alone, priced at 40 crystals on the very rung that first produces
-  // them. It is now Resonance Coils: +25% crystals AND +25% on every worked converter — the
-  // Forge, the Hextech Refinery, and the Zaun extractors' non-autoprod siblings — at 30
+  // them. It is now Resonance Coils: +25% crystals AND +25% on every converter, at 30
   // crystals. Half the crystal figure, spread across two lines the same tech opens, so the
   // Discovery reads as "the hextech idea makes the whole workshop hum" rather than as a
   // single number on a single resource. Old saves carrying `hexCapacitors` are migrated.
+  //
+  // **v0.64 DEV NOTE 2 — the phrase "the Zaun extractors' NON-AUTOPROD siblings" is DELETED from
+  // this note and from the generated string.** It was the scope Jerry's note objects to, and it
+  // had been written down as deliberate, which is precisely why nobody re-derived it for three
+  // rounds. The three conversion Discoveries now reach every converter. See `convMultBreakdown()`.
   { id: "resonanceCoils", name: "Resonance Coils", cost: { crystals: 30, gold: 400 }, tech: "hextech",
     lore: "Tune one crystal and the whole workshop starts humming in the same key.",
     effect: convDiscDesc("resonanceCoils", "Crystal production +25%.")},
@@ -4923,7 +5011,32 @@ var EXPEDITIONS = [
   // just found the Wilds tab. It is gated on Sump Ecology, 60,000 knowledge, deep in Era 3, and
   // is the LAST expedition a player unlocks. `renderWilds()` iterates EXPEDITIONS in array
   // order, so array order IS UI order and moving the entry is the whole change.
-  { id: "sumpCrawl", name: "The Sump Crawl", tech: "sumpEcology", renown: 4,
+  // ==========================================================================================
+  // v0.64 DEV NOTE 3 (Jerry): "Sump Crawl should be on a cooldown of at least 7.5 minutes. It
+  // provides access to the converted materials (Coalgas and Zaun Ore) too easily."
+  //
+  // **THE NOTE NAMES THE REAL DEFECT: THIS IS THE ONLY UNCOOLED SOURCE OF A CONVERTED MATERIAL
+  // IN THE GAME.** Every other route to Zaun Ore and Coalgas is a converter — the Sump Mine and
+  // the Coalgas Vent — which means it is rate-limited by building count, by inputs and by the
+  // autoprod line. The Sump Crawl paid **40-70 Zaun Ore + 20-35 Coalgas, times `campYieldMult`,
+  // for 140 vigor, as fast as vigor arrives**. v0.52 measured the bot buying **108.8 crawls a
+  // game-year at Deep Works** — 345 Zaun Ore and 172 Coalgas per crawl at the measured yield
+  // multiplier. A converted material with an uncooled expedition beside it is not a converted
+  // material; it is a raw with extra steps.
+  //
+  // **450s = 7.5 minutes, the floor the note states.** It joins the four cooled camps whose
+  // sizing rule v0.58.1 note 9 wrote down (Blue Sentinel 600s, Red Brambleback 600s, Drake Hunt
+  // 900s, Baron 1,200s), and it is the shortest of them — deliberately, because it is the only
+  // one whose payout is a material rather than gold, and because the note sets a floor rather
+  // than a figure. **The Standard Hour's -10% cooldown applies to it as it does to the others.**
+  //
+  // **THIS SLICE IS A PRNG RE-ROLL AND IS LABELLED AS ONE (§32).** A cooldown changes how often
+  // a `rerollAmt`/`rerollHit`-consuming path fires, which changes how many draws the single
+  // global stream serves before every later consumer. **It is not made PRNG-neutral because the
+  // whole point of the change is that the expedition fires less often** — §32 rule 3 exactly.
+  // It is therefore the LAST slice in this round's cumulative prefixes, so that every part
+  // before it stays seed-for-seed comparable, and the shipped ensemble is a fresh draw.
+  { id: "sumpCrawl", name: "The Sump Crawl", tech: "sumpEcology", renown: 4, cooldown: 450,
     desc: "Down past the vents, where the runoff pools and something has learned to like it.",
     yield: "40–70 Zaun Ore + 20–35 Coalgas · 25% chance of Shimmer (scales with camp yields)",
     cost: { vigor: 140 },
@@ -6469,24 +6582,69 @@ function autoprodMult() {
 // wrong diagnosis, so every factor is named, valued and returned from ONE place that the
 // tooltip, the sim harness and the suites all read. `autoprod` converters take a different
 // second factor (the Zaun extractor line), so the shape is reported too.
+// ==========================================================================================
+// v0.64 DEV NOTE 2 (Jerry): "Banked Coals, Infernal Drake and other bonuses to 'converter
+// output' need review. WHAT ARE WE DEFINING AS A CONVERTER? It seems to upgrade Forge (steel),
+// Hextech crystal output (Hextech Refinery), Shimmer (Shimmer Refinery), but it doesn't upgrade
+// Sump Mine (Zaun Ore) or Coalgas Vent (Coalgas) — and those also use materials to convert into
+// other materials, i.e. a converter."
+//
+// **THE NOTE IS RIGHT ABOUT THE FACT AND RIGHT ABOUT THE DEFINITION, AND THE ANSWER IS A RULING
+// RATHER THAN A LIST.**
+//
+//     A CONVERTER IS ANY BUILDING WITH A `convert` BLOCK. There is no second kind.
+//
+// **WHAT WAS ACTUALLY SHIPPED BEFORE THIS ROUND**, read off this function: the three Zaun
+// extractors (`autoprod: true` — Sump Mine, Coalgas Vent, Hexcrystal Quarry) took the infernal
+// drake and the Zaun autoprod line, and **the `else` branch's other THREE terms — the
+// conversion Discoveries, the overseer affinity and the Cinders buff — reached only the
+// non-autoprod converters.** So Banked Coals, Clockwork Bellows and Resonance Coils raised the
+// Forge, the Hextech Refinery, the Shimmer Refinery and the Chem Forgeworks, and did nothing at
+// all for the two buildings that make Zaun Ore and Coalgas — **the inputs the Shimmer Refinery
+// they DO boost runs on.** Resonance Coils' own effect string said so out loud ("the Zaun
+// extractors' NON-AUTOPROD siblings"), which is how a scope becomes invisible: it was documented
+// as deliberate and never re-derived.
+//
+// **THE SPLIT WAS AN ACCIDENT OF SHAPE, NOT A DESIGN.** `autoprod` says HOW a converter is
+// driven — off banked stock rather than off a worked job (§7, Kittens' Smelter/Calciner tier) —
+// and nothing about it makes a conversion Discovery inapplicable. v0.58.1 note 29 had already
+// made exactly this argument for the drake in this same function: *"excluding them would have
+// made the drake a Forge upgrade wearing a drake's name."* **The note was right then, it was
+// applied to one term, and the other three were left behind.**
+//
+// **SO EVERY CONVERTER-OUTPUT CATEGORY NOW REACHES EVERY CONVERTER.** The autoprod line stays
+// EXCLUSIVE to the autoprod converters, and that asymmetry is correct and stays: the Chembarrel
+// Refinery is a building that drives the extractors specifically, the way Kittens' Steamworks
+// drives its Magnetos. It is a property of those buildings, not a converter-output category.
+//
+// **THIS ADDS NO NEW MULTIPLICATIVE CATEGORY (§31, still an OPEN QUESTION).** Every term below
+// already existed; three of them now have a wider SCOPE. RR's factor count is unchanged.
+//
+// **AND IT IS A REAL PRODUCTION INCREASE FOR THE ZAUN RAWS, STATED RATHER THAN BURIED.** At a
+// full stack the three added terms are worth `(1 + Σ0.65) × overseer ×2.00` on Zaun Ore,
+// Coalgas and Hexcrystal Ore — the Era-3 raws whose scarcity the last four rounds have measured
+// as the thing Era 3 runs out of. The report carries the before/after per-raw rate.
 function convMultBreakdown(isAutoprod) {
   var terms = [];
   var infernal = 1 + drakeBonus("infernal", DRAKE_CAP.infernal);
   terms.push({ label: "infernal drake", value: infernal, kind: "RR-ORIGINAL category", cap: 1 + DRAKE_CAP.infernal });
+  // EXCLUSIVE to the autoprod converters, and deliberately so — see the note above. The
+  // Chembarrel line is a property of those three buildings, not a converter-output category.
   if (isAutoprod) {
     terms.push({ label: "autoprod line (Zaun)", value: autoprodMult(), kind: "RR-ORIGINAL category", cap: 1 + AUTOPROD_LIMIT });
-  } else {
-    var cinderUp = simNow() < S.cinderUntil;
-    terms.push({ label: "cinder buff (transient)", value: cinderUp ? 1.5 : 1, kind: "transient", cap: 1.5 });
-    var discSum = convDiscoveryTotal();
-    terms.push({
-      label: "conversion Discoveries (ADDITIVE, Σ" + discSum.toFixed(2) + ")",
-      value: 1 + discSum, kind: "upgrade category — the calcinerRatio counterpart",
-      cap: 1 + CONV_DISCOVERY_LINE.reduce(function (a, u) { return a + u[1]; }, 0),
-      members: CONV_DISCOVERY_LINE.map(function (u) { return [u[0], u[1], !!S.upgrades[u[0]]]; })
-    });
-    terms.push({ label: "overseer affinity", value: 1 + affinityBonus("overseer") / 100, kind: "RR-ORIGINAL category", cap: 2.0 });
   }
+  // v0.64 DEV NOTE 2 — these three are UNCONDITIONAL now. A converter is a building with a
+  // `convert` block; `autoprod` describes how it is driven, not whether it converts.
+  var cinderUp = simNow() < S.cinderUntil;
+  terms.push({ label: "cinder buff (transient)", value: cinderUp ? 1.5 : 1, kind: "transient", cap: 1.5 });
+  var discSum = convDiscoveryTotal();
+  terms.push({
+    label: "conversion Discoveries (ADDITIVE, Σ" + discSum.toFixed(2) + ")",
+    value: 1 + discSum, kind: "upgrade category — the calcinerRatio counterpart",
+    cap: 1 + CONV_DISCOVERY_LINE.reduce(function (a, u) { return a + u[1]; }, 0),
+    members: CONV_DISCOVERY_LINE.map(function (u) { return [u[0], u[1], !!S.upgrades[u[0]]]; })
+  });
+  terms.push({ label: "overseer affinity", value: 1 + affinityBonus("overseer") / 100, kind: "RR-ORIGINAL category", cap: 2.0 });
   var product = terms.reduce(function (a, t) { return a * t.value; }, 1);
   return { terms: terms, product: product, autoprod: !!isAutoprod };
 }
@@ -6546,7 +6704,30 @@ function computeRates(bdRes) {
   var farmMult = seasonFarmMult(season, weatherMult);
   var mor = morale() / 100;
 
-  var boosts = { knowledge: 0, gold: 0, vigor: 0, crystals: 0, devotion: 0, culture: 0, mana: 0, provisions: 0 };
+  // ==========================================================================================
+  // v0.64 DEV NOTE 1, SECOND INSTANCE — FOUND BY THE NOTE, NOT REPORTED BY ANYONE.
+  //
+  // **`timber` AND `ore` ARE ADDED AS KEYS, AND UNTIL THIS ROUND THEIR ABSENCE MADE A SHIPPED
+  // EFFECT DO NOTHING AT ALL.** The policy term below is applied by `for (var pk in boosts)
+  // boosts[pk] += policyBoost(pk)` — **a loop over the keys this literal declares.** v0.63 Part
+  // 3.2 re-scoped the Demacian Accord from a building group to the resources `timber` and `ore`
+  // and landed it in `policyBoost()`, which is the right home — but neither key existed here, so
+  // the loop never asked `policyBoost("timber")` and **the +8.5% was never delivered to
+  // anything.** Measured on the v0.63 tag with the policy held: timber and ore both moved by
+  // exactly **+1.0%**, which is `catPolicy`'s generic government term, and **0.0% of the 8.5%.**
+  //
+  // **IT IS THE SAME CLASS AS OPERATIONAL RULE 11 AND IT IS QUIETER.** Rule 11 is "a `var` read
+  // inside an array literal that is declared below it is `undefined`, not an error"; this is "a
+  // key absent from an object literal is never visited by a `for...in`, and the term that would
+  // have written it reads as live code." Nothing throws, nothing renders NaN, and the tooltip
+  // states a figure the engine never applies — v0.63's own §10 finding, one level down.
+  //
+  // **THE FIX IS THE DECLARATION, NOT A SPECIAL CASE**, because dev note 1 below needs the same
+  // key: Sump Ventilation becomes an ore production boost and would have been dead on arrival
+  // for exactly this reason. `test-v64` asserts the Demacian Accord DELIVERS its 8.5% rather
+  // than asserting the key exists, because a key nobody reads is what shipped last round.
+  var boosts = { knowledge: 0, gold: 0, vigor: 0, crystals: 0, devotion: 0, culture: 0, mana: 0,
+                 provisions: 0, timber: 0, ore: 0 };
   BUILDINGS.forEach(function (b) {
     if (b.boost) for (var r in b.boost) boosts[r] = (boosts[r] || 0) + b.boost[r] * count(b.id);
   });
