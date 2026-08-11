@@ -3273,7 +3273,11 @@ var UPGRADES = [
   { id: "beastLore", name: "Beast Lore", cost: { plumes: 30, mushrooms: 40, knowledge: 2500 }, tech: "abyss",
     lore: "The wilds keep habits, and habits can be read.",
     effect: "All camp yields +25%."},
-  { id: "masterOfTheHunt", name: "Master of the Hunt", cost: { furs: 120, steel: 80, knowledge: 12000 }, tech: "drakeLore",
+  // v0.64 PART 5 — knowledge 12,000 -> 3,600. Re-based to the source's per-upgrade p75 of 1.00
+  // against `drakeLore`'s own 3,600 rung. It was 3.33x, one of only TWO figures in the file
+  // outside Kittens' 0.73-1.00 per-upgrade band, and it is re-based rather than scaled by a rung
+  // rule so that the three generated Discoveries sharing its ladder are not cut with it.
+  { id: "masterOfTheHunt", name: "Master of the Hunt", cost: { furs: 120, steel: 80, knowledge: 3600 }, tech: "drakeLore",
     lore: "Your hunters are the story other settlements tell.",
     effect: "All camp yields +50%."},
 
@@ -3297,7 +3301,10 @@ var UPGRADES = [
   { id: "illuminators", name: "Illuminators", cost: { culture: 700, tome: 8 }, tech: "ritesOfTargon", req: "crossReferencing",
     lore: "Gold leaf on every capital.",
     effect: "Tome craft yield +10%."},
-  { id: "greatLibrary", name: "The Great Library", cost: { culture: 1800, tome: 20, knowledge: 40000 }, tech: "ritesOfTargon",
+  // v0.64 PART 5 — knowledge 40,000 -> 12,000. The larger of the two authored outliers and, at
+  // 40,000 on a 12,000 rung, the single figure that made `ritesOfTargon` carry 48% of the game's
+  // whole discovery knowledge. Re-based to the source's p75 of 1.00 x its own rung.
+  { id: "greatLibrary", name: "The Great Library", cost: { culture: 1800, tome: 20, knowledge: 12000 }, tech: "ritesOfTargon",
     lore: "Everything anyone remembered, in one room.",
     effect: "Parchment & Tome craft yields +20%."},
 
@@ -3415,7 +3422,65 @@ var DISCOVERY_KNOWLEDGE_SET = [
   });
 })();
 // ==========================================================================================
-// v0.63 PART 1 — THE PER-RUNG CEILING. The divisor is NOT the problem and it does not move.
+// v0.64 PART 5 / DEV NOTE 4 (Jerry): "Retire `DISCOVERY_RUNG_CAP`; re-base the two authored
+// outliers." **THE CAP IS GONE. ITS OWN AUTHOR AND ITS OWN BUILDER BOTH FILED THE OBJECTION
+// BEFORE JERRY RAISED IT, AND BOTH WERE RIGHT — see BUILD REPORT v0.63 §1.2.**
+//
+// **THE PER-RUNG TOTAL IS NOT A KITTENS INVARIANT. THE PER-UPGRADE RATIO IS.** Joining
+// `js/workshop.js` against `js/science.js` @ `c52985b`:
+//
+//     PER-UPGRADE   science / its unlocking tech's rung     IQR 0.73-1.00, median 0.87   TIGHT
+//     PER-RUNG      total upgrade science / the rung        range 0.30 - 8.19            NOT A RULE
+//
+// A rung's total is just *per-upgrade x how many upgrades sit on it*, and the source puts up to
+// six on one tech. **HALF OF KITTENS' OWN RUNGS EXCEED 2.43x.** A ceiling on a quantity the
+// source does not hold constant is not a parity rule; it is an RR invention, and §2 has now
+// ruled three of those out of existence.
+//
+// **AND THE CAP CUT THE WRONG MEMBERS.** It scaled whole rungs PROPORTIONALLY, so on
+// `ritesOfTargon` it took the same 42% off an authored outlier and off three generated members
+// that were already dead centre of the source's spread:
+//
+//     discovery          source-shape   before   AFTER THE CAP   vs the source's 0.73-1.00
+//     greatLibrary       AUTHORED        3.33x       1.41x       still above p75
+//     cataloguing        generated       0.80x       0.34x       FAR BELOW p25
+//     crossReferencing   generated       0.80x       0.34x       FAR BELOW p25
+//     illuminators       generated       0.80x       0.34x       FAR BELOW p25
+//
+// Across the game the generated members' per-upgrade median fell **0.80 -> 0.62, minimum 0.34**.
+// **Every discovery above the source's p75 is AUTHORED, not generated. The generating rule was
+// never out of parity and the cap moved it out.**
+//
+// **WHAT SHIPS INSTEAD — the note's own remedy, and it is strictly better targeted.** The
+// generated members return to **0.8 x K** (untouched: the `applyDiscoveryKnowledge()` IIFE above
+// is now the only thing that writes a generated knowledge cost). The **two authored figures
+// outside the source's spread** are re-based to the source's p75 of **1.00**:
+//
+//     greatLibrary      40,000 on ritesOfTargon 12,000  = 3.33x  ->  12,000  = 1.00x
+//     masterOfTheHunt   12,000 on drakeLore      3,600  = 3.33x  ->   3,600  = 1.00x
+//
+// **-36,400 taken ENTIRELY from the two figures outside the source's spread**, against the cap's
+// -47,959 taken mostly from members that were already correct. The other authored figures —
+// `slabCutting` 0.70x, `deepwaterDocks` 0.75x, `trappersCraft` 0.80x, `keepingTheRolls` 1.00x,
+// `beastLore` 1.25x, `chemtechDistillation` 1.36x — are all at or inside p75+ and are LEFT ALONE.
+// `beastLore` is the untouched control the suite reads.
+//
+// **THE CENSUS IS RECONCILED AND THE JOIN IS RECORDED (pass condition 13).** Three rounds have
+// argued from this table and two joins were in play — the analyzer's (median 2.43 / max 8.19 /
+// whole-game 0.50) and the builder's (median 2.07 / max 6.25 / whole-game 0.470). **The join
+// pinned for this project is `tools/kittens-upgrade-census.mjs`'s**: an upgrade joins to the tech
+// named in its own `unlocked_by`/`require` field, rungs with no science price are EXCLUDED from
+// the per-rung distribution rather than counted as zero, and upgrades whose unlocking tech has no
+// science price are dropped from both numerator and denominator. That join is what the tool
+// emits, it is re-runnable against a clone, and it is the one figure any future round should
+// quote. **Neither census governs anything any more, because the cap they were arguing about is
+// retired — the per-UPGRADE band is the live invariant and `test-v64` asserts RR inside it.**
+// ==========================================================================================
+// The v0.63 argument that produced the cap is retained below UNEDITED, because the census in it
+// is correct and only the CONCLUSION drawn from it was wrong. Deleting it would lose the
+// measurement that justifies the 0.80 divisor, which is unchanged and still at parity.
+// ==========================================================================================
+// v0.63 PART 1 — THE PER-RUNG CEILING [RETIRED AT v0.64 PART 5 — see above].
 //
 // v0.62's own build report proposed halving DISCOVERY_KNOWLEDGE_DIVISOR to ~0.4 x K. **The
 // source says the shipped 0.8 x K is right and the halving would move AWAY from parity in a
@@ -3459,29 +3524,15 @@ var DISCOVERY_KNOWLEDGE_SET = [
 // therefore justified by RR's CONCENTRATION — one rung carrying 48% of the game's total — and
 // not by 5.73x being unsourced. Measured effect: total 142,410 -> 94,459 (-34%),
 // `ritesOfTargon` -58%, and every rung already at or under 2.43x is untouched.
-var DISCOVERY_RUNG_CAP = 2.43;   // Kittens' own total-upgrade-science-per-rung figure
-(function capDiscoveryKnowledgePerRung() {
-  var techK = {};
-  TECHS.forEach(function (t) { techK[t.id] = (t.cost && t.cost.knowledge) || 0; });
-  var byTech = {};
-  UPGRADES.forEach(function (u) {
-    if (!u.cost || !u.cost.knowledge) return;
-    (byTech[u.tech] = byTech[u.tech] || []).push(u);
-  });
-  Object.keys(byTech).forEach(function (tech) {
-    var K = techK[tech] || 0;
-    if (!K) return;                       // a rung with no knowledge price has no ratio to cap
-    var members = byTech[tech];
-    var sum = members.reduce(function (a, u) { return a + u.cost.knowledge; }, 0);
-    var ceiling = K * DISCOVERY_RUNG_CAP;
-    if (sum <= ceiling) return;           // already compliant — leave it exactly alone
-    var scale = ceiling / sum;
-    // FLOOR, not round. Rounding put `trade` one knowledge OVER its own ceiling (2,917 against
-    // 2,916) and the pass condition is an inequality a test asserts — a cap that its own test
-    // fails by one is worse than a cap a hair under. Floor can never exceed.
-    members.forEach(function (u) { u.cost.knowledge = Math.floor(u.cost.knowledge * scale); });
-  });
-})();
+// v0.64 PART 5 — `DISCOVERY_RUNG_CAP` AND ITS LOAD-TIME MUTATION ARE DELETED. The constant is
+// absent at grep level and `test-v64` asserts that, because a retired constant left declared is
+// a constant the next round re-wires. The per-UPGRADE ratio is the invariant that survives, and
+// it is asserted against the source's own 0.73-1.00 band AFTER every load-time mutation.
+//
+// **THE ONLY REMAINING LOAD-TIME WRITER OF A DISCOVERY KNOWLEDGE COST IS
+// `applyDiscoveryKnowledge()` ABOVE**, and it writes 0.8 x K and only where no authored figure
+// exists. That is the whole rule now. Two IIFEs mutating the same field in sequence was how the
+// distribution got away from everybody in the first place.
 // ============================================================================
 // v0.61 PART 10 / DEV NOTE 4 (Jerry, this round): "More post-Sparks discoveries should cost
 // Hextech Crystals."
