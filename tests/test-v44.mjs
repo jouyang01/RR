@@ -110,8 +110,15 @@ const gr = await page.evaluate(() => {
 // does `mineralsJobRatio`. Sump Ventilation now raises the QUARRY's per-copy term
 // (0.35 -> 0.40) instead of opening a multiplicative slot of its own, so ore stays one
 // category however many upgrades feed it. Timber and mana keep their slot.
-check("Sump Ventilation no longer opens an ore slot — ore is one category now",
-  Math.abs(gr.oreX - 1.0) < 0.001 && gr.oreLeavesTimber, `ore ×${gr.oreX}`);
+// RE-POINTED v0.64 DEV NOTE 1. **THE ITEM'S CLAIM SURVIVES INTACT AND ONLY ITS ARITHMETIC MOVES.**
+// The claim is "ore is ONE category however many upgrades feed it" — i.e. Sump Ventilation must
+// not open a MULTIPLICATIVE slot of its own. Jerry's dev note moves the upgrade off the Petricite
+// Quarry's per-copy term (a building gated a full tier ABOVE the Discovery, so it delivered
+// nothing) and onto `boosts.ore` — which is an ADDITIVE accumulator, the same one the Demacian
+// Accord's ore term uses. So the 5% is now visible on the ore line (×1.05) while ore remains a
+// single category, and the timber line is still untouched, which is the other half of the claim.
+check("Sump Ventilation still opens NO ore slot of its own — ore is one ADDITIVE category",
+  Math.abs(gr.oreX - 1.05) < 0.001 && gr.oreLeavesTimber, `ore ×${gr.oreX}`);
 // v0.50 Part 1.3: Seasoned Timberworks LEAVES resRatio — Kittens leaves <res>GlobalRatio
 // empty for wood — and becomes the sixth rung of the saw line, which is Kittens' own
 // lumberMillRatio. Same upgrade, same 0.25, a category that already existed.

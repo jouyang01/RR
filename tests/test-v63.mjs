@@ -47,8 +47,22 @@ const rung = await page.evaluate(() => {
   const perUp = [];
   UPGRADES.forEach(u => { const k = u.cost && u.cost.knowledge; const K = techK[u.tech] || 0;
                           if (k && K) perUp.push(k / K); });
+  perUp.sort((a, b) => a - b);
+  // RE-POINTED v0.64 PART 5 — the invariant that survives the cap's retirement.
+  const perUpgradeMedian = +perUp[Math.floor(perUp.length / 2)].toFixed(4);
+  const generatedExact = DISCOVERY_KNOWLEDGE_SET.every(id => {
+    const u = UPGRADES.find(x => x.id === id);
+    return u.cost.knowledge === Math.round((techK[u.tech] || 0) / DISCOVERY_KNOWLEDGE_DIVISOR);
+  });
+  const ritesGeneratedAtFullRate = UPGRADES
+    .filter(u => u.tech === "ritesOfTargon" && DISCOVERY_KNOWLEDGE_SET.indexOf(u.id) > -1)
+    .every(u => u.cost.knowledge === Math.round(techK.ritesOfTargon / DISCOVERY_KNOWLEDGE_DIVISOR));
   return { rows, total, totalTech, carrying, divisor: DISCOVERY_KNOWLEDGE_DIVISOR,
-           cap: DISCOVERY_RUNG_CAP, setSize: DISCOVERY_KNOWLEDGE_SET.length,
+           perUpgradeMedian, generatedExact, ritesGeneratedAtFullRate,
+           greatLibrary: UPGRADES.find(u => u.id === "greatLibrary").cost.knowledge,
+           // RE-POINTED v0.64 PART 5: `DISCOVERY_RUNG_CAP` is RETIRED and must be absent.
+           cap: typeof DISCOVERY_RUNG_CAP === "undefined" ? null : DISCOVERY_RUNG_CAP,
+           setSize: DISCOVERY_KNOWLEDGE_SET.length,
            worst: rows[0], rites: rows.find(r => r.tech === "ritesOfTargon"),
            maxPerUpgrade: Math.max.apply(null, perUp) };
 });
@@ -61,35 +75,60 @@ check("1.4/2 — `DISCOVERY_KNOWLEDGE_DIVISOR` is UNCHANGED at 1.25 (0.8 × K)",
 check("1.4/2 — ...and the halving builder note 1 asked for is NOT in the file",
   !/DISCOVERY_KNOWLEDGE_DIVISOR = 2\.5/.test(CODE) && /DISCOVERY_KNOWLEDGE_DIVISOR = 1\.25;/.test(CODE));
 // PASS CONDITION 3 — asserted from TECHS/UPGRADES AFTER the generator runs
-check("1.4/3 — the per-rung cap exists at 2.43×, Kittens' own total-upgrade-science-per-rung figure",
-  rung.cap === 2.43 && /var DISCOVERY_RUNG_CAP = 2\.43;/.test(CODE));
-check("1.4/3 — NO RUNG EXCEEDS 2.43×, read from the mutated arrays after both IIFEs",
-  rung.rows.every(r => r.x <= rung.cap + 1e-9),
-  `worst rung is ${rung.worst.tech} at ${rung.worst.x.toFixed(3)}× (${rung.worst.sum} on a ${rung.worst.K} rung)`);
-check("1.4/3 — the cap uses FLOOR, not round: rounding put `trade` one knowledge over its own ceiling",
-  /Math\.floor\(u\.cost\.knowledge \* scale\)/.test(CODE),
-  "2,917 against a 2,916 ceiling — a cap that fails its own test by one is worse than a cap a hair under");
-check("1.4/3 — the cap scales a rung's discoveries PROPORTIONALLY, authored and generated alike",
-  /var scale = ceiling \/ sum;/.test(CODE) &&
-  /members\.forEach\(function \(u\) \{ u\.cost\.knowledge = Math\.floor/.test(CODE),
-  "the objection is to the RUNG's total; an authored figure is as much a part of that total as a generated one");
-check("1.4/3 — a rung already at or under the cap is left EXACTLY alone",
-  /if \(sum <= ceiling\) return;/.test(CODE),
-  "this is the whole argument against halving the divisor: it would cut the compliant rungs as hard as the offender");
+// ============================================================================
+// RE-POINTED v0.64 PART 5 — **THE WHOLE CAP IS RETIRED, ON JERRY'S DEV NOTE 4, AND THE BUILDER
+// AND THE ANALYZER BOTH FILED THIS OBJECTION BEFORE HE RAISED IT** (BUILD REPORT v0.63 §1.2).
+// Four assertions above pinned the cap's EXISTENCE, its 2.43 magnitude, its FLOOR rounding and
+// its proportional scaling. All four are superseded by the retirement, and they are replaced by
+// the assertions the retirement makes available — which are strictly stronger, because with only
+// ONE load-time mutation left there is no "was this rung scaled?" ambiguity to work around.
+//
+// THE ARGUMENT, in one line: the per-RUNG total is not a Kittens invariant (range 0.30-8.19,
+// half the source's own rungs above 2.43); the per-UPGRADE ratio is (IQR 0.73-1.00). The cap
+// bounded the quantity the source does not hold constant, and it cut the generated members —
+// which were dead centre of the source's spread at 0.80 — down to 0.34.
+// ============================================================================
+check("1.4/3 [SUPERSEDED BY v0.64 PART 5] — `DISCOVERY_RUNG_CAP` is GONE, constant and IIFE both",
+  rung.cap === null && !/DISCOVERY_RUNG_CAP\s*=/.test(CODE) &&
+  !/capDiscoveryKnowledgePerRung/.test(CODE),
+  "a retired constant left declared is a constant the next round re-wires");
+check("1.4/3 [SUPERSEDED BY v0.64 PART 5] — and its load-time mutation is gone with it: ONE writer remains",
+  !/var scale = ceiling \/ sum;/.test(CODE) &&
+  !/Math\.floor\(u\.cost\.knowledge \* scale\)/.test(CODE) &&
+  /if \(u\.cost\.knowledge === undefined\) u\.cost\.knowledge = Math\.round\(K \/ DISCOVERY_KNOWLEDGE_DIVISOR\);/.test(CODE),
+  "`applyDiscoveryKnowledge()` is now the only thing in the file that writes a discovery knowledge cost");
+check("1.4/3 [SUPERSEDED BY v0.64 PART 5] — every GENERATED member is back at EXACTLY 0.8 × K",
+  rung.generatedExact,
+  "the cap took the generated median 0.80 -> 0.62 and its minimum to 0.34, far below the source's p25 of 0.73");
+check("1.4/3 [SUPERSEDED BY v0.64 PART 5] — the per-UPGRADE median is inside Kittens' own 0.73-1.00 band",
+  rung.perUpgradeMedian >= 0.73 && rung.perUpgradeMedian <= 1.00,
+  `RR's per-upgrade median is ${rung.perUpgradeMedian} against the source's IQR 0.73-1.00 (median 0.87). ` +
+  `This is the invariant that SURVIVES the retirement, and it is the one the source actually holds constant.`);
 // PASS CONDITION 4/5 — the figures the report must carry
-check("1.4/5 — `ritesOfTargon` is the rung this Part exists to relieve, and it is now compliant",
-  rung.rites && rung.rites.x <= 2.43 + 1e-9,
-  `ritesOfTargon ${rung.rites.sum} on a ${rung.rites.K} rung = ${rung.rites.x.toFixed(2)}× (was 68,800 = 5.73×, 48% of the game's total)`);
+// RE-POINTED v0.64 PART 5. The rung is still the one this line exists to watch, but the remedy
+// is now a HAND RE-BASE of the single authored outlier that made it heavy (`greatLibrary`
+// 40,000 -> 12,000, the source's per-upgrade p75 of 1.00 × its own rung) rather than a
+// proportional scaling of the whole rung. **Its three generated leaves are back at 0.80 × K
+// instead of the 0.34 the cap left them at.** The rung's total is no longer bounded by a rule
+// and does not need to be: half of Kittens' own rungs exceed 2.43×.
+check("1.4/5 — `ritesOfTargon` is relieved by re-basing its AUTHORED outlier, not by scaling its leaves",
+  rung.rites && rung.ritesGeneratedAtFullRate && rung.greatLibrary === 12000,
+  `ritesOfTargon ${rung.rites.sum} on a ${rung.rites.K} rung = ${rung.rites.x.toFixed(2)}× ` +
+  `(was 68,800 = 5.73× and 48% of the game's total; the cap left it at 1.41× by cutting three ` +
+  `compliant members to 0.34×)`);
 check("1.4/5 — the whole-game discovery ratio is reported against the source's 0.50",
   rung.total / rung.totalTech < 0.50,
   `RR ${(rung.total / rung.totalTech).toFixed(4)} against the source's 0.470 (my re-run) / 0.50 (spec) — ` +
   `RR is at a SEVENTH of the source. Total discovery knowledge ${rung.total} across ${rung.carrying} of ${rung.setSize + 56} discoveries.`);
-check("1.4 — the Kittens census is CITED at the site with the figures it was measured from",
+// RE-POINTED v0.64 PART 5: the census is still cited and the DISAGREEMENT it recorded is now
+// the thing that shipped. The v0.63 argument is retained UNEDITED beside the retirement,
+// because the census in it is correct and only the conclusion drawn from it was wrong.
+check("1.4 — the Kittens census is still CITED at the site, with the v0.63 argument retained unedited",
   /workshop upgrades with a price list\s+143/.test(RAW) &&
   /per-upgrade science \/ its rung\s+median 0\.882/.test(RAW) &&
-  /DISAGREEMENT, RECORDED PER PROJECT PRACTICE/.test(RAW),
-  "the spec's 2.43 ships as specified; my own re-run puts the source's per-rung MEDIAN at 2.07 " +
-  "and its MEAN at 2.41, so 2.43 is the mean — recorded rather than silently substituted");
+  /THE PER-RUNG TOTAL IS NOT A KITTENS INVARIANT\. THE PER-UPGRADE RATIO IS\./.test(RAW) &&
+  /RETIRED AT v0\.64 PART 5/.test(RAW),
+  "v0.63 recorded the disagreement rather than silently substituting; v0.64 ships it on Jerry's note");
 
 // ============================================================================
 // PART 2 — steel is iron (dev note 11)
@@ -481,11 +520,20 @@ const boosts = await page.evaluate(() => ({
   members: BOOST_MEMBERS.length
 }));
 // PASS CONDITION 19
-check("7/19 — NO `BOOST_LIMIT` VALUE MOVED: seven keys, and `knowledge` is still deliberately absent",
-  JSON.stringify(boosts.limits) === JSON.stringify({ devotion: 2, culture: 2, gold: 1.5, vigor: 1,
-                                                     crystals: 2, provisions: 1.5, mana: 1 }) &&
+// RE-POINTED v0.64 PART 2 — **AND THE RE-POINT IS THE RULE WORKING, NOT THE RULE BREAKING.**
+// This assertion said "NO `BOOST_LIMIT` VALUE MOVED … §16 makes magnitudes Jerry's" in two
+// consecutive rounds. **Jerry has now ruled Option B**, so the four families past their knee take
+// rails above the reachable range. What this line must still protect is everything the ruling did
+// NOT touch: the table is still exactly SEVEN keys, `knowledge` is still deliberately absent
+// (§Appendix — that absence was the entire v0.52 round), and the three families that already
+// delivered in full are unmoved. The four moved magnitudes are pinned in `test-v64`.
+check("7/19 — seven keys, `knowledge` still deliberately absent, and the three full-delivery families unmoved",
+  JSON.stringify(Object.keys(boosts.limits).sort()) ===
+    JSON.stringify(["crystals", "culture", "devotion", "gold", "mana", "provisions", "vigor"]) &&
+  boosts.limits.culture === 2 && boosts.limits.gold === 1.5 && boosts.limits.crystals === 2 &&
   boosts.bounded.knowledge === false,
-  "raising four caps in a round that already overshot would be reckless, and §16 makes magnitudes Jerry's");
+  "v0.62 and v0.63 both declined to move a cap and both said why: §16 makes magnitudes Jerry's. " +
+  "v0.64 Part 2 ships them BECAUSE he ruled — " + JSON.stringify(boosts.limits));
 check("7/19 — THE ADD-A-BOOST RULE SHIPS AS A TEST: the live Σ per family matches the round's record",
   JSON.stringify(boosts.live) === JSON.stringify(boosts.record),
   `Σ of record ${JSON.stringify(boosts.record)} across ${boosts.members} members. A future round ` +
@@ -654,8 +702,17 @@ check("22 — §31 is STILL OPEN and no new multiplicative category was added th
 // ============================================================================
 check("1 — the ensemble instrument emits Icathia per seed, so the gate is machine-readable",
   /icathia/.test(PACING) && /--seeds/.test(PACING) && /MEDIAN SEED/.test(PACING));
-check("1 — the VERSION constant is bumped",
-  await page.evaluate(() => VERSION) === "v0.63");
+// RE-POINTED v0.64 — **AND THIS IS OPERATIONAL RULE 9 CATCHING ITSELF.** "Never pin a literal
+// version string in a suite" is a standing rule (§Appendix, written after `test-v53` did exactly
+// this and became a check designed to fail every subsequent round). v0.63 pinned "v0.63" here
+// anyway. What the assertion is FOR is that the constant was bumped at all and that the footer
+// renders from it (§10: the tag is authoritative and the in-file constant must match it) — so it
+// asserts the SHAPE and leaves the value to the round that owns it, `test-v64`.
+check("1 — the VERSION constant exists, is well-formed, and the footer renders FROM it",
+  /^v\d+\.\d+(\.\d+)?$/.test(await page.evaluate(() => VERSION)) &&
+  /function stampVersion\(\)/.test(CODE),
+  await page.evaluate(() => VERSION) + " — the literal was pinned here at v0.63 in direct " +
+  "contradiction of operational rule 9; this is the re-point that stops it recurring");
 
 check("no console errors across the whole suite", errors.length === 0, errors.join(" | "));
 console.log(`\n${pass} passed, ${fail} failed`);

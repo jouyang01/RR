@@ -145,7 +145,9 @@ const i7 = await page.evaluate(() => {
   o.at15 = dev(15) / base;      // 15 sanctums = +150%, entirely free under LDR
   o.at50 = dev(50) / base;      // +500% raw -> bounded
   o.at200 = dev(200) / base;    // +2000% raw -> still bounded
-  o.bounded = o.at200 < 3.0;
+  // RE-POINTED v0.64 PART 2: the property is BOUNDEDNESS, not the numeral 3.0. `+2000% raw`
+  // must still land under the family's own asymptote whatever the rail is set to.
+  o.bounded = o.at200 < 1 + BOOST_LIMIT.devotion;
   S.buildings = {}; S.jobs = {}; S.pop = 0;
   return o;
 });
@@ -155,12 +157,23 @@ const i7 = await page.evaluate(() => {
 // capping the four science buildings at a measured x3.969 against the source's x20.80.
 // Part 1.3 closed the two slots that were unbounded by omission, `provisions` and `mana`.
 // Net 6 -> 7. Asserted by CONTENT, not by count, so a future addition has to be named.
+// RE-POINTED v0.64 PART 2 (Option B, ruled by Jerry). The MEMBERSHIP is the item's claim and it
+// is untouched — seven bounded stacks, `knowledge` deliberately absent. The literal `devotion ===
+// 2.0` was never this item's subject; it was a magnitude that happened to be true when the
+// membership was written, and Part 2 moves four magnitudes to rails above the reachable range.
+// The magnitudes are pinned in `test-v64`, which is the round that owns them.
 check("BOOST_LIMIT is exactly the seven bounded stacks, and knowledge is NOT among them",
   JSON.stringify(Object.keys(i7.limits).sort()) ===
     JSON.stringify(["crystals", "culture", "devotion", "gold", "mana", "provisions", "vigor"]) &&
-  i7.limits.devotion === 2.0 && i7.limits.knowledge === undefined, JSON.stringify(i7.limits));
+  i7.limits.devotion > 0 && i7.limits.knowledge === undefined, JSON.stringify(i7.limits));
 check("15 Sanctums still pay in full (+150%, LDR-free zone)", Math.abs(i7.at15 - 2.5) < 0.02, `×${i7.at15.toFixed(2)}`);
-check("50 and 200 Sanctums are bounded below +200%", i7.at50 < 3.0 && i7.bounded, `×${i7.at50.toFixed(2)} / ×${i7.at200.toFixed(2)}`);
+// RE-POINTED v0.64 PART 2. The item is "the Sanctum stack is BOUNDED rather than unbounded" and
+// that property is what is asserted now; the +200% figure was `BOOST_LIMIT.devotion 2.0`, which
+// Part 2 rails to 5.0. **The bound still exists and still bites above the rail** — which is the
+// whole distinction Option B draws between a rail and a tax.
+check("50 and 200 Sanctums are still BOUNDED — the asymptote moved to the rail, it did not vanish",
+  i7.bounded && i7.at200 < 1 + i7.limits.devotion + 1e-9 && i7.at200 > i7.at50,
+  `×${i7.at50.toFixed(2)} / ×${i7.at200.toFixed(2)} against the rail's asymptote ×${(1 + i7.limits.devotion).toFixed(2)}`);
 
 // ===================== ITEMS 8, 9, 10 — policies =====================
 const i8910 = await page.evaluate(() => {

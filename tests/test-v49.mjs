@@ -49,7 +49,11 @@ const q = await page.evaluate(() => {
   const b = BUILDINGS.find(x => x.id === "quarry");
   return { id: b.id, name: b.name, group: b.group, tech: b.tech, cost: b.cost, ratio: b.ratio,
            jobBoost: b.jobBoost, gb: b.globalBoost,
-           mineralsResolves: MINERALS_LINE.quarry && MINERALS_LINE.quarry[0] === "sumpVentilation",
+           mineralsKeys: Object.keys(MINERALS_LINE).join(","),
+           // §5: the table is keyed by BUILDING ID. Every key must be a live building, and the
+           // Quarry's id must still be `quarry`, which is what the ore formula reads.
+           mineralsKeyedById: Object.keys(MINERALS_LINE).every(k => BUILDINGS.some(b => b.id === k)) &&
+                              BUILDINGS.some(b => b.id === "quarry" && b.name === "Petricite Quarry"),
            consumers: BUILDINGS.filter(x => x.cost && x.cost.petriciteBlock).map(x => x.id)
              .concat(CRAFTS.filter(c => c.cost && c.cost.petriciteBlock).map(c => "craft:" + c.id)) };
 });
@@ -61,7 +65,15 @@ check("...and Kittens' quarry recipe survives the merge, plus petriciteBlock 2",
 check("...at ratio 1.15 with jobBoost { miner: 0.35 }, in the Village group, on petricite",
   q.ratio === 1.15 && q.jobBoost.miner === 0.35 && q.group === "Village" && q.tech === "petricite");
 check("...and it carries NO globalBoost — the whole point of the merge", q.gb === undefined);
-check("MINERALS_LINE.quarry still resolves off the unchanged id", q.mineralsResolves);
+// RE-POINTED v0.64 DEV NOTE 1. **THE ITEM'S SUBJECT IS THE ID, NOT THE UPGRADE.** §5 rules that
+// the Petricite Quarry keeps the id `quarry` forever because `MINERALS_LINE` keys off it and
+// renaming it silently breaks the ore formula. Jerry's dev note moves Sump Ventilation OUT of
+// `MINERALS_LINE` — the Discovery unlocked on `sumpEcology` while the Quarry it improved is
+// gated on `petricite`, a strictly later rung, so it improved a building the player could not
+// build. What this assertion must protect is the KEYING, so it now asserts that the table is
+// still keyed by building id and that `quarry` is still a live id — which is §5's actual claim.
+check("MINERALS_LINE is still keyed by building id, and `quarry` is still that id (§5)",
+  q.mineralsKeyedById, `MINERALS_LINE keys: ${q.mineralsKeys}`);
 check("petriciteBlock has at least one consumer — the craft is not orphaned",
   q.consumers.length >= 1, q.consumers.join(", "));
 
@@ -73,11 +85,15 @@ const ore = await page.evaluate(() => {
   const M = 12, Q = 7;
   S.buildings = { mine: M, quarry: Q };
   const measured = jobBoostTotal("miner");
-  const closed = 0.25 * M + 0.40 * Q;                 // the v0.46 formula, verbatim
+  // RE-POINTED v0.64 DEV NOTE 1: the Quarry term returns to Kittens' own 0.35 because Sump
+  // Ventilation has left MINERALS_LINE for `boosts.ore`. The Mine keeps 0.25 (0.20 + its own
+  // rung). **The item is that the measured total equals the closed form — one additive category,
+  // no hidden slot — and that is unchanged; only the Quarry coefficient moves, toward the source.**
+  const closed = 0.25 * M + 0.35 * Q;                 // the v0.46 formula, at v0.64 coefficients
   S.buildings = {}; S.upgrades = {};
   return { measured: +measured.toFixed(10), closed: +closed.toFixed(10), M, Q };
 });
-check("the ore category still measures 1 + 0.25M + 0.40Q exactly — the merge moved no ore income",
+check("the ore category still measures 1 + 0.25M + 0.35Q exactly — one additive category, no hidden slot",
   Math.abs(ore.measured - ore.closed) < 1e-9,
   `${ore.M} mines + ${ore.Q} quarries → +${(ore.measured * 100).toFixed(0)}% (closed form +${(ore.closed * 100).toFixed(0)}%)`);
 

@@ -55,7 +55,10 @@ const p0 = await page.evaluate(() => {
     devotion: (() => { bare(); S.techs = { ritesOfTargon: 1 }; S.jobs = { acolyte: 4 }; S.pop = 10;
       S.buildings = { shrine: 100, sanctum: 500 }; const w = computeRates().devotion;
       S.buildings = { shrine: 100 }; const b = computeRates().devotion; bare();
-      return +(w / b).toFixed(4); })()
+      return +(w / b).toFixed(4); })(),
+    // RE-POINTED v0.64 PART 2: read the bound from the table so the assertion above cannot be
+    // invalidated by a magnitude change again. The MECHANISM is the item, not the numeral.
+    devotionLimit: BOOST_LIMIT.devotion
   };
 });
 check("PART 0 — `knowledge` is absent from BOOST_LIMIT, and the table is the seven bounded stacks",
@@ -70,8 +73,14 @@ check("PART 0 — and it is LINEAR: ×10 the copies is ×10 the surplus, with no
   Math.abs(((p0.hi - 1) / (p0.lo - 1)) - 10) < 1e-6 &&
   Math.abs((p0.hi - 1) - p0.hiS) < 1e-9 && Math.abs((p0.lo - 1) - p0.loS) < 1e-9,
   `x5 → ×${p0.lo} (Σ${p0.loS}), x50 → ×${p0.hi} (Σ${p0.hiS})`);
-check("PART 0 — the mechanism itself is untouched: devotion still asymptotes at its 2.0 bound",
-  p0.devotion > 2.9 && p0.devotion < 3.0, `×${p0.devotion} against 1 + 2.0`);
+// RE-POINTED v0.64 PART 2 (Option B, ruled by Jerry). This Part's subject is that REMOVING
+// `knowledge` from `BOOST_LIMIT` did not disturb the mechanism for the families that keep a
+// bound — so what it must assert is that devotion STILL ASYMPTOTES, computed from the table.
+// The rail goes 2.0 → 5.0 and the asymptote with it; the mechanism is untouched, which is the
+// claim. `p0.devotionLimit` is read from `BOOST_LIMIT` so the numeral cannot drift again.
+check("PART 0 — the mechanism itself is untouched: devotion still asymptotes at 1 + its own bound",
+  p0.devotion > 1 + 0.95 * p0.devotionLimit && p0.devotion < 1 + p0.devotionLimit,
+  `×${p0.devotion} against 1 + ${p0.devotionLimit}`);
 
 // ============================================================================
 // PART 1 — the levers
@@ -114,8 +123,13 @@ check("1.2/3.3 — the Farmstead is a plain field, now at Kittens' own 0.625/s",
 check("1.2 — ...and putting ore on `mining` keeps auditRawGraph at ZERO",
   p1.rawViolations.length === 0 && p1.costViolations.length === 0,
   p1.rawViolations.join(" | ") || "[]");
-check("1.3 — the two slots that were unbounded by OMISSION are closed: provisions 1.5, mana 1.0",
-  p1.limits.provisions === 1.5 && p1.limits.mana === 1.0, JSON.stringify(p1.limits));
+// RE-POINTED v0.64 PART 2. The item is that provisions and mana are BOUNDED AT ALL — v0.52
+// closed two slots that were unbounded by OMISSION, and that closure is what this asserts.
+// Part 2 rails the magnitudes (1.5 → 3.0, 1.0 → 2.0) so the ceilings sit above the reachable
+// range rather than taxing every member; the slots are still closed, which is the claim.
+check("1.3 — the two slots that were unbounded by OMISSION are still CLOSED (magnitudes: v0.64 Part 2)",
+  typeof p1.limits.provisions === "number" && p1.limits.provisions > 0 &&
+  typeof p1.limits.mana === "number" && p1.limits.mana > 0, JSON.stringify(p1.limits));
 check("1.4 — every trade route is exactly 175 vigor",
   p1.routes.every(r => r.vigor === 175), p1.routes.map(r => `${r.id} ${r.vigor}v`).join(" | "));
 check("1.4 — ...and every route's gold is HELD, so only one column moved this round",
@@ -263,14 +277,14 @@ check("3.2 — the Shimmer Refinery is recost downward: plating 4 + alloy 3, 580
 check("3.2 — ...and its conversion and ratio are UNTOUCHED, so only the price moved",
   p35.refConvert.output.shimmer === 0.05 && p35.refConvert.input.coalgas === 0.2 &&
   p35.refConvert.input.mana === 0.5 && p35.refRatio === 1.15, JSON.stringify(p35.refConvert));
-// RE-POINTED v0.63, superseded by PART 1's per-rung cap. `songcraft` carried 4,420 of discovery
-// knowledge against a 1,300 rung — **3.40×**, over Kittens' 2.43× per-rung figure — so all three
-// of its Discoveries scale down proportionally and this one lands at 929. **The PROPERTY v0.52
-// shipped is that this is a BRANCH on Songcraft's own rung rather than a rung above it, and that
-// is unchanged and is what is asserted now**; the authored 1,300 was the pre-cap expression of
-// it. Pinning the literal made this a check that any per-rung rule was bound to fail.
-check("5.1 — Keeping the Rolls is a BRANCH on Songcraft's own rung (v0.63 Part 1: capped to 929)",
-  p35.rollCost.knowledge === 929 && p35.rollCost.culture === 60 &&
+// RE-POINTED TWICE, AND THE SECOND RE-POINT RESTORES THE FIRST. v0.63 Part 1's per-rung cap took
+// this figure 1,300 → 929; **v0.64 Part 5 RETIRES that cap (Jerry's dev note 4) and the authored
+// 1,300 is live again.** The PROPERTY v0.52 shipped — that this is a BRANCH on Songcraft's own
+// rung rather than a rung above it — held under both regimes and is still what is asserted; the
+// literal is restored because the authored figure is the one the file now carries. **The lesson
+// v0.63 drew from pinning a literal stands: the inequality is the item, the numeral is not.**
+check("5.1 — Keeping the Rolls is a BRANCH on Songcraft's own rung (v0.64 Part 5: the cap is retired)",
+  p35.rollCost.knowledge === 1300 && p35.rollCost.culture === 60 &&
   p35.rollTech === "songcraft" && p35.songcraft === 1300 &&
   p35.rollCost.knowledge <= p35.songcraft, JSON.stringify(p35.rollCost));
 check("5.1 — the roster detail is hidden until researched (selectors confirmed, v0.53 Part 5.4)",

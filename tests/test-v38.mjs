@@ -99,7 +99,10 @@ const i1 = await page.evaluate(() => {
   const before = Object.fromEntries(Object.keys(paid).map(r => [r, S.res[r]]));
   tradeCaravan("freljord");
   o.tradeSpendsToZero = Object.keys(paid).every(r => S.res[r] <= before[r] - paid[r] + 1e-9);
-  o.tradeCostHasProvisions = (paid.provisions || 0) >= 5000;
+  // RE-POINTED v0.64 PART 6 (dev note 5): the shared cost is 3,500. The item's claim is that the
+  // RESOLVED price carries a SHARED provisions component at all — v0.61 note 11's subject — not
+  // any particular figure. Read from the constant so a future re-price cannot make this lie.
+  o.tradeCostHasProvisions = (paid.provisions || 0) >= TRADE_PROVISIONS && TRADE_PROVISIONS > 0;
   return o;
 });
 check("LUXURY_COMFORT = 25 replaces LUXURY_FLOOR", i1.comfortExists && i1.floorGone);

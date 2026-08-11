@@ -113,16 +113,31 @@ check("2/6 — the CRYSTALS family is asserted against its knee, so the next add
   `Σ ${knee.k.crystals.raw} against knee ${knee.k.crystals.knee} — ` +
   `${knee.k.crystals.headroomToKnee} of headroom. The next crystal boost of ANY size is the first ` +
   `that will not pay in full.`);
-check("2/6 — NO `BOOST_LIMIT` VALUE CHANGED: raising a cap is a production change and §16 makes it Jerry's",
-  knee.limits.devotion === 2.0 && knee.limits.culture === 2.0 && knee.limits.gold === 1.5 &&
-  knee.limits.vigor === 1.0 && knee.limits.crystals === 2.0 && knee.limits.provisions === 1.5 &&
-  knee.limits.mana === 1.0,
+// RE-POINTED v0.64 PART 2 — OPTION B, **RULED BY JERRY**, WHICH IS THE CONDITION THIS ASSERTION
+// WAS WAITING FOR. v0.62 and v0.63 both declined to move a cap and both said why in the same
+// words: "§16 makes it Jerry's." He has now ruled. Four caps become rails above the reachable
+// range — vigor 8.0, devotion 5.0, provisions 3.0, mana 2.0 — and the three families that were
+// already delivering in full are UNTOUCHED, which is the half of the item that still binds and
+// is what is asserted here. The four moved magnitudes are pinned in `test-v64`.
+check("2/6 — the three families that already delivered IN FULL are still untouched (v0.64 Part 2)",
+  knee.limits.culture === 2.0 && knee.limits.gold === 1.5 && knee.limits.crystals === 2.0,
   JSON.stringify(knee.limits));
-check("2 — the two worst families are on the record: vigor and devotion throw most of their stack away",
-  knee.k.vigor.pastKnee && knee.k.devotion.pastKnee &&
-  knee.k.vigor.thrownAwayPct > 50 && knee.k.devotion.thrownAwayPct > 40,
-  `vigor Σ${knee.k.vigor.raw} delivers ${knee.k.vigor.delivered} (${knee.k.vigor.thrownAwayPct}% discarded); ` +
-  `devotion Σ${knee.k.devotion.raw} delivers ${knee.k.devotion.delivered} (${knee.k.devotion.thrownAwayPct}%)`);
+// RE-POINTED v0.64 PART 2. **THIS IS THE ASSERTION THE ROUND EXISTS TO INVERT.** v0.62 recorded
+// vigor discarding >50% and devotion >40% of their raw sums as a live correctness bug facing the
+// player — a +25% vigor upgrade paying about +0.4%. The rails fix exactly that, so the assertion
+// now demands the OPPOSITE and reports the same two figures: both families past their old knee,
+// both now inside the new one, both delivering in full.
+// **AND A DISAGREEMENT, RECORDED PER PROJECT PRACTICE.** The spec sizes each rail from the
+// family's END-OF-RUN raw Σ (devotion 3.550 → rail 5.0, knee 3.75). This MAXED STATIC PROBE
+// reaches Σ4.024 — fractionally past that knee — so devotion still discards **1.2%** here where
+// vigor discards 0%. The spec's figure ships as specified. v0.62's own finding is why that is the
+// right call: **the static probe is not the instrument, the end-of-run audit is** — the probe
+// stacks twenty of every building at once, which no run reaches. 1.2% against 46.4% is the item.
+check("2 — the two worst families are FIXED: vigor and devotion now deliver essentially all of their stack",
+  !knee.k.vigor.pastKnee &&
+  knee.k.vigor.thrownAwayPct < 5 && knee.k.devotion.thrownAwayPct < 5,
+  `vigor Σ${knee.k.vigor.raw} delivers ${knee.k.vigor.delivered} (${knee.k.vigor.thrownAwayPct}% discarded, was 82.1%); ` +
+  `devotion Σ${knee.k.devotion.raw} delivers ${knee.k.devotion.delivered} (${knee.k.devotion.thrownAwayPct}%, was 46.4%)`);
 check("2 — a ledger row per family records raw Σ, cap and loss",
   (LEDGER.match(/BOOST_LIMIT\./g) || []).length >= 7 && /THE KNEE AUDIT/.test(LEDGER));
 
@@ -219,9 +234,13 @@ const bal = await page.evaluate(() => {
   o.festShare = o.provCap > 0 ? +(o.festProv / o.provCap).toFixed(4) : null;
   // 4.4 — Marus
   const mar = BUILDINGS.find(b => b.id === "marus");
-  o.marusRate = mar.prod.devotion; o.marusCap = mar.caps.devotion;
+  // RE-POINTED v0.64 DEV NOTE 4: the Marus's `prod` key is REMOVED, not zeroed — a zero rate
+  // would still be enumerated and printed by `effectLines()`. Read defensively so the shape
+  // change is an ASSERTION rather than a crash.
+  o.marusHasProd = !!mar.prod; o.marusRate = mar.prod ? (mar.prod.devotion || 0) : 0;
+  o.marusCap = mar.caps.devotion;
   const shr = BUILDINGS.find(b => b.id === "shrine");
-  o.shrineProd = shr.prod.devotion;
+  o.shrineProd = shr.prod.devotion; o.shrineCapDevotion = shr.caps.devotion;
   return o;
 });
 // PASS CONDITION 11 — the shrine branch
@@ -240,11 +259,16 @@ check("4.1 — and the cap was already there: morale CANNOT be ignored by buildi
 // PASS CONDITION 12 — the mana rung
 check("4.2/12 — `petriciteResonators` is DELETED, constant and Discovery both",
   bal.resonatorsGone && bal.constantGone && !/PETRICITE_MANA_BOOST/.test(CODE));
-check("4.2/12 — `boosts.mana` is Σ 0.75 EXACTLY, which is its own knee, and delivers IN FULL",
+// RE-POINTED v0.64 PART 2. Σ0.75 across three members is unchanged and still delivers IN FULL —
+// the item's actual claim. What moved is that it is no longer sitting EXACTLY on its knee: the
+// rail takes the knee to 1.50, so the line has real headroom instead of being one member away
+// from a silent haircut. **v0.64 Part 4 leans on precisely that headroom when it declines to
+// ship a fourth mana discovery.**
+check("4.2/12 — `boosts.mana` is Σ 0.75 across three members, delivered IN FULL, now with headroom",
   Math.abs(bal.manaRaw - 0.75) < 1e-9 && Math.abs(bal.manaDelivered - 0.75) < 1e-9 &&
-  Math.abs(bal.manaKnee - 0.75) < 1e-9,
-  `Σ ${bal.manaRaw} = knee ${bal.manaKnee}, delivered ${bal.manaDelivered} — ` +
-  `v0.61's half-paid rung is gone with the member that caused it`);
+  bal.manaKnee > bal.manaRaw + 0.1,
+  `Σ ${bal.manaRaw} against knee ${bal.manaKnee}, delivered ${bal.manaDelivered} — ` +
+  `${(bal.manaKnee - bal.manaRaw).toFixed(2)} of headroom where v0.62 had exactly zero`);
 check("4.2/12 — §30: the id is RESERVED to v1.0 and a save holding it is REFUNDED, not robbed",
   bal.refundCrystals === 400 && bal.refundBlocks === 25 && bal.migratedAway &&
   /`petriciteResonators` is a RESERVED ID for as long as this line exists/.test(RAW) &&
@@ -261,15 +285,21 @@ check("4.3/13 — ...and it is the SECOND instance of one bug shape, named as su
   /same defect v0\.61 PART 6\.3 found in the trade provisions cost/i.test(RAW) &&
   /SECOND INSTANCE OF ONE BUG SHAPE/.test(RAW));
 // PASS CONDITION 14 — Marus
-check("4.4/14 — Marus: cap 500 → 200, rate 0.05 → 0.03",
-  bal.marusCap === 200 && Math.abs(bal.marusRate - 0.03) < 1e-9,
-  `cap ${bal.marusCap}, ${bal.marusRate}/s`);
-check("4.4/14 — ...and the rate is × the SHRINE, which is Kittens' own faithPerTickBase",
-  Math.abs(bal.shrineProd - 0.0075) < 1e-9 &&
-  Math.abs(bal.marusRate / bal.shrineProd - 4) < 1e-6 &&
-  /faithPerTickBase 0\.0015/.test(RAW),
-  `${bal.marusRate}/s = ×${(bal.marusRate / bal.shrineProd).toFixed(0)} the Shrine's ${bal.shrineProd}/s ` +
-  `(Kittens' Temple: 0.0015/tick × 5 = 0.0075/s)`);
+// RE-POINTED v0.64 DEV NOTE 4 (Jerry): "Remove devotion/second from Marus Omegnum — instead,
+// make it just increase devotion cap by 250. Marus should be the primary way to increase
+// devotion cap." **v0.62's note 10 CUT the rate; v0.64's note 4 DELETES it**, so the item this
+// assertion owns — "the Marus was cut in both dimensions" — is superseded by a role change. The
+// durable claim that survives is the DIRECTION: the Marus produces no more devotion than it did
+// (it produces none), and its ceiling is the largest in the game, which is the note's own words.
+check("4.4/14 — Marus: the RATE is gone entirely (v0.64 dev note 4) and the cap is the game's largest",
+  bal.marusRate === 0 && !bal.marusHasProd && bal.marusCap >= 250 &&
+  bal.marusCap > bal.shrineCapDevotion,
+  `prod key present: ${bal.marusHasProd}, rate ${bal.marusRate}/s, cap ${bal.marusCap} against the Shrine's ${bal.shrineCapDevotion}`);
+// The Shrine's rate remains the one devotion figure at verified source parity, and it is what
+// this block was really protecting: v0.62's ×4 arithmetic was ABOUT the Shrine's anchor.
+check("4.4/14 — ...and the SHRINE still carries Kittens' own faithPerTickBase, untouched by both notes",
+  Math.abs(bal.shrineProd - 0.0075) < 1e-9 && /faithPerTickBase 0\.0015/.test(RAW),
+  `Shrine ${bal.shrineProd}/s (Kittens' Temple: 0.0015/tick × 5 = 0.0075/s)`);
 
 // ============================================================================
 // PART 5 — the four camp and trade notes
@@ -610,21 +640,21 @@ check("note 1 — ...and 0.8× is derived from THIS FILE'S OWN authored band, no
 check("note 1 — it is a SINK and not a wall: at most three knowledge discoveries sit on any one tech",
   kn.maxPerTech === 3,
   `max ${kn.maxPerTech} per tech = at most 2.4× the rung, spread over three separate purchases`);
-// RE-POINTED v0.63, superseded by PART 1's per-rung cap. **The GENERATOR still leaves authored
-// figures alone — `if (u.cost.knowledge === undefined)` is untouched — but the CAP does not,
-// and it must not.** The objection the cap answers is to a RUNG's total, and an authored figure
-// is as much a part of that total as a generated one: `greatLibrary`'s 40,000 was 58% of the
-// 68,800 that made `ritesOfTargon` carry 48% of the game's discovery knowledge. Exempting it
-// would have meant scaling the two generated leaves to near zero to hit the same ceiling.
-// **`beastLore` is the control**: `abyss` sits at 2.05x, under the cap, so its authored 2,500 is
-// untouched — which demonstrates that the cap and not the generator is what moved the others.
-check("note 1 — the generator still leaves authored figures alone; only the RUNG CAP scales them",
-  kn.authored.beastLore === 2500 &&
-  kn.authored.greatLibrary < 40000 && kn.authored.masterOfTheHunt < 12000 &&
-  kn.authored.chemtechDistillation < 3000 &&
+// RE-POINTED TWICE, AND THE SECOND RE-POINT RESTORES THE ORIGINAL CLAIM. v0.63 weakened this to
+// "the cap scales authored figures too"; **v0.64 Part 5 retires the cap on Jerry's dev note 4, so
+// NOTHING scales an authored figure any more.** The two outliers were re-based BY HAND to the
+// source's per-upgrade p75 of 1.00 × their own rung — `greatLibrary` 40,000 → 12,000,
+// `masterOfTheHunt` 12,000 → 3,600 — because they were the only two figures in the file outside
+// Kittens' 0.73-1.00 per-upgrade band. **`beastLore` and `chemtechDistillation` are the controls:
+// both are authored, both are inside or above that band for reasons sized in earlier rounds, and
+// both are UNTOUCHED — which is what demonstrates that a hand re-base and not a rule moved the
+// other two.**
+check("note 1 — the generator leaves authored figures alone, and now so does everything else",
+  kn.authored.beastLore === 2500 && kn.authored.chemtechDistillation === 3000 &&
+  kn.authored.greatLibrary === 12000 && kn.authored.masterOfTheHunt === 3600 &&
   /Never overwrite an authored knowledge cost/.test(RAW) &&
-  /authored and generated alike/.test(RAW),
-  JSON.stringify(kn.authored) + " — beastLore untouched because `abyss` was already under 2.43×");
+  !/DISCOVERY_RUNG_CAP\s*=/.test(CODE),
+  JSON.stringify(kn.authored) + " — the two re-based outliers were the only figures outside Kittens' 0.73-1.00 per-upgrade band");
 
 // ============================================================================
 // PASS CONDITION 24 — the unchanged set

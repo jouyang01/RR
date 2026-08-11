@@ -181,7 +181,14 @@ check("...devotion still forgoes catReligion — the v0.36 self-feeding loop sta
   Math.abs(p2.religionX - 1) < 1e-6, `×${p2.religionX} at 5M worship`);
 check("the Shrine is Kittens' Temple: 0.0075 devotion/s, not 0.03",
   p2.shrineDevotion === 0.0075, String(p2.shrineDevotion));
-check("...and keeps its caps", p2.shrineCaps.devotion === 75 && p2.shrineCaps.culture === 15);
+// RE-POINTED v0.64 DEV NOTE 4 (Jerry): "Have Shrine of Solari give 50 devotion cap instead."
+// The item this suite owns is the RATE — 0.0075/s, Kittens' temple `faithPerTickBase 0.0015` × 5,
+// asserted unmoved on the line above and untouched by the note. The CEILING is RR-ORIGINAL in
+// either direction (Kittens' temple carries no faith cap at all), so the numeral was never a
+// parity claim, and the note re-homes the devotion ceiling onto the Marus Omegnum by design.
+check("...and keeps its culture cap, with the devotion cap at dev note 4's directed 50",
+  p2.shrineCaps.devotion === 50 && p2.shrineCaps.culture === 15,
+  `devotion ${p2.shrineCaps.devotion}, culture ${p2.shrineCaps.culture}`);
 check("the Acolyte has NO building-derived cap — priests compete for population",
   !p2.acolyteHasMax && p2.acolyteRate === 0.0075, `max fn: ${p2.acolyteHasMax}`);
 check("PASS CONDITION: the stripe is Kittens' literal 1,000", p2.stripe === 1000, String(p2.stripe));

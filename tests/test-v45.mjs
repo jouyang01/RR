@@ -254,8 +254,14 @@ check("saw line is SIX rungs summing to 1.20", comp.sawRungs === 6 && Math.abs(c
 // saw than the source's five, which is the trade the census made to delete a category.
 check("Lumber Mill reaches 0.220 timber boost per copy (Kittens' shape: 0.1 + lumberMillRatio×0.1)",
   Math.abs(comp.mill - 0.220) < 1e-6, String(comp.mill));
-check("Mine reaches 0.25 and Quarry 0.40 — Kittens' 0.20/0.35 plus one rung each",
-  Math.abs(comp.mine - 0.25) < 1e-6 && Math.abs(comp.quarry - 0.40) < 1e-6, `${comp.mine} / ${comp.quarry}`);
+// RE-POINTED v0.64 DEV NOTE 1. The Mine keeps its rung (`zauniteDrills`, 0.20 + 0.05 = 0.25,
+// unchanged). The QUARRY returns to Kittens' own 0.35 because Sump Ventilation has left
+// `MINERALS_LINE` entirely — the Discovery sat on `sumpEcology` while the only building it
+// touched sat on `petricite`, a strictly later rung, so it improved a building the player could
+// not build. Its 5% is now on `boosts.ore` (asserted in `test-v44` and `test-v64`).
+// **THE QUARRY IS NOW AT EXACT SOURCE PARITY on this term, which it was not before.**
+check("Mine reaches 0.25 (Kittens' 0.20 + one rung) and the Quarry sits at Kittens' 0.35 exactly",
+  Math.abs(comp.mine - 0.25) < 1e-6 && Math.abs(comp.quarry - 0.35) < 1e-6, `${comp.mine} / ${comp.quarry}`);
 check("Augment Chamber no longer boosts miners — Kittens has TWO minerals buildings",
   !comp.augmentHasMiner);
 check("the miner keeps no job-tier multiplier at all (no mineralsJobRatio in Kittens)",

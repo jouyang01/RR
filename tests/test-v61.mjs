@@ -233,6 +233,10 @@ const trade = await page.evaluate(() => {
   o.caravanFlat = +(caravanYieldBonus("demacia") === 0.02 * caravanCount("demacia") ? 1 : 0);
   S.buildings = {}; S.caravans = {};
   o.provisions = TRADE_PROVISIONS;
+  // RE-POINTED v0.64 PART 6: read the expected figure from the constant and assert SHARED-ness
+  // by enumerating every route, which is the item's actual claim.
+  o.expectedProvisions = TRADE_PROVISIONS;
+  o.allRoutesSame = FACTIONS.every(x => (tradeCost(x).provisions || 0) === TRADE_PROVISIONS);
   const f = FACTIONS.find(x => x.id === "demacia");
   o.cost = tradeCost(f);
   o.caps = computeCaps().provisions;
@@ -287,8 +291,13 @@ check("6.2/13 — ...and the two tests genuinely DISAGREE on 'can craft it, neve
   slots.skipped ? "no craft-backed slot on this route" :
   `${slots.res}: slotAvailable=${slots.available}, ttResKnown=${slots.known} — the reported bug`);
 // PASS CONDITION 14 — the provisions cost and the binding check
-check("6.3/14 — every trade costs a SHARED 5,000 provisions, not a per-faction figure",
-  trade.provisions === 5000 && trade.cost.provisions >= 5000 &&
+// RE-POINTED v0.64 PART 6 (dev note 5): 5,000 -> 3,500. **The item is SHARED-ness, not the
+// figure** — the note's constraint was that every route pays the same cost, so the question the
+// mechanic asks is "how many caravans can this settlement provision" rather than "which route".
+// The magnitude is pinned in `test-v64`, the round that owns it.
+check("6.3/14 — every trade costs the SAME shared provisions figure, not a per-faction one",
+  trade.provisions === trade.expectedProvisions && trade.provisions > 0 &&
+  trade.cost.provisions >= trade.provisions && trade.allRoutesSame &&
   /c\.provisions = \(c\.provisions \|\| 0\) \+ TRADE_PROVISIONS;/.test(CODE),
   JSON.stringify(trade.cost));
 check("6.3/14 — ...and neither trade discount touches it",
@@ -379,11 +388,19 @@ const mana = await page.evaluate(() => {
 check("8/17 — the mana line is Σ 0.75 across THREE members, on ZERO arcanists",
   Math.abs(mana.raw - 0.75) < 1e-9 && mana.arcanists === 0,
   `raw Σ ${mana.raw} with no arcanist assigned — a global boost, not a job-scoped one`);
-check("8/17 — THE FINDING THAT SURVIVES: Σ0.75 IS EXACTLY THE KNEE, so all three deliver IN FULL",
-  Math.abs(mana.delivered - 0.75) < 1e-9 && Math.abs(mana.knee - 0.75) < 1e-9 && mana.limit === 1.0,
-  `Σ ${mana.raw} = knee ${mana.knee} (0.75 × L ${mana.limit}), delivered ${mana.delivered}. ` +
-  `v0.61's fourth member took this to Σ1.00 delivering 0.875 — +12.5 for an advertised +25 — ` +
-  `and deleting it returns the line to the top of limitedDR's linear region.`);
+// RE-POINTED v0.64 PART 2 (Option B, ruled by Jerry). **THE FINDING SURVIVES AND THE KNIFE-EDGE
+// DOES NOT, WHICH IS THE POINT OF THE PART.** v0.61 found the mana line summing to EXACTLY the
+// knee — every member delivered in full, and the NEXT member of any size would be the first that
+// was not. The rail moves the knee 0.75 -> 1.50, so Σ0.75 now sits at HALF the knee with real
+// headroom, and Swain's passive +12% plus a future fourth discovery both pay face value. What is
+// asserted is the durable claim — all three members deliver IN FULL — plus the headroom that
+// v0.64 Part 4 relies on when it declines to ship a fourth mana discovery.
+check("8/17 — the three mana members still deliver IN FULL, now with headroom rather than on a knife-edge",
+  Math.abs(mana.delivered - 0.75) < 1e-9 && mana.knee >= 0.75 && mana.limit === 2.0 &&
+  mana.knee > mana.raw + 0.1,
+  `Σ ${mana.raw} against knee ${mana.knee} (0.75 × L ${mana.limit}), delivered ${mana.delivered}. ` +
+  `v0.61 measured this line sitting EXACTLY on the knee; v0.64 Part 2 rails L 1.0 -> 2.0 so the ` +
+  `headroom is ${(mana.knee - mana.raw).toFixed(2)} and the next member still pays face value.`);
 check("8 — the fourth rung is GONE, Discovery and constant both (v0.62 dev note 2)",
   mana.gone && mana.constantGone && !/PETRICITE_MANA_BOOST/.test(CODE));
 check("8/21 — `sparks` still carries EXACTLY ONE mana discovery, asserted by COUNT",
@@ -448,15 +465,14 @@ const price = await page.evaluate(() => {
       const u = UPGRADES.find(x => x.id === id);
       return u.cost.crystals === Math.round((techK[u.tech] || 0) / DISCOVERY_CRYSTAL_DIVISOR);
     }),
-    // RE-POINTED v0.63, superseded by PART 1's per-rung cap. `round(K / divisor)` is still what
-    // the GENERATOR produces, but five rungs then scale down proportionally to Kittens' 2.43x
-    // per-rung figure, so the shipped cost is `<=` the generated one rather than `===` it. The
-    // durable property — the cost DERIVES from the rung, so a re-homed Discovery reprices itself
-    // — is unchanged; what moved is that the rung's TOTAL is now bounded as well as each leaf.
+    // RE-POINTED TWICE. v0.63 Part 1 weakened this from `===` to `<=` because a per-rung cap
+    // then scaled five rungs down; **v0.64 Part 5 retires that cap on Jerry's dev note 4, so the
+    // `===` is restored.** The durable property was always that the cost DERIVES from the rung —
+    // a re-homed Discovery reprices itself — and it is now testable at full strength again.
     knowledgeRuleHolds: DISCOVERY_KNOWLEDGE_SET.every(id => {
       const u = UPGRADES.find(x => x.id === id);
       const generated = Math.round((techK[u.tech] || 0) / DISCOVERY_KNOWLEDGE_DIVISOR);
-      return u.cost.knowledge > 0 && u.cost.knowledge <= generated;
+      return u.cost.knowledge > 0 && u.cost.knowledge === generated;
     }),
     // ...and the cap is DEMONSTRATED to be what moved them. A rung the cap SCALED lands on its
     // own ceiling (K x 2.43, floored per member); a rung it left alone sits strictly below it and
@@ -467,8 +483,12 @@ const price = await page.evaluate(() => {
       const K = techK[u.tech] || 0;
       const members = UPGRADES.filter(x => x.tech === u.tech && x.cost && x.cost.knowledge);
       const rungSum = members.reduce((a, x) => a + x.cost.knowledge, 0);
-      const atCeiling = rungSum >= K * DISCOVERY_RUNG_CAP - members.length;
-      if (atCeiling) return u.cost.knowledge <= Math.round(K / DISCOVERY_KNOWLEDGE_DIVISOR);
+      // RE-POINTED v0.64 PART 5 (Jerry's dev note 4): `DISCOVERY_RUNG_CAP` IS RETIRED, so there
+      // is no second load-time mutation and no "was this rung scaled?" question left to ask.
+      // **EVERY generated member must now read EXACTLY `round(K / divisor)`**, which is the
+      // stronger assertion this check always wanted and could not make while the cap existed.
+      // `rungSum` and `members` are retained because the rung total is still worth reporting.
+      void rungSum; void members;
       return u.cost.knowledge === Math.round(K / DISCOVERY_KNOWLEDGE_DIVISOR);
     }),
     // exemptions: the tool, storage and timber lines stay on their own materials

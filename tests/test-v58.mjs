@@ -62,6 +62,7 @@ const LEDGER = readFileSync(new URL("../docs/PARITY-LEDGER.md", import.meta.url)
 // PASS CONDITIONS 3, 4, 5, 6 — the Convergence round
 // ============================================================================
 await reset();
+const CHAPEL_DEVOTION_EXPECTED = await page.evaluate(() => CHAPEL_DEVOTION);
 const targon = await page.evaluate(() => {
   const ch = BUILDINGS.find(b => b.id === "chapel");
   const sh = BUILDINGS.find(b => b.id === "shrine");
@@ -82,8 +83,18 @@ const targon = await page.evaluate(() => {
   S.worship = 0;
   return o;
 });
-check("3 — a Chapel analogue exists, at 0.025 devotion/s, on the Targon faith curve",
-  targon.exists && targon.prod && targon.prod.devotion === 0.025 && targon.group === "Targon",
+// RE-POINTED v0.64 DEV NOTE 4 (Jerry): "Have Chapel give .015 devotion/second instead."
+// **THE ITEM v0.58 SHIPPED IS THAT A CHAPEL ANALOGUE EXISTS AT ALL** — RR's faith curve jumped
+// from a 0.0075/s Shrine straight to a capstone, with nothing in the middle, and Part 2 ported
+// Kittens' missing tier. That structural claim is untouched and is what is asserted. The RATE is
+// Jerry's directive and it is a deliberate departure from the source's 0.025/s, ledgered
+// RR-ORIGINAL / **HARDER** rather than as a parity fix (§16, §17's precedent). What the
+// assertion protects now is the RANK: the Chapel must out-produce the Shrine and it must still
+// carry the culture half at the source's exact 0.250/s.
+check("3 — a Chapel analogue exists on the Targon faith curve, out-producing the Shrine",
+  targon.exists && targon.prod && targon.group === "Targon" &&
+  targon.prod.devotion === CHAPEL_DEVOTION_EXPECTED && targon.prod.devotion > 0.0075 &&
+  targon.prod.culture === 0.25,
   JSON.stringify(targon.prod));
 check("3 — ...and it sits BETWEEN the Shrine and the Sanctum, which is its rank",
   targon.shrineIdx < targon.chapelIdx && targon.chapelIdx < targon.sanctumIdx,

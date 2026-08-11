@@ -236,7 +236,10 @@ const reg = await page.evaluate(table => {
     wrongPrice, n: ks.length, ties: steps.filter(v => v === 1).length,
     med: +med.toFixed(4), geo: +geo.toFixed(4), max: +Math.max(...steps).toFixed(3),
     capBase, cap10, archiveCap: BUILDINGS.find(b => b.id === "archive").caps.knowledge,
-    oreMeasured: +oreMeasured.toFixed(10), oreClosed: +(0.25 * 12 + 0.40 * 7).toFixed(10), unbounded,
+    // RE-POINTED v0.64 DEV NOTE 1 — the Quarry coefficient returns to Kittens' 0.35 (Sump
+    // Ventilation left MINERALS_LINE for `boosts.ore`). The regression this line guards is that
+    // MEASURED equals CLOSED FORM, which is unchanged.
+    oreMeasured: +oreMeasured.toFixed(10), oreClosed: +(0.25 * 12 + 0.35 * 7).toFixed(10), unbounded,
     monumentMembers: BUILDINGS.filter(b => b.globalBoost).map(b => b.id),
     shelterVigor: BUILDINGS.find(b => b.id === "shelter").caps.vigor,
     // v0.52 Part 2.1: `resRatio` is deleted, so Cultivation's +10% is no longer a ternary
@@ -273,7 +276,7 @@ check("no regression — the five ladder conditions still hold together",
   `n=${reg.n} ties=${reg.ties} median=×${reg.med} geo=×${reg.geo} max=×${reg.max}`);
 check("no regression — catMonument is still exactly two members",
   reg.monumentMembers.length === 2, reg.monumentMembers.join(", "));
-check("no regression — the ore category is still 1 + 0.25M + 0.40Q exactly",
+check("no regression — the ore category is still 1 + 0.25M + 0.35Q exactly",
   Math.abs(reg.oreMeasured - reg.oreClosed) < 1e-9, `+${(reg.oreMeasured * 100).toFixed(0)}%`);
 check("no regression — knowledge cap is buildings alone, starting at 0",
   reg.capBase === 0 && reg.cap10 === 10 * reg.archiveCap, `base ${reg.capBase}, 10 archives ${reg.cap10}`);

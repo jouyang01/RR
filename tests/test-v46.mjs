@@ -141,8 +141,17 @@ check("V2: catMonument / catDrake / catSoul / catBuff do NOT touch vigor",
   Math.abs(p2.excludedX - 1) < 1e-6, `×${p2.excludedX}`);
 check("V2: ...but catCharts × catReligion × catPolicy still do",
   p2.keptX > 1.10, `×${p2.keptX}`);
-check("V3: BOOST_LIMIT.vigor is 1.0 → ×2.0 asymptote, Kittens' manpowerJobRatio Σ = 1.0",
-  p2.boostLimit === 1.0 && Math.abs(p2.asym - 2.0) < 0.01, `limit ${p2.boostLimit}, asymptote ×${p2.asym}`);
+// RE-POINTED v0.64 PART 2 (Option B, ruled by Jerry). The vigor rail goes 1.0 → 8.0, so the
+// asymptote goes ×2.0 → ×9.0. **THE ITEM'S SUBJECT IS THAT THE ASYMPTOTE IS `1 + BOOST_LIMIT`
+// — i.e. that the ceiling is real and computed from the table** — and that is what is asserted
+// now, from the constant rather than from a numeral. The v0.46 rationale (Kittens'
+// `manpowerJobRatio` Σ = 1.0) is superseded by the rail rule: Kittens bounds no production
+// category at all (`game.js:3429-3440`), and where it does bound one — Solar Revolution's limit
+// 10 against a reachable ~4.5 — the bound is a rail a player never reaches. v0.62's end-of-run
+// audit measured vigor's raw Σ at 5.522 discarding 82.1%; the rail's knee is 6.00.
+check("V3: vigor's asymptote is exactly 1 + BOOST_LIMIT.vigor — the ceiling is computed, not written",
+  Math.abs(p2.asym - (1 + p2.boostLimit)) < 0.01 && p2.boostLimit === 8.0,
+  `limit ${p2.boostLimit}, asymptote ×${p2.asym}`);
 // SUPERSEDED v0.47 Part 3: Shelter 40 -> 75. Kittens' hut carries manpowerMax 75 for
 // maxKittens 2; 40 was the analyzer's error and it is what made trade dead pre-Era 3.
 check("V4: the vigor cap sits on Shelter 75 / Longhouse 50 / Skyrise 50 — Kittens exactly",
