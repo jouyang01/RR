@@ -863,15 +863,42 @@ var BUILDINGS = [
     effect: "Turns ore and mana into Zaun Ore, and gives it somewhere to sit.",
     cost: { timber: 300, ore: 500, gear: 5 }, ratio: 1.15,
     convert: { input: { ore: 0.5, mana: 0.5 }, output: { zaunore: 0.06 } }, caps: { zaunore: 100 } },
+  // ==========================================================================================
+  // v0.64 PART 3.1 / DEV NOTE 1 (spec): "The Coalgas Vent should require Iron Plating."
+  //
+  // **IT WAS ONE OF EXACTLY TWO ERA-2+ BUILDINGS IN THE GAME WITH NO CRAFTED GATE AT ALL** — a
+  // Zaun-tier Era-3 building priced entirely in Era-1 raws plus a little steel. See
+  // `tools/era-gate-audit.mjs`, run and reported in BUILD REPORT §8 BEFORE this line moved.
+  //
+  // `plating` is the Zaun chain's OWN first crafted good (zaunore 100 each) and it is unlocked
+  // on `sparks` — a full rung BEFORE `chemtech`, which is the Vent's own tech — so pass
+  // condition 16 holds by construction: it is craftable the day the building appears, and the
+  // Sump Mine that makes its input has been running since Sparks.
+  //
+  // **8, AND THE QUANTITY IS THE SOURCE'S SHAPE.** Kittens' mansion is titanium 25 against slab
+  // 185 — the crafted good is 12% of the line items and 100% of the gate. The gate is the
+  // UNLOCK, not the volume: a player cannot mass-build the tier on the day it opens because the
+  // crafted input is throughput-limited, and that is the whole effect. The existing bulk raws
+  // are NOT reduced to pay for it; a gate is added, nothing is replaced.
   { id: "coalgasVent", name: "Coalgas Vent", group: "Zaun", tech: "chemtech", toggleable: true, autoprod: true,
     lore: "The Sump exhales. Somebody bottles the breath.",
     effect: "Turns timber, steel and mana into Coalgas, and gives it somewhere to sit.",
-    cost: { timber: 250, ore: 420, steel: 20 }, ratio: 1.15,
+    cost: { timber: 250, ore: 420, steel: 20, plating: 8 }, ratio: 1.15,
     convert: { input: { timber: 0.4, steel: 0.05, mana: 0.3 }, output: { coalgas: 0.04 } }, caps: { coalgas: 80 } },
+  // v0.64 PART 3.2 — THE SECOND AND LAST GENUINE HOLE THE AUDIT FOUND, and it is the Coalgas
+  // Vent's own sibling. An Era-3 building (`hexcore`, 75,000) whose only crafted component was
+  // `gear` — an Era-1 tool craft, steel 25, available since Smelting at 1,500. By the rule dev
+  // note 2 states, a craft two full eras below the building is a bulk raw in everything but
+  // name by the time the building unlocks.
+  //
+  // `alloy` (zaunore 60 + coalgas 30) is the Zaun chain's SECOND crafted tier and is unlocked on
+  // `chemtech`, a rung below `hexcore` — craftable at the building's own tech, pass condition 16.
+  // **6, sized against its siblings**: the Hexcore Laboratory takes alloy 25, the Skyrise 20, the
+  // Shimmer Refinery 3. `gear 8` is KEPT; the gate is added alongside the existing cost.
   { id: "hexQuarry", name: "Hexcrystal Quarry", group: "Zaun", tech: "hexcore", toggleable: true, autoprod: true,
     lore: "The crystals were here before either city. They are patient about it.",
     effect: "Turns ore, gold and mana into Hexcrystal Ore, and gives it somewhere to sit.",
-    cost: { timber: 350, ore: 600, gear: 8 }, ratio: 1.15,
+    cost: { timber: 350, ore: 600, gear: 8, alloy: 6 }, ratio: 1.15,
     convert: { input: { ore: 0.5, gold: 0.02, mana: 0.6 }, output: { hexore: 0.05 } }, caps: { hexore: 90 } },
   { id: "chembarrel", name: "Chembarrel Refinery", group: "Zaun", tech: "chemtech",
     lore: "It gurgles. Profitably.",
