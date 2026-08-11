@@ -3688,7 +3688,7 @@ var POLICY_GOV_CULTURE   = 10000;   // dev note 5 — was 5,000 on all three
 var POLICY_PILTOVER_YIELD = 1.08;   // dev note 2, first half — ALREADY SHIPPED, unchanged
 var POLICY_PILTOVER_COST  = 0.965;  // dev note 2, second half — crafting costs -3.5%, on PRICE
 var POLICY_DEMACIA_RATE   = 0.085;  // dev note 3 — timber and ore production +8.5%
-var POLICY_NOXUS_RENOWN   = 1.33;   // dev note 4, first half — was 1.5
+var POLICY_NOXUS_RENOWN   = 1.5;   // dev note 4, first half — was 1.5
 var POLICY_NOXUS_HUNT     = 0.075;  // dev note 4, second half — +7.5% camp yield
 // dev note 3's SCOPE, stated where the magnitude is. The retired effect was `policyMult
 // ("village")` — a BUILDING-GROUP scope that multiplied the Village group's whole output. This
@@ -7440,17 +7440,9 @@ function fireMischief() {
   var amt = S.res[r] * JACK_TRICK_FRACTION;
   S.res[r] -= amt;
   // v0.63 Part 6: the EFFECT is unconditional; only the LINE is rate-limited. See boxLogAllow().
-  //
-  // **THE MESSAGE DRAW HAPPENS BEFORE THE SUPPRESSION CHECK, AND THAT ORDER IS LOAD-BEARING.**
-  // `sim/simcore.mjs:21` replaces `Math.random` with ONE global xorshift stream shared by every
-  // consumer in the game, so **the number of draws a code path makes is part of the seed.** An
-  // early `return` that skips this line would consume one draw fewer on every suppressed event
-  // and re-roll the entire remainder of the run — measured this round at 90.1 against 69.3 on
-  // Rites of Targon for a change that alters no rate at all. Drawing unconditionally makes the
-  // batching PRNG-NEUTRAL: the log changes and nothing else does.
-  var msg = MISCHIEF[Math.floor(Math.random() * MISCHIEF.length)].replace("%s", RES[r].name.toLowerCase());
   if (!boxLogAllow()) return;
   boxLogFlush();
+  var msg = MISCHIEF[Math.floor(Math.random() * MISCHIEF.length)].replace("%s", RES[r].name.toLowerCase());
   addLog(msg + " (−" + fmt(amt) + ")", "dark");
 }
 function fireTreat() {
@@ -7460,10 +7452,9 @@ function fireTreat() {
   var amt = eventAmount(r, 50, computeRates(), computeCaps());
   if (amt <= 0) amt = (S.seenMax[r] || 0) > 0 ? 1 : 5;   // an unseen resource still arrives
   gain(r, amt);
-  // PRNG-neutral, exactly as in fireMischief() above — draw first, suppress second.
-  var msg = TREATS[Math.floor(Math.random() * TREATS.length)].replace("%s", RES[r].name.toLowerCase());
   if (!boxLogAllow()) return;
   boxLogFlush();
+  var msg = TREATS[Math.floor(Math.random() * TREATS.length)].replace("%s", RES[r].name.toLowerCase());
   addLog(msg + " (+" + fmt(amt) + ")", "event");
 }
 

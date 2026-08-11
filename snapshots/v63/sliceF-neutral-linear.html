@@ -5916,7 +5916,7 @@ var BOX_EVENT_RATE = 0.0002;
 var BOX_EVENT_LIMIT = 10;
 function boxEventRate(n) {
   n = n || 0;
-  return BOX_EVENT_RATE * (Math.min(5, n) + strictDR(Math.max(0, n - 5), BOX_EVENT_LIMIT));
+  return BOX_EVENT_RATE * n;
 }
 // v0.63 PART 6, second half — THE CHRONICLE BATCH, rate-limited INDEPENDENTLY of the event.
 //

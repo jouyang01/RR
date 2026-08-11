@@ -1026,3 +1026,64 @@ four.* Until that is ruled, **no round may add a new multiplicative category** �
 fourth mana rung landed in the existing `boosts.mana` accumulator for exactly this reason, and
 v0.61 Part 1 removed the last multiplicative chain of discrete upgrades in the game rather than
 adding one.
+
+## 32. THE SIMULATOR HAS ONE GLOBAL RANDOM STREAM, SO THE NUMBER OF DRAWS IS PART OF THE SEED — closed v0.63
+
+**This section exists because a change that altered no rate, no price and no multiplier moved Rites
+of Targon from year 69.3 to year 90.1 on the same seed, and it took a bisection to find out why.**
+
+`sim/simcore.mjs:21` replaces `Math.random` with a single xorshift generator seeded from the run's
+seed number:
+
+```js
+let rngState = seed >>> 0 || 1;
+Math.random = function () { rngState ^= rngState << 13; ... return rngState / 4294967296; };
+```
+
+**ONE state, shared by every consumer in the game.** Expedition rolls, event firing, message
+selection, champion recruitment, trait assignment, poro litters, cargo slots — all of them advance
+the same counter. **Therefore any change to HOW MANY draws a code path makes re-rolls the entire
+remainder of the run**, and the milestone years that come out are a different sample, not a
+different balance.
+
+### What triggered it
+
+v0.63 Part 6 rate-limited the Jack-in-the-Box chronicle line by returning early from
+`fireMischief()` before the line that selects a message string — **one `Math.random()` call fewer
+on every suppressed event.** Measured on seed 1 at 300 game-years, against a build differing in
+nothing else:
+
+| | Rites of Targon | first champion |
+|---|---|---|
+| without the early return | **69.3** | **84.9** |
+| with it | **61.1** | **206.3** |
+
+**No consistent direction — Rites improved and the first champion trebled.** That is the signature
+of a re-roll, and it is exactly what a balance change does not look like.
+
+### The ruling
+
+1. **A change that alters the NUMBER of `Math.random()` calls on any live code path invalidates
+   seed-for-seed comparison with every prior measurement in this project.** It is not a regression
+   and it is not an improvement; it is a fresh sample.
+2. **Make such changes PRNG-NEUTRAL wherever the behaviour does not require otherwise.** The
+   standing idiom: **draw first, branch second.** `fireMischief()` and `fireTreat()` now select
+   their message before the suppression check, so the log changes and nothing else does.
+   **Neutrality is PROVABLE and must be proved:** the v0.63 build with Part 6's rate reverted to
+   its old linear form reproduces the Parts 1+2 build's seed-1 figures **to the digit** —
+   69.3 / 84.9 / 193.2 / 270.8. That reproduction is the test.
+3. **Where neutrality is impossible — a change to how often a random event FIRES is the whole
+   point of such a change — say so in the build report and treat the round's ensemble as a fresh
+   draw.** Do not report the difference as a pacing effect.
+4. **The corollary for isolation slices (§9): a cumulative prefix is only attributable if every
+   slice is PRNG-neutral with respect to the ones before it.** Slices that are not must be labelled
+   as re-rolls, and the parts before them measured on a build that excludes them.
+
+### The finding this exposed about the GAME, which is separate and also worth keeping
+
+Sparks is champion-gated on a 3-of-10 choice (§4, the sanctioned exception). Under a re-rolled
+stream its spread went from **×1.01 across three seeds to ×2.48**, and the first champion from
+×1.30 to ×2.26. **The tight Sparks medians this project has quoted for many rounds are partly an
+artefact of three seeds that happened to draw a Piltover/Zaun champion early.** Sparks' timing is
+dominated by a random draw over champions, not by knowledge, and any round that steers on a Sparks
+median should take more than three seeds or should say that it did not.

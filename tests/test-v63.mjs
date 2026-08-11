@@ -434,9 +434,23 @@ check("6/18 — the chronicle line is rate-limited INDEPENDENTLY of the event",
   box.consts.BOX_LOG_MIN_GAP_S === 300,
   "halving a rate is not the same thing as fixing a log — same fix as v0.59.1 note 5's bulk hunts");
 check("6/18 — ...and the EFFECT still fires unconditionally: only the LINE is suppressed",
-  /S\.res\[r\] -= amt;\s*\n\s*\/\/ v0\.63 Part 6[\s\S]{0,120}if \(!boxLogAllow\(\)\) return;/.test(RAW) &&
-  /gain\(r, amt\);\s*\n\s*if \(!boxLogAllow\(\)\) return;/.test(RAW),
+  /S\.res\[r\] -= amt;[\s\S]{0,900}?if \(!boxLogAllow\(\)\) return;/.test(RAW) &&
+  /gain\(r, amt\);[\s\S]{0,300}?if \(!boxLogAllow\(\)\) return;/.test(RAW),
   "the mischief still steals and the treat still pays; the player loses sixty rows, not the information");
+// THE FINDING OF THE ROUND, asserted so it cannot be undone by a tidy-up.
+check("6/18 — the batching is PRNG-NEUTRAL: the message is DRAWN BEFORE the suppression check",
+  /var msg = MISCHIEF\[Math\.floor\(Math\.random\(\) \* MISCHIEF\.length\)\][\s\S]{0,80}?if \(!boxLogAllow\(\)\) return;/.test(CODE) &&
+  /var msg = TREATS\[Math\.floor\(Math\.random\(\) \* TREATS\.length\)\][\s\S]{0,80}?if \(!boxLogAllow\(\)\) return;/.test(CODE) &&
+  /THE MESSAGE DRAW HAPPENS BEFORE THE SUPPRESSION CHECK, AND THAT ORDER IS LOAD-BEARING/.test(RAW),
+  "`sim/simcore.mjs:21` replaces Math.random with ONE global xorshift stream shared by every " +
+  "consumer, so THE NUMBER OF DRAWS A CODE PATH MAKES IS PART OF THE SEED. An early return that " +
+  "skipped the message draw consumed one draw fewer per suppressed event and re-rolled the whole " +
+  "remainder of the run — measured at Rites of Targon 90.1 against 69.3 for a change that alters " +
+  "no rate at all. PROVEN by construction: the shipped file with the rate reverted to linear " +
+  "reproduces the Parts 1+2 build's seed-1 figures TO THE DIGIT (69.3 / 84.9 / 193.2 / 270.8).");
+check("6/18 — ...and simcore's single shared stream is what makes that true",
+  /Math\.random = function \(\) \{/.test(SIMCORE) && /rngState \^= rngState << 13/.test(SIMCORE),
+  "one xorshift state, no per-consumer streams — every draw anywhere advances it for everyone");
 const batched = await page.evaluate(() => {
   // drive the suppressor directly: the first line passes, the next N are tallied, and the tally
   // is emitted on the next line past the gap.
