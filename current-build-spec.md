@@ -265,7 +265,7 @@ champion *and* a knowledge leader, and a reader who greps one slot will get the 
 
 **Part 2 answers most of this without adding content.** `BOOST_LIMIT.mana` is **1.0** and Σ0.75 is
 **exactly the knee**, so today the three discoveries deliver in full but *any* fourth member is
-the first that would not. **Raising the rail to 2.0 makes room for Zilean's 12% and a fourth
+the first that would not. **Raising the rail to 2.0 makes room for Swain's 12% and a fourth
 discovery to both pay face value** — which is a mana increase with no new content at all.
 
 **So: measure before adding a fourth discovery.** Report **net mana per second at every
@@ -276,7 +276,7 @@ ship the fourth** — and put it on a tech that is not `sparks`, which already c
 discovery.
 
 **Pass conditions:** net mana/s and the consumed÷produced ratio at all four milestones, before and
-after Part 2; the Zilean correction recorded in the ledger; a fourth discovery shipped **only if
+after Part 2; **Swain's two slots recorded in the ledger as distinct — passive mana +12%, lead knowledge +25%**; a fourth discovery shipped **only if
 the measurement shows a deficit**, with the milestone that showed it named.
 
 ---
