@@ -411,3 +411,107 @@ its header.** 45 minutes of measurement produced two lines, twice. **A long harn
 per-seed results incrementally**, so a lost run still yields the seeds that finished.
 
 ---
+## 13. Pacing — the full-rigour gate, and it FAILS 4 of 10
+
+**Three seeds, 2,500 game-years, concurrent. 48 min wall (third attempt — see §12).**
+
+| figure | v0.61 | **v0.62** | verdict |
+|---|---|---|---|
+| **Era 3** | 1,210.7 (×1.30) | **1,559.3 — reached on ONE seed of three** | **UNSCOREABLE** |
+| **Icathia** | 1,392.2 | **1,780.7 — one seed of three** | two seeds never arrive in 2,500 years |
+| Sparks | 168.6 | **221.4** (×1.38) | PASS |
+| **Rites of Targon** | 68.8 | **76.0** | **FAILS** median < 75 |
+| **First champion** | 87.3 | **129.6** (worst 131.9) | **FAILS** max < 120 |
+| **Peak population** | 179 | **135** | **FAILS** the 150–220 band |
+| Chemtech → Hexcore | 41.5 | 98.8 | PASS |
+| Convergence at unlock | — | **14.26%** | PASS — well clear of the 1% floor |
+| Morale in band | 100% | **100%** | PASS |
+| Crystals at cap | 94.7% | **95.6%** | Part 7's <70% target **FAILS** |
+| Provisions at cap | 19.1% | 25.2% | — |
+
+### 13.1 THE ROUND IS TOO HARSH AND THE CAUSE IS CUMULATIVE, NOT ANY ONE PART
+
+**Every milestone moved later and two seeds never finish the game.** No single change in this
+round is large enough to do that; **five are, together**, and they all push the same way:
+
+- **Part 3's storage cut** — the Warehouse loses 62% of its timber, 33% of its ore and **94% of
+  its gold**, and the Harbor loses 87% of its gold. Lower ceilings mean less banked between
+  purchases, which slows every rung.
+- **Dev note 1's knowledge raise** — discovery knowledge costs go up **eightfold**. The report
+  argued this is a sink and not a wall because at most three sit on a tech; **at 0.8 × K it is
+  also 2.4 × the rung's own price on those techs**, and knowledge is the resource the whole ladder
+  is denominated in.
+- **Part 4.1's shrine cut** halves the per-Shrine morale rate, and **Part 4.4** cuts Marus'
+  devotion rate 40% and its cap 60%.
+- **Part 6a's Jarvan re-scope** was predicted near-neutral in weighted output; it is neutral in
+  *total* and it moved output *away* from the three raw-material jobs that gate early growth.
+
+**Population is the tell: 179 → 135, below §27's band.** Population is downstream of provisions
+ceiling and morale, and this round cut both.
+
+**I do not think this should ship as-is, and I am reporting that rather than quietly re-basing a
+condition.** The parity arguments behind each change are individually sound — every one has a
+source citation — but **§16 makes parity of TIMING as well as scale the goal, and four failed
+timing conditions is the measurement saying the round overshot.**
+
+### 13.2 What I would take back first, if it were mine to rule
+
+**Dev note 1's divisor.** It is the only change here whose magnitude was chosen by me rather than
+directed or derived from the source: the authored band is 0.70×–3.33× and I took the low end, but
+**the authored costs sit on ten discoveries and the generated rule now sits on twenty-two.**
+Spreading a band designed for a handful across a third of the tree is not the same change.
+**0.8 × K on 22 discoveries is a much larger knowledge sink than 0.70×–3.33× on 10 ever was**, and
+halving the divisor to ~0.4 × K would keep Jerry's note satisfied at a fraction of the cost.
+
+**Part 3 is the largest term and I would keep it.** It is the most clearly source-derived change
+in the round — the ratios are Kittens' own, line by line — and if anything has to give, it should
+not be the one with the best citation.
+
+### 13.3 Part 7 WORKED, and the target still fails
+
+**The drain went from 6.9% of gross to 28.9% — a ×4.2 improvement**, and it now tracks the faucet
+instead of falling behind it as the multipliers grow. That is exactly what putting the burn on the
+yield's footing was supposed to do.
+
+**Crystals at cap is 95.6% and the spec's <70% target is missed.** The decomposition says why:
+27 Refineries deliver 14.69/s gross against a 4.57/s drain, so the stock still fills. **A sink at
+29% of a faucet does not empty a stock that has been at its ceiling for 2,500 years — it slows the
+refill.** The instrument is now right and the magnitude is still short; the honest next step is to
+size the burn against the *stock's* time-at-cap rather than against the faucet's per-copy rate.
+
+### 13.4 The knee audit at the end of a real run
+
+| family | raw Σ | delivered | thrown away |
+|---|---|---|---|
+| **vigor** | 5.522 | 0.988 | **82.1%** |
+| **devotion** | 3.550 | 1.902 | **46.4%** |
+| **provisions** | 1.900 | 1.378 | **27.5%** |
+| **mana** | 1.029 | 0.882 | **14.3%** |
+| crystals | 1.338 | 1.338 | 0% |
+| gold | 0.812 | 0.812 | 0% |
+| culture | 0.182 | 0.182 | 0% |
+
+**FOUR families finish past their knee, not two** — provisions and mana cross it during a real run
+even though a maxed static probe put them under. **`cultivation` advertises +10% and pays 1.2%.**
+The instrument is doing its job and the diagnosis is larger than the static measurement suggested.
+
+### 13.5 Part 1's guard, confirmed at full length
+
+**15.5 sustainable trades/game-year at Sparks, 48.6 at Hexcore, bound by VIGOR at both** —
+reproducing the mid-round measurement almost exactly. The tax binds, the ceiling was not needed,
+and removing it changed no milestone.
+
+### 13.6 Part 10 — NOT RUN
+
+**The spread decomposition did not run and I am recording that rather than omitting it.** It needs
+four seed-matched slices × three seeds = **twelve 1,400-year runs**; this box has two cores, and
+the round had already lost two full ensembles to container restarts (§12) before one completed at
+48 minutes. **Twelve more runs was not achievable in the remaining session.**
+
+**And this round makes it more interesting, not less:** v0.61's spread was ×1.30 and this round
+cannot even quote one, because **Era 3 was reached on a single seed.** The variance question is now
+entangled with a completion question. **The next round should run Part 10 against a build that
+finishes on all three seeds**, or the slices will measure the same thing v0.60's C and D did —
+nothing.
+
+---
