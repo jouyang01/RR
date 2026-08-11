@@ -2811,8 +2811,60 @@ var TRUE_ICE_MANA_BOOST = 0.20;
 // figure the ceiling will not deliver; that string is evaluated while the UPGRADES array literal
 // is being built, and a `var` declared after that array but read inside it is `undefined` at
 // load — a blank page, not an error. It has cost this project a round before.
-var BOOST_LIMIT = { devotion: 2.0, culture: 2.0, gold: 1.5, vigor: 1.0, crystals: 2.0,
-                    provisions: 1.5, mana: 1.0 };
+// ==========================================================================================
+// v0.64 PART 2 / JERRY'S RULING — OPTION B: THE CEILINGS BECOME RAILS.
+//
+// **RULED BY JERRY.** The ceilings stay in the code and move ABOVE the reachable range, so they
+// act as BACKSTOPS rather than as a permanent tax. That is how the source uses the same curve,
+// and the source is the authority (§16).
+//
+// **THE SOURCE'S OWN PATTERN, TWO CITATIONS.** `getLimitedDR` is Kittens' own function, 0.75
+// free band and all (`game.js:2452-2465`) — RR ports it verbatim as `limitedDR`. But
+// **`game.js:3429-3440`: NOT ONE of Kittens' five production-boost categories passes through
+// it.** The one place the source DOES bound a production bonus is Solar Revolution
+// (`js/religion.js:1548-1550`), limit **10** against a reachable **~4.5**. **The cap is a rail
+// there. A real player never feels it. That is the shape being copied.**
+//
+// **WHAT RR DELIVERED BEFORE THIS PART, measured at the END OF A REAL RUN and not from a static
+// probe** — v0.62 learned that distinction the hard way:
+//
+//     family       limit   knee    raw Sigma   delivered   THROWN AWAY
+//     vigor         1.0    0.75      5.522       0.988       82.1%
+//     devotion      2.0    1.50      3.550       1.902       46.4%
+//     provisions    1.5    1.125     1.900       1.378       27.5%
+//     mana          1.0    0.75      1.029       0.882       14.3%
+//     crystals      2.0    1.50      1.338       1.338        0%
+//     gold          1.5    1.125     0.812       0.812        0%
+//     culture       2.0    1.50      0.182       0.182        0%
+//
+// **THE RULE THAT SETS EACH RAIL, so no figure here is chosen by taste:** set the limit so the
+// KNEE sits above the family's end-of-run raw sum, exactly as Solar Revolution's 10 sits above
+// its reachable 4.5. **rail = ceil(raw Sigma / 0.75), rounded up to a round number** — the free
+// band then covers everything reachable and the curve still exists above it.
+//
+//     family       raw Sigma   knee must exceed   SHIP   new knee   delivered after
+//     vigor          5.522         5.522           8.0     6.00     5.522  — IN FULL
+//     devotion       3.550         3.550           5.0     3.75     3.550  — IN FULL
+//     provisions     1.900         1.900           3.0     2.25     1.900  — IN FULL
+//     mana           1.029         1.029           2.0     1.50     1.029  — IN FULL
+//     crystals, gold, culture                    UNCHANGED           already delivered in full
+//
+// **PRODUCTION EFFECT: vigor x1.99 -> x6.52 (3.3x), devotion x2.90 -> x4.55 (1.6x), provisions
+// x2.38 -> x2.90 (1.2x), mana x1.88 -> x2.03 (1.1x).**
+//
+// **NO PER-COPY SOURCE RATE IS RE-PRICED, and that is what makes this safe rather than a
+// blanket buff.** RR's knowledge line — hexLab 0.35, observatory 0.25, academy 0.20, archive
+// 0.10 — is a direct port of Kittens' biolab/observatory/academy/library, and **knowledge has
+// never had a `BOOST_LIMIT` at all** (§Appendix; it is deliberately absent and stays absent). It
+// has run uncapped at the source's rates for the whole project's life without complaint.
+// **Twenty biolabs give Kittens x8 on science with no diminishing return anywhere; RR's vigor
+// uncapped is x6.52.** That is inside the source's normal operating range.
+//
+// **CRYSTALS, GOLD AND CULTURE ARE NOT TOUCHED.** All three already deliver in full, and §7 of
+// the spec is explicit that no round should tune something that passed. Crystals sits 0.16 from
+// its knee and `test-v62`'s assertion on that headroom still stands.
+var BOOST_LIMIT = { devotion: 5.0, culture: 2.0, gold: 1.5, vigor: 8.0, crystals: 2.0,
+                    provisions: 3.0, mana: 2.0 };
 // ============================================================================
 // v0.62 PART 2 — THE KNEE AUDIT, AND IT IS A LIVE CORRECTNESS BUG FACING THE PLAYER.
 //
