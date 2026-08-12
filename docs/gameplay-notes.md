@@ -520,6 +520,56 @@ down gets quietly re-proposed by the next spec.
   rung; the generated rule sat at **0.10×**. Raised to **0.8 × K**, the low end of the file's own
   band. At most three knowledge Discoveries sit on any tech, so it is a sink and not a wall.
 
+## v0.64 — Jerry's four dev notes, and the one that found a shipped effect doing nothing
+
+- ~~**"Sump Ventilation improves Quarry, Quarry cannot be built yet. Let's change this to an ore
+  production bonus."**~~ — **note 1, and the tech ladder confirms the premise exactly.** The
+  Discovery sits on `sumpEcology` (60,000 knowledge + 30 plating); the Petricite Quarry, the only
+  building it touched, sits on `petricite` (65,000 **+ 65 Morellonomicon**, a tier-5 craft). It
+  improved a building the player could not yet build, so its **measured delivery to a real player
+  was ZERO**. The same 5% now lands on `boosts.ore`, where it reaches every source of ore and —
+  because ore is not a `BOOST_LIMIT` family — is **delivered in full**. The Petricite Quarry's own
+  miner term returns to Kittens' 0.35 exactly, which it was not at before.
+- ~~**the same note, SECOND INSTANCE — and nobody had reported this one.**~~ Landing a boost on
+  `ore` required `ore` to be a KEY of the `boosts` object, and it was not. **The policy term is
+  applied by `for (var pk in boosts)` — a loop over the keys the literal declares — so v0.63 Part
+  3.2's re-scope of the Demacian Accord onto timber and ore had been shipping an effect that read
+  as live code and reached nothing.** Measured on the v0.63 tag with the policy held: timber and
+  ore both moved by exactly **+1.0%**, which is `catPolicy`'s generic government term, and **0.0%
+  of the advertised 8.5%**. It is operational rule 11's sibling and it is quieter — nothing
+  throws, nothing renders NaN, and the tooltip states a figure the engine never applies.
+- ~~**"Banked Coals, Infernal Drake and other bonuses to converter output need review. What are we
+  defining as a converter?"**~~ — **note 2, and the answer is a ruling rather than a list: A
+  CONVERTER IS ANY BUILDING WITH A `convert` BLOCK. There is no second kind.** The conversion
+  Discoveries, the overseer affinity and the Cinders buff reached only the non-`autoprod`
+  converters, so Banked Coals raised the Forge, both Refineries and the Chem-Forgeworks and did
+  **nothing** for the two buildings that make Zaun Ore and Coalgas — **the inputs the Shimmer
+  Refinery it DOES boost runs on.** The split was an accident of shape: `autoprod` describes how a
+  converter is DRIVEN, not whether it converts. v0.58.1 note 29 had already made this exact
+  argument for the drake in the same function; it was applied to one term and the other three were
+  left behind. **Measured: the Zaun extractors' converter multiplier goes ×2.951 → ×9.738, a
+  ×3.30 move, and it is the largest single production change in the round.** The autoprod line
+  stays exclusive to those three buildings and that asymmetry is correct — the Chembarrel drives
+  them specifically, the way Kittens' Steamworks drives its Magnetos.
+- ~~**"Sump Crawl should be on a cooldown of at least 7.5 minutes."**~~ — **note 3, and it was the
+  only UNCOOLED source of a converted material in the game.** Every other route to Zaun Ore and
+  Coalgas is a converter, rate-limited by building count, inputs and the autoprod line; this paid
+  40–70 Zaun Ore + 20–35 Coalgas × `campYieldMult` for 140 vigor as fast as vigor arrived (v0.52
+  measured **108.8 crawls a game-year at Deep Works**). `cooldown: 450`. **The parity ledger row
+  already claimed "the constraint is the cooldown rather than the price" — there was no cooldown.
+  The row is true now.** Per §32 this is a PRNG re-roll and is labelled as one.
+- ~~**"Devotion comes too quickly still. Remove devotion/second from Marus Omegnum — make it just
+  increase devotion cap by 250. Chapel .015/second. Shrine of Solari 50 devotion cap."**~~ —
+  **note 4, all four figures directed and all four shipped exactly, and it is a ROLE separation
+  rather than a magnitude cut.** The Marus's `prod` key is **removed**, not zeroed — a zero rate
+  would still be enumerated and printed by `effectLines()`. The top of the faith curve is now a
+  CEILING that produces nothing, so the reason to climb is capacity rather than compounding, and
+  devotion is the one resource whose rate compounds into a global multiplier (worship →
+  `catReligion`). **The Shrine's 0.0075/s is untouched — it is the one devotion figure at verified
+  source parity (Kittens' temple `faithPerTickBase 0.0015` × 5).** The Chapel's 0.025 → 0.015 is a
+  departure from the source's own chapel figure and is ledgered **RR-ORIGINAL / HARDER** rather
+  than as a parity fix; §17 is the precedent that says an honest label costs nothing.
+
 ## v0.63 — Jerry's eleven notes, and the one that found four defects
 
 - ~~**"Every workshop upgrade costs science in Kittens — confirm and match."**~~ — **note 1, and

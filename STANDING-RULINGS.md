@@ -1087,3 +1087,73 @@ stream its spread went from **×1.01 across three seeds to ×2.48**, and the fir
 artefact of three seeds that happened to draw a Piltover/Zaun champion early.** Sparks' timing is
 dominated by a random draw over champions, not by knowledge, and any round that steers on a Sparks
 median should take more than three seeds or should say that it did not.
+
+## 33. A TERM KEYED ON A NAME IS DEAD UNTIL THE CONTAINER DECLARES THAT NAME — closed v0.64
+
+**This section exists because a shipped effect delivered nothing for a full version, no suite
+could see it, and the code that should have applied it reads as perfectly live.**
+
+v0.63 Part 3.2 re-scoped the Demacian Accord from a building-group multiplier to two RESOURCES,
+`timber` and `ore`, and landed it in `policyBoost()`. That was the right home and the round's
+report argued it correctly. The term is applied by one line in `computeRates()`:
+
+```js
+for (var pk in boosts) boosts[pk] += policyBoost(pk);
+```
+
+**A `for...in` visits the keys the object literal declares**, and the literal was:
+
+```js
+var boosts = { knowledge: 0, gold: 0, vigor: 0, crystals: 0, devotion: 0, culture: 0,
+               mana: 0, provisions: 0 };
+```
+
+**Neither `timber` nor `ore` is in it, so the loop never asked `policyBoost("timber")`, and the
++8.5% was never delivered to anything.**
+
+Reproduced on the v0.63 tag before anything was touched — 30 miners and 30 woodcutters, the
+policy held:
+
+| | timber | ore |
+|---|---|---|
+| without the policy | 121.328 | 196.350 |
+| with the policy | 122.541 | 198.314 |
+| **delivered** | **+1.0%** | **+1.0%** |
+
+**+1.0% is `catPolicy`'s generic government term, which was always live. 0.0% of the advertised
+8.5% ever reached a resource.**
+
+### Why nothing caught it
+
+It is **operational rule 11's sibling and it is quieter.** Rule 11 is *"a `var` declared after an
+array literal but read INSIDE it is `undefined`, not an error"*; this is *"a key absent from an
+object literal is never visited by a `for...in`, and the term that would have written it reads as
+live code."*
+
+- **Nothing throws.** `policyBoost("timber")` is a correct function returning a correct number.
+- **Nothing renders NaN.** The tooltip is generated from `POLICY_DEMACIA_RATE` and states 8.5%
+  truthfully about the constant and falsely about the game.
+- **No suite failed**, because every assertion about the effect read the constant, the policy
+  table or the tooltip — never the delivered rate.
+- **The v0.63 build report scored it as shipped**, and its own predicted-vs-measured table
+  recorded "0.0" for that slice and attributed it to the government philosophies being gated
+  behind `callToArms`. **That explanation was true AND the effect was also dead.** Two reasons for
+  the same zero, and the round found the first one and stopped.
+
+This is v0.63 §10's own finding — *a defect that repairs itself is a defect nobody can see* — one
+level down. A defect that never had to repair itself because it never ran at all is quieter still.
+
+### The ruling
+
+- **When a term is keyed on a name — a resource, a family, a category — the container must
+  declare that name, and the TEST MUST ASSERT THE DELIVERED VALUE, NEVER THE PRESENCE OF THE
+  KEY.** A key nobody reads is exactly what shipped; asserting its existence would have passed.
+- **`test-v64` asserts the Demacian Accord's measured lift on the ore line**, against
+  `POLICY_DEMACIA_RATE` compounded with `catPolicy`, and `test-v64` asserts Sump Ventilation's the
+  same way. Both would have failed on the v0.63 build.
+- **`boosts` now declares `timber` and `ore`.** It is one line and it is load-bearing; a future
+  round adding `steel` or `furs` to `policyBoost()` must add the key in the same commit.
+- **The general form: a zero measurement has at most one cause until you have found two.** v0.63
+  found a true explanation for its zero slice and stopped looking, which is the same shape of
+  error as §8's *"a zero in a measurement is a claim about the apparatus until you have checked
+  the apparatus"* — with the twist that here the apparatus was fine and the game was not.

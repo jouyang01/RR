@@ -484,6 +484,12 @@ check("note 1 — SECOND INSTANCE, FOUND BY THE NOTE: the Demacian Accord's ore 
   `**BEFORE THIS ROUND IT DELIVERED 0.0%** — \`boosts\` had no \`timber\` or \`ore\` key, and the ` +
   `term is applied by \`for (var pk in boosts)\`, a loop over the keys the literal declares. ` +
   `v0.63 Part 3.2 shipped an effect that read as live code and reached nothing.`);
+check("note 1 — ...and it is closed as STANDING-RULINGS §33, with the reproduction recorded",
+  /## 33\. A TERM KEYED ON A NAME IS DEAD UNTIL THE CONTAINER DECLARES THAT NAME/.test(
+    readFileSync(new URL("../STANDING-RULINGS.md", import.meta.url), "utf8")) &&
+  /TEST MUST ASSERT THE DELIVERED VALUE, NEVER THE PRESENCE OF THE[\s\S]{0,6}KEY/.test(
+    readFileSync(new URL("../STANDING-RULINGS.md", import.meta.url), "utf8")),
+  "a key nobody reads is exactly what shipped; asserting its existence would have passed");
 check("note 1 — ...and the defect class is NAMED at the site as a sibling of operational rule 11",
   /key absent from an object literal is never visited by a `for\.\.\.in`/.test(RAW) &&
   /IT IS THE SAME CLASS AS OPERATIONAL RULE 11 AND IT IS QUIETER/.test(RAW),
