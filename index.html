@@ -2585,6 +2585,29 @@ var SAW_LINE = [["reinforcedSaw", 0.20], ["steelSaw", 0.20], ["hexsteelSaw", 0.1
 var MINERALS_LINE = { mine: ["zauniteDrills", 0.05] };
 var SUMP_VENTILATION_ORE = 0.05;   // dev note 1 — the same 5%, re-homed from the Quarry to ore
 // ==========================================================================================
+// v0.65 PART 4 — THE FOURTH MANA DISCOVERY. v0.64's ONE UNDISCHARGED PASS CONDITION.
+//
+// **v0.64 pass condition 17 said: ship it on a measured deficit. The deficit was measured** —
+// hexcore **-0.40/s (consumed/produced 1.003)** and final **-14.52/s (1.011)** — **and the
+// measurement arrived WITH the final gate**, so that round handed it on rather than shipping
+// content the gate had not covered. This discharges it.
+//
+// **BUILD REPORT v0.64 §11.6's CAUTION CHANGES THE SIZING, NOT THE DECISION.** -0.40/s against a
+// gross of 119.35/s is **0.3%**; -14.52 against 1,351.27 is **1.1%**. **A ratio pinned at ~1.00
+// is a system in EQUILIBRIUM** — the seven mana-consuming converters are throttled by mana
+// availability and consume exactly what arrives. So the target is NOT "make the deficit go
+// away"; it is **"raise the throughput the constraint is throttling."** Mana is the input to the
+// Zaun extractor line and the Shimmer Refinery, so a mana increase shows up as **Era-3 RAW
+// OUTPUT**, not as a large positive net mana — the converters will eat the new supply.
+// **A report that claims victory because net mana went positive has measured the wrong thing.**
+//
+// **THE HEADROOM IS MEASURED AND IT FITS.** `BOOST_LIMIT.mana` is 2.0, knee **1.50**, end-of-run
+// raw Σ **1.050**. A fourth member at 0.25 takes Σ to **1.30 — still below the knee, so it is
+// DELIVERED IN FULL**, which is exactly the property Option B's rail was shipped for. Four
+// members in one additive category is the source's own shape (`barnRatio` runs six, §19), so
+// this adds NO new multiplicative category — §31 is still Jerry's open question.
+var LEYLINE_LENSING_MANA = 0.25;   // Part 4 — the fourth member, on `hexcore` and NOT on `sparks`
+// ==========================================================================================
 // v0.65 PART 2.4 — THE WEAPON LINE. RR WAS MISSING KITTENS' ENTIRE MANPOWER-PRODUCTION
 // CATEGORY, and this is it, rank for rank, at the source's own shares.
 //
@@ -3165,6 +3188,9 @@ var BOOST_MEMBERS = [
   { id: "hexresonance",        family: "mana",       amt: 0.25, kind: "upgrade" },   // v0.50 Part 1.3, out of resRatio
   { id: "leylineCalibration",  family: "mana",       amt: LEYLINE_MANA_BOOST,  kind: "upgrade" },   // v0.59.1 note 1
   { id: "trueIceCellars",      family: "mana",       amt: TRUE_ICE_MANA_BOOST, kind: "upgrade" },   // v0.59.1 note 6
+  // v0.65 PART 4 — the fourth mana rung, discharging v0.64's one undischarged pass condition.
+  // On `hexcore`, deliberately NOT on `sparks`, which already carries a mana Discovery.
+  { id: "leylineLensing",      family: "mana",       amt: LEYLINE_LENSING_MANA, kind: "upgrade" },
   { id: "resonanceCoils",      family: "crystals",   amt: 0.25, kind: "upgrade" },   // v0.54 directive 16
   { id: "tributeReliquaries",  family: "crystals",   amt: 0.25, kind: "upgrade" },   // v0.45 Part 6
   { id: "solariHymn",          family: "devotion",   amt: 0.25, kind: "wtech"   },
@@ -3221,7 +3247,9 @@ function boostMemberOf(id) {
 // leaves, the weapon line's 1.00 arrives), **against a knee of 6.00 — so it is DELIVERED IN
 // FULL, 0% discarded, before and after.** What changes is the SIZE of the stack, not the
 // fraction of it a player receives; the rail was never the binding thing here.
-var BOOST_SIGMA_OF_RECORD = { gold: 0.45, provisions: 0.10, mana: 0.75, crystals: 0.50,
+// KEY ORDER MATTERS: `test-v63` compares this against `boostSigmaLive()` with `JSON.stringify`,
+// and that function builds its object in `BOOST_MEMBERS` order. Keep the two in step.
+var BOOST_SIGMA_OF_RECORD = { gold: 0.45, provisions: 0.10, mana: 1.00, crystals: 0.50,
                               devotion: 0.25, knowledge: 0.10, ore: 0.05, vigor: 1.00 };
 function boostSigmaLive() {
   var o = {};
@@ -3453,6 +3481,13 @@ var UPGRADES = [
   { id: "hexresonance", name: "Hexresonance", cost: { crystals: 80, hexgear: 30 }, tech: "hexcore",
     lore: "Tune the crystal to the leyline instead of fighting it.",
     effect: "All mana production +25%."},
+  // v0.65 PART 4 — the fourth mana Discovery. See `LEYLINE_LENSING_MANA` for the deficit that
+  // triggered it and why the target is Era-3 raw THROUGHPUT rather than a positive net figure.
+  // It pays Part 1's knowledge rule like every other Discovery (0.8 x 75,000 = 60,000) and,
+  // because its fiction is hextech, it joins `DISCOVERY_CRYSTAL_SET` at 75,000/100 = 750.
+  { id: "leylineLensing", name: "Leyline Lensing", cost: { hexgear: 40, alloy: 30 }, tech: "hexcore",
+    lore: "Bend the line instead of tapping it. The wells stop arguing and start agreeing.",
+    effect: "All mana production +" + Math.round(LEYLINE_LENSING_MANA * 100) + "%."},
   // v0.58.1 NOTE 48.2 — the three discoveries that give the Manufactory a trade. All three are
   // gated on `hexdraulics`, the same tech that unlocks the building, so a player who buys the
   // building can immediately see what it might become. Each is priced against what it unlocks
@@ -3760,7 +3795,9 @@ var DISCOVERY_KNOWLEDGE_SET = [
   // v0.65 PART 2.4 — the weapon line. A weapon rung is a METHOD by this set's own rule (a
   // technique someone had to work out), and the source charges science on all three. Note this
   // membership becomes moot at Part 1, which deletes the set and prices every Discovery.
-  "huntersDraw", "latchAndLever", "arclightLance"
+  "huntersDraw", "latchAndLever", "arclightLance",
+  // v0.65 PART 4 — the fourth mana Discovery. Also moot at Part 1.
+  "leylineLensing"
 ];
 (function applyDiscoveryKnowledge() {
   var techK = {};
@@ -3944,7 +3981,12 @@ var DISCOVERY_CRYSTAL_SET = [
   // — the hextech assembly and frame lines —
   "hexboundJoinery", "petriciteFrames", "atlasGauntletsUp", "hexcreteFrames", "voidwrightFrames",
   // — the late hextech and voidglass works —
-  "greyScrubbers", "standardHour", "voidglassLenses", "voidwardStores"
+  "greyScrubbers", "standardHour", "voidglassLenses", "voidwardStores",
+  // v0.65 PART 4 — the fourth mana Discovery is hextech fiction on a post-Sparks rung, so it
+  // takes the crystal component every post-Sparks Discovery takes. Kittens charges BOTH a
+  // scarce crafted component and science on 101 of its 107 such upgrades (94%), which is the
+  // same measurement that retires the "not taxed twice for being late" exemption in Part 1.
+  "leylineLensing"
 ];
 (function applyDiscoveryCrystals() {
   var techK = {};
