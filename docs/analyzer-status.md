@@ -25,7 +25,8 @@ table wins.
 | Previous build | **v0.63**, tagged `v0.63` — the per-rung discovery cap, steel-is-iron, and **STANDING-RULINGS §32: the simulator has ONE random stream** |
 | Last consumed spec | **`docs/specs/rr-analyzer-v064-spec.md`** (consumed by v0.64; moved out of the root) |
 | Last consumed dev notes | **Jerry's four v0.64 notes** — Sump Ventilation, the converter definition, the Sump Crawl cooldown, and the devotion role separation — in `docs/gameplay-notes.md`. All four shipped exactly as directed. |
-| Current spec, awaiting a builder | **NONE.** `current-build-spec.md` was consumed by v0.64 and moved to `docs/specs/`. If a file is at the root and this row says none is pending, the file is a leftover and this table wins. |
+| Current spec, awaiting a builder | **`current-build-spec.md` at the repo root — BUILDER SPEC v0.65**, written this session against a fresh checkout of the `v0.64` tag. Jerry's three dev notes (Training Ground vigor, discovery knowledge coverage, the Longhouse's provisions component) and the builder's six notes are all placed. **The round that consumes it MOVES it to `docs/specs/rr-analyzer-v065-spec.md`.** |
+| **v0.65's shape** | **Six parts and two ensembles.** The round's weight is Part 1 — **the discovery ladder's knowledge COVERAGE, 41% against the source's 93%** — which raises pre-Icathia research spend ×2.2 against a currency measured idle at its ceiling **82.8%** of the run. **E0 does not need running: this analyzer re-measured the v0.64 baseline and it reproduces to the digit.** |
 | Live suites | **35 suites, 1,907 `check()` call sites, 1,956 assertions, all passing** under `node tools/run-suites.mjs --selftest`. `tests/test-v64.mjs` is new, **81 assertions**. **Fourteen superseded call sites re-pointed across thirteen suites — build report §7.** |
 | **PARITY LEDGER — FINISHED** | **225 rows — PARITY 87, EASIER 116, HARDER 22, UNVERIFIED 0.** Four `BOOST_LIMIT` rows moved to PARITY on the rails; the **Chapel moved PARITY → HARDER** on dev note 4's directed rate cut, which is the honest label §16 requires rather than a parity claim; the Marus's retired faucet row was **re-rated rather than deleted**. |
 | **THE GATE, AND WHAT IS NOT KNOWN ABOUT IT** | Icathia **2,234.7 / 1,339.9 / 1,694.2**; peak population **165 / 191 / 180**. **Which change did it is NOT established**, and two candidates are both large: Part 1.2a's ceiling relief (the two-tier ceiling was 78 by the spec's arithmetic and reads **135** at end of run, material-bound) and **dev note 2's converter ruling (×4.28 → ×20.35 on the Zaun extractors — ×4.75 on the Era-3 raws)**. One ensemble cannot separate them and the report does not claim it does. |
@@ -146,6 +147,129 @@ shaft at `:9915` — **offset the phases or the two will strobe together.**
 **Both Crest changes are asserted by holding the buff, reading the canvas, expiring it and reading
 again — never by grep.** That is the v0.61 §3 lesson: the festival chip's assertion grepped for a
 string and passed for two rounds while the feature never fired.
+
+## v0.65 — the analyzer's verification pass
+
+**Verified from a fresh clone at the `v0.64` tag, from disk, with Kittens cloned and pinned at
+`c52985b`. Nothing below is taken from the build report.**
+
+### Everything the round claimed reproduces, and the ensemble reproduces to the digit
+
+- **35 suites** under `node tools/run-suites.mjs --selftest`: **1,907 `check()` call sites, 1,956
+  assertions executed, 1,956 passed, 0 failed**, no missing trailer, no skipped site, no non-zero
+  exit; the scratch suite that throws FAILED the round as it must. *(A fresh checkout has no
+  `node_modules` — `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install` first, or all 35 suites die with
+  `ERR_MODULE_NOT_FOUND` and the runner correctly calls it a dead round. §8's rule: a zero is a claim
+  about the apparatus until the apparatus is checked.)*
+- **`tools/parity-ledger.mjs`** regenerates **225 rows — PARITY 87, EASIER 116, HARDER 22,
+  UNVERIFIED 0**, byte-identical to the committed file.
+- **`tools/era-gate-audit.mjs`**: **51 buildings, 27 gated, Era-2+ ungated 2** — the report's figures.
+- **`snapshots/v64/s8.html` is byte-identical to `index.html`** (`sha256 c170821…b854074`). The §9
+  forward-built chain proof holds.
+- **The three-seed 2,500-year ensemble, re-run independently (4,463 s wall), reproduces BUILD REPORT
+  §11.2 and §11.3 on EVERY figure:** Icathia **2,234.7 / 1,339.9 / 1,694.2**, peak population
+  **165 / 191 / 180** (median 180), Era 3 median **1,262.7**, Sparks **855.3 / 510 / 431.5**, Rites
+  **103.4 / 61.3 / 68.6**, first champion **134.6 / 248.4 / 135.6**, **4 of 10 conditions failing**,
+  mana at hexcore **−0.3994/s ratio 1.0033** and at final **−14.52/s ratio 1.011**, `convMult`
+  worked **×7.008** / autoprod **×20.350**, knee audit **0 families past the knee**.
+- **Every v0.64 spec Part shipped or carries a stated non-action.** Part-by-part table in
+  `current-build-spec.md` §10. The two non-actions — Part 1.2b and the fourth mana Discovery — are
+  both justified in the report; **the second is discharged by v0.65 Part 4.**
+
+### Two discrepancies, both in the report's prose rather than its measurements
+
+1. **BUILD REPORT §3.3 says "two residual outliers" outside the source's per-upgrade band. There are
+   five** — `standingOrders` 0.10, `surveyedApproaches` 0.10, `slabCutting` 0.70, `beastLore` 1.25,
+   `chemtechDistillation` 1.364. Its stronger claim — every GENERATED member sits exactly at 0.80 —
+   is true.
+2. **`index.html:3571`'s comment claims the knowledge set takes the game "from 10 of 78 to 35 of 78
+   — 13% to 45%". Measured coverage is 32 of 78 — 41%.**
+
+Neither changes a conclusion. They are recorded because §8's failure mode runs both ways: flagging
+shipped work as unshipped is the loud error and waving a figure through because the argument around
+it is sound is the quiet one.
+
+### THE FINDING THAT SHAPES v0.65 — the coverage half of v0.63 note 1 was never actioned
+
+Jerry's v0.63 note 1 asked *"every workshop upgrade costs science in Kittens — confirm and match."*
+The round confirmed the **rate** (RR 0.80 inside the source's 0.73–1.00) and `docs/gameplay-notes.md`
+struck the note through on that basis. **The coverage half was never actioned, and Jerry has now
+raised it again.**
+
+| | Kittens @ `c52985b` | RR @ `v0.64` |
+|---|---|---|
+| priced upgrades | 143 | 78 |
+| carrying the research currency | **133 — 93%** | **32 — 41%** |
+| per-upgrade ratio | IQR 0.73–1.00, median 0.87 | 0.80 |
+| upgrade research ÷ tech research | 0.470 | **0.0735** |
+
+**All four of RR's stated exemptions are contradicted by the source, by name:** `steelAxe` costs
+science 20,000, `titaniumAxe` 38,000, `alloyAxe` 70,000 (so the tool-line exemption fails);
+`stoneBarns` 500, `reinforcedBarns` 800, `titaniumBarns` 60,000 (storage fails); and **107 Kittens
+upgrades carry a scarce crafted component, 101 of which ALSO carry science — 94%** (so *"a Discovery
+is not taxed twice for being late"* fails). The source's only ten science-free upgrades are all
+priced in post-reset prestige currencies RR has no counterpart for.
+
+### AND THE 0.470 COMPARISON THE LAST TWO ROUNDS USED IS THE WRONG ONE
+
+**Six Kittens techs carry 32,000,000 of the source's 42,226,130 total science and hold essentially no
+upgrades** (`exogeophysics` 25,000,000 with zero). The whole-game ratio is diluted by an endgame RR
+does not have — the same whole-against-a-part conflation §31.2a retracted.
+
+| | total tech research | total upgrade research | ratio |
+|---|---|---|---|
+| **Kittens, techs ≤135,000 science** (RR's own largest rung) | **1,431,130** | **2,723,750** | **1.903** |
+| **RR, whole tree** | **1,442,630** | **106,010** | **0.0735** |
+
+**Like for like, over trees of the same size, RR is at 3.9% of the source rather than 16%.** Full
+coverage at the existing 0.8 × K rule gives **2,003,370 → 1.389**, still 27% under the source.
+
+### The supply side, measured, and it is why Part 1 is shippable rather than reckless
+
+**Knowledge sits at its ceiling 82.8% of a 2,500-year run** and `resourceBalance` classifies it among
+the *"lumpy-sink resources sitting at their ceiling"*. Its multiplier reaches **×46.18** at end of
+run and delivers `1 + Σ` to 0.000%. **Every housing tier at every milestone is stock-bound on timber,
+ore or alloy; not one is knowledge-bound.** A research bill 2.2× larger is being levied on the one
+currency the settlement is already full of.
+
+### Dev note 1 — deleting the Training Ground's vigor term ALONE over-corrects below the source
+
+Vigor's raw Σ at final is **5.4432** and it decomposes into exactly four terms: the Training Ground
+**5.0622 (93.0%, ≈51 copies)**, Poppy's passive 0.15, the cloud drake 0.231, policy 0. **Deleting the
+building term alone gives Σ 0.381 → ×1.38 against the source's ×2.00.** Kittens' entire manpower
+production multiplier is three WEAPON upgrades — `compositeBow` 0.50, `crossbow` 0.25, `railgun` 0.25
+(`js/workshop.js:672–720`), **Σ 1.00 on `manpowerJobRatio`** — plus a policy-gated Brewery term
+(`js/buildings.js:1762`, `js/science.js:1454`, 0.01). **No Kittens BUILDING multiplies manpower
+production.** v0.65 Part 2 therefore deletes the building term and ports the weapon line, landing
+vigor at Σ 1.381 → **×2.38** against the source's ×2.00, the excess being RR's two already-ledgered
+EASIER terms.
+
+### Dev note 3 — Jerry's conditional evaluates to "not limiting then, limiting now"
+
+At 300 game-years the settlement stood 12 Longhouses against the 29 the old ceiling allowed, so the
+1,200-provisions component was **not** a limiting factor. **At end of run it would be:** provisions
+cap 976,685 gives the old component a ceiling-bound maximum of **48 copies against a stock-bound 59**
+— it would cost 11 population. v0.65 Part 3 restores it at **`provisions: 30`**, the largest base
+whose ceiling-bound count exceeds the stock-bound count by ≥25% at **all four** milestones
+(margins 1.40 / 1.32 / 1.31 / 1.27), ledgered **RR-ORIGINAL / HARDER** because
+`js/buildings.js:476–487` has no food component. **The never-bind rule caps the sink at ~93,500
+provisions over a run; if Jerry wants a larger one, the Longhouse is structurally the wrong carrier.**
+
+### Rulings this pass makes
+
+- **Builder note 5, ruled: per-upgrade parity is the target, not Rites-under-75.** Rites-before-y75
+  is an RR-original milestone that was never derived — §27's precedent exactly — while the
+  per-upgrade band is the invariant the source holds tight. The condition is **restated, not
+  deleted**, as a `[median]` band of y50–200. v0.65 Part 6.
+- **Builder note 3, answered by instrumenting the confounder rather than by taking more seeds
+  alone.** `firstPZChampion` — the year the first Piltover/Zaun champion is recruited — is emitted,
+  and **`sparks − firstPZChampion`** becomes the attributable figure. The three affected conditions
+  are labelled `[draw]`: reported, not failed, until the instrument produces a distribution. The
+  final gate also moves to **five seeds**. v0.65 Part 5.
+- **Not touched, deliberately:** `CONV_DISCOVERY_LINE`'s Σ0.65 (builder note 4 — Era 3 is longer, not
+  shorter, so there is nothing to correct, and it stays available as the release valve), Part 1.2b
+  (builder note 6), population and the population band (builder note 1 — both cleared, and both are
+  **guard** conditions this round rather than targets), `CRYSTAL_SINK_MAX`, `BOOST_LIMIT`.
 
 ## v0.64 — the analyzer's verification pass
 
