@@ -481,12 +481,19 @@ export async function runSim(page, years, seed = 1) {
             const out2 = {};
             fams.forEach(f => {
               const list = acc[f].sort((a, b) => Math.abs(b.amt) - Math.abs(a.amt));
-              const sum = exact[f] || 0;      // UNROUNDED — see `add()` above
+              // **COMPARE LIKE FOR LIKE.** `boostKneeFrom()` publishes `raw` already rounded to
+              // FOUR decimal places, so an exact sum can never equal it and a strict tolerance
+              // reports every family as unreconciled — which the first two runs of this block
+              // duly did, at 1.3e-5 and 4.9e-5, on families that were perfectly attributed. The
+              // sum is rounded the same way before the comparison, and the tolerance is sized to
+              // the published precision rather than to floating point.
+              const sumExact = exact[f] || 0;
+              const sum = +sumExact.toFixed(4);
               const raw = (k[f] || {}).raw || 0;
               out2[f] = {
-                raw: +raw.toFixed(6), namedSum: +sum.toFixed(6),
-                reconciles: Math.abs(sum - raw) < 1e-6,
-                unattributed: +(raw - sum).toFixed(6),
+                raw: +raw.toFixed(6), namedSum: +sumExact.toFixed(6),
+                reconciles: Math.abs(sum - raw) < 1e-4,
+                unattributed: +(raw - sumExact).toFixed(6),
                 // the share of the family each contributor carries — the figure Part 2 quotes
                 terms: list.map(t => ({ ...t, pctOfRaw: raw > 1e-9 ? +(100 * t.amt / raw).toFixed(1) : null }))
               };
