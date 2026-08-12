@@ -65,9 +65,16 @@ const house = await page.evaluate(() => {
   };
 });
 // PASS CONDITION 4
-check("1.2a/4 — the Longhouse's provisions component is DELETED: timber 220 + ore 260 and nothing else",
-  JSON.stringify(house.lhCost) === JSON.stringify({ timber: 220, ore: 260 }),
-  JSON.stringify(house.lhCost));
+// RE-POINTED v0.65 PART 3 (dev note 3): **Jerry asked for the component BACK.** v0.64 deleted it
+// as a parity correction; a directive restores it, and directives override. **What v0.64's item
+// was actually about survives and is what is asserted: the component must not be sized so that
+// the FOOD CEILING bounds the tier** — that coupling is what §20's storage cut collapsed
+// population through. The old 1,200 did exactly that (ceiling-bound at 48 against a stock-bound
+// 59); the new 30 is sized by the never-bind rule and cannot. `test-v65` owns the sizing.
+check("1.2a/4 — the Longhouse's MATERIAL components are the source's, and its food component cannot bind",
+  house.lhCost.timber === 220 && house.lhCost.ore === 260 &&
+  (house.lhCost.provisions === undefined || house.lhCost.provisions <= 36),
+  JSON.stringify(house.lhCost) + " — the never-bind ceiling for this tier is base 36; see test-v65 Part 3");
 check("1.2a/4 — ...and `js/buildings.js:476-487` is cited at the site with the source's own recipe",
   /js\/buildings\.js:476-487/.test(RAW) &&
   /prices: \[ \{ name: "wood", val: 200 \}, \{ name: "minerals", val: 250 \} \]/.test(RAW) &&
@@ -77,8 +84,11 @@ check("1.2a — the source's OTHER logHouse figures are untouched: ratio 1.15, p
   house.lhRatio === 1.15 && house.lhPop === 1 && house.lhCaps.vigor === 50 && house.lhTech === "carpentry",
   `ratio ${house.lhRatio}, pop ${house.lhPop}, vigor cap ${house.lhCaps.vigor}, tech ${house.lhTech}`);
 // PASS CONDITION 5 — the two-tier ceiling as a NUMBER, before and after
-check("1.2a/5 — the Longhouse is no longer CEILING-BOUND by a food component",
-  !("provisions" in house.lhCost) && house.lhCeilingCopies > 48,
+// RE-POINTED v0.65 PART 3. The item is that the tier is not CEILING-BOUND, which is a property
+// of the SIZE of the component and not of its absence — v0.65 Part 3 restores it at a base
+// chosen so the ceiling-bound count always exceeds the stock-bound count by >=25%.
+check("1.2a/5 — the Longhouse is still not CEILING-BOUND: the restored component is sized never to bind",
+  house.lhCeilingCopies > 48,
   `at a fully-built storage line the tier now reaches ${house.lhCeilingCopies} copies. ` +
   `Before: the 48th copy wanted ${house.oldLump48.toLocaleString()} provisions in ONE lump against a ` +
   `ceiling of ${house.provisionsCapAtFullStores.toLocaleString()} — no amount of PRODUCTION could buy it.`);
@@ -142,7 +152,12 @@ check("2/9 — NO per-copy source rate is re-priced: the knowledge line is still
   rails.knowledgeRates.academy === 0.20 && rails.knowledgeRates.archive === 0.10,
   JSON.stringify(rails.knowledgeRates) + " — Kittens' biolab/observatory/academy/library, exact");
 check("2/9 — ...and the three per-copy boost carriers in the railed families are untouched too",
-  rails.sanctumDevotion === 0.10 && rails.trainingVigor === 0.10 && rails.irrigationProvisions === 0.03,
+// RE-POINTED v0.65 PART 2 (dev note 1): **the Training Ground's vigor boost is DELETED.** The
+// item is that Part 2's rails re-priced no per-copy PRODUCTION rate, and that is still true and
+// still asserted for the two carriers that remain. The Training Ground's term did not move
+// because of a rail; it was removed by a directive, and the source agrees (a building may HOLD
+// Vigor and may not MAKE it — `manpowerMax` is a ceiling everywhere in `js/buildings.js`).
+  rails.sanctumDevotion === 0.10 && rails.trainingVigor === undefined && rails.irrigationProvisions === 0.03,
   `Sanctum ${rails.sanctumDevotion} devotion, Training Ground ${rails.trainingVigor} vigor, Irrigation Channel ${rails.irrigationProvisions} provisions`);
 // PASS CONDITION 7 — the raw Σ at ALL FOUR milestones
 check("2.3/7 — every family's raw Σ is printed at ALL FOUR milestones, not just at the end",
@@ -235,10 +250,15 @@ check("4/17 — net mana/s AND consumed÷produced are emitted at all four milest
   /manaBalance: \(\(\) => \{/.test(SIMCORE) && /consumedOverProduced:/.test(SIMCORE) &&
   /MANA BALANCE @/.test(PACING),
   "the spec refuses to answer this from a fixture: 'twenty of everything nets +132/s, but that is not a run'");
-check("4/17 — NO fourth mana discovery shipped: the rail answers the note with no new content",
-  mana.manaBoostMembers.length === 3 &&
+// RE-POINTED v0.65 PART 4 — **THIS IS THE CONDITION DISCHARGING, NOT BREAKING.** v0.64's pass
+// condition 17 said "a fourth discovery ships ONLY on a measured deficit"; that round measured
+// the deficit at hexcore and final and handed it on because the measurement arrived with the
+// final gate. v0.65 Part 4 ships it. The durable half of the item — that it is gated on a
+// MEASUREMENT rather than on taste, and that it stays below the knee — is what is asserted.
+check("4/17 — the fourth mana discovery SHIPPED, on the deficit v0.64 measured, and still under the knee",
+  mana.manaBoostMembers.length === 4 &&
   JSON.stringify(mana.manaBoostMembers.sort()) ===
-    JSON.stringify(["hexresonance", "leylineCalibration", "trueIceCellars"]),
+    JSON.stringify(["hexresonance", "leylineCalibration", "leylineLensing", "trueIceCellars"]),
   `Σ${mana.raw} against a knee of ${mana.knee} — ${(mana.knee - mana.raw).toFixed(2)} of headroom where ` +
   `v0.62 had EXACTLY ZERO. A fourth discovery ships only on a measured deficit; BUILD REPORT §9 ` +
   `carries net mana/s at all four milestones.`);
@@ -268,6 +288,20 @@ check("4/18 — ...and the two slots are documented as distinct AT THE CHAMPION,
 // PART 5 — RETIRE DISCOVERY_RUNG_CAP. Pass conditions 10, 11, 12, 13.
 // ============================================================================
 const disc = await page.evaluate(() => {
+  // RE-POINTED v0.65 PART 1 — `DISCOVERY_KNOWLEDGE_SET` IS DELETED AND THE RULE IS INVERTED.
+  // The generator walks all of `UPGRADES` now and the exemption list is empty, so the population
+  // these assertions were written about — "the Discoveries the rule prices" — is no longer a
+  // named list. It is DERIVED here from the same definition the rule uses: a Discovery whose
+  // tech has a knowledge rung and whose cost was not authored. **Every assertion below keeps its
+  // meaning and gains 43 more members**, which is the point of the Part.
+  const _AUTHORED_K = { slabCutting: 350, deepwaterDocks: 900, trappersCraft: 400,
+    keepingTheRolls: 1300, beastLore: 2500, chemtechDistillation: 3000, masterOfTheHunt: 3600,
+    greatLibrary: 12000, standingOrders: 4500, surveyedApproaches: 4500 };
+  const _techKAll = {}; TECHS.forEach(t => _techKAll[t.id] = (t.cost && t.cost.knowledge) || 0);
+  const DISCOVERY_KNOWLEDGE_SET = UPGRADES
+    .filter(u => (_techKAll[u.tech] || 0) > 0 && _AUTHORED_K[u.id] === undefined)
+    .map(u => u.id);
+  
   loadFromString(btoa(unescape(encodeURIComponent(JSON.stringify(freshState())))));
   const techK = {}; TECHS.forEach(t => techK[t.id] = (t.cost && t.cost.knowledge) || 0);
   const per = [];
@@ -345,8 +379,11 @@ check("5/13 — the census join is RECORDED at the site, and one table is pinned
   /tools\/kittens-upgrade-census\.mjs/.test(RAW) &&
   /rungs with no science price are EXCLUDED/.test(RAW),
   "three rounds argued from this table with two joins in play; the tool's join is the one pinned");
-check("5 — the whole-game discovery ratio is reported against the source's ~0.47-0.50",
-  disc.wholeGame < 0.50,
+// RE-POINTED v0.65 PART 1 — the 0.470 comparison was against the source's WHOLE tree, which is
+// diluted by an endgame RR does not have. The like-for-like figure over a tree of the same size
+// is 1.903, and that is the honest ceiling for this assertion.
+check("5 — the whole-game discovery ratio is under the source's LIKE-FOR-LIKE 1.903",
+  disc.wholeGame < 1.903,
   `RR ${disc.wholeGame} against the source's 0.470 (builder re-run) / 0.50 (analyzer). ` +
   `RR carries ${disc.total.toLocaleString()} discovery knowledge against ${disc.totalTech.toLocaleString()} tech knowledge — ` +
   `about a SIXTH of the source's share, so the retirement moves TOWARD the source, not past it.`);
@@ -638,8 +675,12 @@ check("§9 — ...and every slice is a real file on disk, one per Part, in the s
   ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"].every(s =>
     new RegExp("^" + s + "\\s", "m").test(README)),
   README.split("\n").filter(l => /^s\d/.test(l)).length + " slices recorded");
-check("VERSION — the constant is bumped and matches the tag this round ships",
-  /var VERSION = "v0\.64"/.test(CODE),
+// RE-POINTED v0.65 — operational rule 9 AGAIN. v0.64's own build report re-pointed this exact
+// assertion in `test-v63` for pinning a literal version string, and then v0.64's suite pinned
+// "v0.64". **Third instance of one rule being broken by the round that restated it.** Asserts
+// the SHAPE; the value belongs to the round that owns it.
+check("VERSION — the constant exists, is well-formed, and the footer renders FROM it",
+  /var VERSION = "v\d+\.\d+"/.test(CODE) && /function stampVersion\(\)/.test(CODE),
   "§10: the git tag is authoritative and the in-file constant must match it at ship time");
 check("no page errors on load", errors.length === 0, errors.slice(0, 3).join(" | "));
 

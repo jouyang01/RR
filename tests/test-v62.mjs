@@ -592,11 +592,30 @@ check("9/22 — the generator still ABORTS on an UNVERIFIED row lacking a record
 // DEV NOTE 1 — the knowledge sink
 // ============================================================================
 const kn = await page.evaluate(() => {
+  // RE-POINTED v0.65 PART 1 — `DISCOVERY_KNOWLEDGE_SET` IS DELETED AND THE RULE IS INVERTED.
+  // The generator walks all of `UPGRADES` now and the exemption list is empty, so the population
+  // these assertions were written about — "the Discoveries the rule prices" — is no longer a
+  // named list. It is DERIVED here from the same definition the rule uses: a Discovery whose
+  // tech has a knowledge rung and whose cost was not authored. **Every assertion below keeps its
+  // meaning and gains 43 more members**, which is the point of the Part.
+  const _AUTHORED_K = { slabCutting: 350, deepwaterDocks: 900, trappersCraft: 400,
+    keepingTheRolls: 1300, beastLore: 2500, chemtechDistillation: 3000, masterOfTheHunt: 3600,
+    greatLibrary: 12000, standingOrders: 4500, surveyedApproaches: 4500 };
+  const _techKAll = {}; TECHS.forEach(t => _techKAll[t.id] = (t.cost && t.cost.knowledge) || 0);
+  const DISCOVERY_KNOWLEDGE_SET = UPGRADES
+    .filter(u => (_techKAll[u.tech] || 0) > 0 && _AUTHORED_K[u.id] === undefined)
+    .map(u => u.id);
+  
   const tk = {}; TECHS.forEach(t => tk[t.id] = (t.cost && t.cost.knowledge) || 0);
   return {
     divisor: DISCOVERY_KNOWLEDGE_DIVISOR,
     // RE-POINTED v0.63 (Part 1's per-rung cap): the GENERATOR still emits `round(K / divisor)`,
     // but five rungs then scale down proportionally, so the shipped figure is `<=` that.
+    // v0.65 Part 1 — the two figures the re-pointed sink assertion reads.
+    maxPerTech: (() => { const c = {}; UPGRADES.forEach(u => { if ((u.cost&&u.cost.knowledge))
+      c[u.tech] = (c[u.tech]||0)+1; }); return Math.max(...Object.values(c)); })(),
+    perUpgradeAllUnderRung: UPGRADES.every(u => { const k=(u.cost&&u.cost.knowledge)||0;
+      const K=_techKAll[u.tech]||0; return !k || !K || _AUTHORED_K[u.id] !== undefined || k <= K; }),
     ruleHolds: DISCOVERY_KNOWLEDGE_SET.every(id => {
       const u = UPGRADES.find(x => x.id === id);
       return u.cost.knowledge > 0 &&
@@ -637,9 +656,18 @@ check("note 1 — ...and 0.8× is derived from THIS FILE'S OWN authored band, no
   /The authored band is 0\.70x to 3\.33x/.test(RAW) &&
   /slabCutting          350 on mining        500   =  0\.70 x the rung/.test(RAW),
   "ten hand-priced discoveries have always run 0.70×–3.33× their rung; the generated rule sat at 0.10×");
-check("note 1 — it is a SINK and not a wall: at most three knowledge discoveries sit on any one tech",
-  kn.maxPerTech === 3,
-  `max ${kn.maxPerTech} per tech = at most 2.4× the rung, spread over three separate purchases`);
+// RE-POINTED v0.65 PART 1 (dev note 2). **The "at most three per tech" figure was a PROPERTY OF
+// THE NAMED SET, not of the rule, and the set is deleted.** With every Discovery priced, the
+// densest rung is `smelting` at ten. **That is reported and NOT capped**: v0.64 Part 5 closed the
+// question by measuring the source's own per-rung range at 0.30-8.19, so a per-rung total is not
+// a Kittens invariant and `DISCOVERY_RUNG_CAP` must not be re-derived. What survives — and what
+// this asserts — is the SINK-not-wall property in its durable form: every leaf is a separate
+// purchase priced at a FRACTION of its own rung, so no single Discovery can gate its tech.
+check("note 1 — it is a SINK and not a wall: every leaf is a FRACTION of its own rung, however many share it",
+  kn.perUpgradeAllUnderRung,
+  `densest rung now carries ${kn.maxPerTech} Discoveries (the named set capped it at three). ` +
+  `Every GENERATED leaf is 0.8 x its own rung, so the rung is never gated by one purchase — and ` +
+  `the per-RUNG total is not a Kittens invariant (source range 0.30-8.19, v0.64 Part 5, closed).`);
 // RE-POINTED TWICE, AND THE SECOND RE-POINT RESTORES THE ORIGINAL CLAIM. v0.63 weakened this to
 // "the cap scales authored figures too"; **v0.64 Part 5 retires the cap on Jerry's dev note 4, so
 // NOTHING scales an authored figure any more.** The two outliers were re-based BY HAND to the

@@ -322,10 +322,17 @@ check("14 — Part 7.2.5: the Wilds and expedition block is taken — twelve row
 // like this is an ENSEMBLE condition with a declared shape, so the label carries the shape and
 // the reason rather than a re-base note. What is asserted is that the y75 threshold survives
 // AND that it now declares itself a median condition with a stated reason.
-check("15 — Rites of Targon is a y75 MEDIAN condition with its shape and reason stated (v0.58 Part 1)",
-  /id: "rites", label: "Rites of Targon before year 75"/.test(PACING) &&
+// RE-POINTED v0.65 PART 6 — **RULED: per-upgrade parity is the target, not Rites-under-75.**
+// The y75 ceiling was an RR-ORIGINAL target that was never derived — Kittens has no "first
+// religion by year N" anywhere in the source — and §27 retired "130 wanderers before year 600"
+// on exactly this reasoning after five consecutive failures. It becomes a y50-200 BAND. **The
+// item this assertion owns is the SHAPE and the stated reason, which v0.58 Part 1 introduced and
+// which is what makes a condition auditable at all; the threshold was never its subject.**
+check("15 — Rites of Targon is a MEDIAN condition with its shape and reason stated (v0.58 Part 1)",
+  /id: "rites", label: "Rites of Targon inside the y50-200 band/.test(PACING) &&
   /shape: "median"/.test(PACING) &&
-  /an EARLY-PACE condition, and early pace is a distribution rather than a worst case/.test(PACING));
+  /a BAND, not a ceiling, and the band is the honest shape once per-upgrade parity is/.test(PACING) &&
+  /v0\.65 PART 6 — RULED: PER-UPGRADE PARITY IS THE TARGET/.test(PACING));
 // The first draft of this assertion pinned the phrase "trend is MONOTONE TOWARD THE TARGET",
 // which was the argument I gave for keeping the condition — and the v0.57 ensemble reversed the
 // trend (1.42 / 2.87 / 3.71 against v0.56's 4.17 / 4.40). The argument is withdrawn in the

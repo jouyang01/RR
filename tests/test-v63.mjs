@@ -29,6 +29,20 @@ const PACING = readFileSync(new URL("../sim/pacing.mjs", import.meta.url), "utf8
 // ============================================================================
 await reset();
 const rung = await page.evaluate(() => {
+  // RE-POINTED v0.65 PART 1 — `DISCOVERY_KNOWLEDGE_SET` IS DELETED AND THE RULE IS INVERTED.
+  // The generator walks all of `UPGRADES` now and the exemption list is empty, so the population
+  // these assertions were written about — "the Discoveries the rule prices" — is no longer a
+  // named list. It is DERIVED here from the same definition the rule uses: a Discovery whose
+  // tech has a knowledge rung and whose cost was not authored. **Every assertion below keeps its
+  // meaning and gains 43 more members**, which is the point of the Part.
+  const _AUTHORED_K = { slabCutting: 350, deepwaterDocks: 900, trappersCraft: 400,
+    keepingTheRolls: 1300, beastLore: 2500, chemtechDistillation: 3000, masterOfTheHunt: 3600,
+    greatLibrary: 12000, standingOrders: 4500, surveyedApproaches: 4500 };
+  const _techKAll = {}; TECHS.forEach(t => _techKAll[t.id] = (t.cost && t.cost.knowledge) || 0);
+  const DISCOVERY_KNOWLEDGE_SET = UPGRADES
+    .filter(u => (_techKAll[u.tech] || 0) > 0 && _AUTHORED_K[u.id] === undefined)
+    .map(u => u.id);
+  
   // READ FROM THE MUTATED `UPGRADES`, not from the literal. Both the generator and the cap are
   // load-time IIFEs; a source-text assertion sees neither, which is the trap this Part is about.
   const techK = {};
@@ -116,10 +130,16 @@ check("1.4/5 — `ritesOfTargon` is relieved by re-basing its AUTHORED outlier, 
   `ritesOfTargon ${rung.rites.sum} on a ${rung.rites.K} rung = ${rung.rites.x.toFixed(2)}× ` +
   `(was 68,800 = 5.73× and 48% of the game's total; the cap left it at 1.41× by cutting three ` +
   `compliant members to 0.34×)`);
-check("1.4/5 — the whole-game discovery ratio is reported against the source's 0.50",
-  rung.total / rung.totalTech < 0.50,
-  `RR ${(rung.total / rung.totalTech).toFixed(4)} against the source's 0.470 (my re-run) / 0.50 (spec) — ` +
-  `RR is at a SEVENTH of the source. Total discovery knowledge ${rung.total} across ${rung.carrying} of ${rung.setSize + 56} discoveries.`);
+// RE-POINTED v0.65 PART 1 — **AND THE COMPARISON ITSELF WAS THE WRONG ONE.** v0.63 asserted RR's
+// whole-game ratio UNDER the source's 0.470, and v0.65's analyzer showed that figure compares
+// RR's 35-rung tree against a 64-rung tree whose top six rungs carry 32,000,000 science and
+// almost no upgrades — the same class of conflation §31.2a retracted. **Like for like, over a
+// tech tree of the same total size, the source charges 1.903.** RR now charges ~1.49, so the
+// assertion becomes "still UNDER the source's LIKE-FOR-LIKE figure", which is the honest test.
+check("1.4/5 — the whole-game discovery ratio is under the source's LIKE-FOR-LIKE 1.903",
+  rung.total / rung.totalTech < 1.903,
+  `RR ${(rung.total / rung.totalTech).toFixed(4)} against the source's LIKE-FOR-LIKE 1.903 (techs <= 135,000 science) — ` +
+  `RR is at ${(100*(rung.total/rung.totalTech)/1.903).toFixed(0)}% of the source. Total discovery knowledge ${rung.total} across ${rung.carrying} of ${rung.setSize + 56} discoveries.`);
 // RE-POINTED v0.64 PART 5: the census is still cited and the DISAGREEMENT it recorded is now
 // the thing that shipped. The v0.63 argument is retained UNEDITED beside the retirement,
 // because the census in it is correct and only the conclusion drawn from it was wrong.

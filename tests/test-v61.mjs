@@ -443,6 +443,20 @@ check("9/18 — the re-roll penalty is CLEAN after a no-undo hunt, not left behi
 // PART 10 + DEV NOTE 3 — the two research currencies
 // ============================================================================
 const price = await page.evaluate(() => {
+  // RE-POINTED v0.65 PART 1 — `DISCOVERY_KNOWLEDGE_SET` IS DELETED AND THE RULE IS INVERTED.
+  // The generator walks all of `UPGRADES` now and the exemption list is empty, so the population
+  // these assertions were written about — "the Discoveries the rule prices" — is no longer a
+  // named list. It is DERIVED here from the same definition the rule uses: a Discovery whose
+  // tech has a knowledge rung and whose cost was not authored. **Every assertion below keeps its
+  // meaning and gains 43 more members**, which is the point of the Part.
+  const _AUTHORED_K = { slabCutting: 350, deepwaterDocks: 900, trappersCraft: 400,
+    keepingTheRolls: 1300, beastLore: 2500, chemtechDistillation: 3000, masterOfTheHunt: 3600,
+    greatLibrary: 12000, standingOrders: 4500, surveyedApproaches: 4500 };
+  const _techKAll = {}; TECHS.forEach(t => _techKAll[t.id] = (t.cost && t.cost.knowledge) || 0);
+  const DISCOVERY_KNOWLEDGE_SET = UPGRADES
+    .filter(u => (_techKAll[u.tech] || 0) > 0 && _AUTHORED_K[u.id] === undefined)
+    .map(u => u.id);
+  
   const techK = {}; TECHS.forEach(t => techK[t.id] = (t.cost && t.cost.knowledge) || 0);
   const post = postSparksDiscoveries();
   return {
@@ -512,9 +526,14 @@ check("10/19 — it is a SINK, not a tax: the timber, stone and tool lines are e
   price.postSparksCrystals < price.postSparks,
   `${price.postSparks - price.postSparksCrystals} post-Sparks discoveries stay on their own chains`);
 // DEV NOTE 3
-check("note 3 — MORE, not all, of the discoveries cost knowledge: 10 → 32 of 79",
-  price.withKnowledge === 32 && price.withKnowledge < price.discTotal,
-  `${price.withKnowledge} of ${price.discTotal} = ${Math.round(100 * price.withKnowledge / price.discTotal)}%`);
+// RE-POINTED v0.65 PART 1 (dev note 2). **v0.61's note 3 was "MORE, NOT ALL", and Jerry has now
+// asked for ALL — twice.** The coverage rule is inverted: the generator walks every Discovery and
+// the exemption list is empty. The item this assertion protects is that coverage GREW and is
+// derived from `UPGRADES` rather than from a list, and that is what it asserts now.
+check("note 3 — coverage GREW again and is now near-total: 10 -> 32 -> " + price.withKnowledge + " of " + price.discTotal,
+  price.withKnowledge >= price.discTotal - 3,
+  `${price.withKnowledge} of ${price.discTotal} = ${(100*price.withKnowledge/price.discTotal).toFixed(0)}% ` +
+  `against the source's 93%. v0.61 shipped 32; v0.65 Part 1 prices everything whose tech has a rung.`);
 // RE-POINTED v0.62, superseded by DEV NOTE 1 (Jerry): "The knowledge requirement for discoveries
 // should be higher... a healthy sink for knowledge while the player is ramping up their knowledge
 // buildings." **The DIVISOR moves 10 -> 1.25 (K/10 -> 0.8 × K), an eightfold raise**, sized from
@@ -526,9 +545,16 @@ check("note 3 — MORE, not all, of the discoveries cost knowledge: 10 → 32 of
 check("note 3 — the rule derives from the tech's own rung, so a re-homed Discovery reprices itself",
   price.knowledgeRuleHolds && price.knowledgeDivisor > 0 && price.knowledgeUncappedRungsExact,
   "v0.63 Part 1: `<=` the generated figure, and EXACTLY it on every rung the 2.43x cap did not touch");
-check("note 3 — an OUTFIT is not a METHOD: the axe, saw and storage lines take no knowledge",
-  price.axeLineTaxed.length === 0 && price.sawLineTaxed.length === 0 && price.storeLineTaxed.length === 0,
-  [...price.axeLineTaxed, ...price.sawLineTaxed, ...price.storeLineTaxed].join(", ") || "none");
+// RE-POINTED v0.65 PART 1 — **THE EXEMPTION THIS ASSERTED IS RETIRED, AND THE SOURCE IS WHY.**
+// "An OUTFIT is not a METHOD" was an RR-invented rule. Checked against `js/workshop.js` @
+// c52985b: `steelAxe` science 20,000, `titaniumAxe` science 38,000, `alloyAxe` science 70,000,
+// `stoneBarns` science 500, `reinforcedBarns` science 800, `titaniumBarns` science 60,000.
+// **The source charges science on the tool and storage lines it is claimed to exempt.** The
+// assertion is inverted: those lines must now CARRY knowledge, which is the parity position.
+check("note 3 — the OUTFIT/METHOD exemption is RETIRED: the axe, saw and storage lines DO take knowledge",
+  price.axeLineTaxed.length > 0 && price.sawLineTaxed.length > 0 && price.storeLineTaxed.length > 0,
+  `axes ${price.axeLineTaxed.length}, saws ${price.sawLineTaxed.length}, storage ${price.storeLineTaxed.length} — ` +
+  `the source charges science on all three lines and RR now does too (v0.65 Part 1, dev note 2)`);
 
 // ============================================================================
 // DEV NOTE 4 — the merged research
