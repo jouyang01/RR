@@ -160,3 +160,4 @@ mapping stays 1:1 and the tag itself says which kind of round produced it. See
 
 A non-commercial fan project. League of Legends and Runeterra are property of Riot Games,
 Inc. Riot Games does not endorse or sponsor this project.
+
