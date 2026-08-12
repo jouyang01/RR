@@ -3761,55 +3761,126 @@ var UPGRADES = [
 // The four authored figures above 1.25x are LEFT ALONE, as always: they were sized deliberately
 // and re-deriving them would discard that work.
 //
-// THE RULE FOR THE SET, and Jerry said MORE, NOT ALL, so there has to be one. A Discovery takes
-// knowledge when it is a **METHOD** — a technique, a practice, a rite, a way of doing something
-// that someone had to work out. It does NOT when it is an **OUTFIT or a FACILITY** — materials
-// assembled into more of a thing the settlement already has. That is why:
-//   * the AXE and SAW lines are exempt: re-forging a tool in a better metal is a material
-//     outlay, and the metal IS the cost;
-//   * the STORAGE lines are exempt for the same reason — a bigger barn is timber, not insight;
-//   * HOUSING and pure-capacity facilities are exempt;
-//   * everything post-Sparks is exempt HERE, because Part 10 gives that half of the ladder a
-//     HEXTECH CRYSTAL component instead. **A Discovery is not taxed twice for being late.**
-//     The two exceptions are `standingOrders` and `surveyedApproaches`, which take knowledge as
-//     part of DEV NOTE 4's own accounting for the merged research and are priced at that tech's
-//     rung in their own definitions.
+// ==========================================================================================
+// v0.65 PART 1 / DEV NOTE 2 (Jerry): "The discoveries are still not costing knowledge. We want
+// Kittens parity." **JERRY HAS RAISED THIS TWICE. `DISCOVERY_KNOWLEDGE_SET` IS DELETED AND
+// INVERTED: the rule now prices EVERY Discovery and the exemption list is EMPTY.**
 //
-// This takes the game from 10 of 78 to 35 of 78 — **13% to 45%.** More, not all.
-var DISCOVERY_KNOWLEDGE_DIVISOR = 1.25;   // v0.62 dev note 1: K/10 -> 0.8 x K
-var DISCOVERY_KNOWLEDGE_SET = [
-  // — methods of working the land and the wilds —
-  "ironPlows", "zauniteDrills", "jessedHawks", "pastureRotation",
-  // — practices of trade and coin —
-  "bilgewaterContracts", "mintedCoin", "letterOfMarque", "ironShodWheels",
-  // — the arcane and the ceremonial —
-  "trueIceCellars", "arcanistsCircle", "harvestRites", "fourPartHarmony",
-  // — the scribal and scholarly line —
-  "scribesGuild", "cataloguing", "crossReferencing", "illuminators", "greatIndex",
-  "tributeReliquaries",
-  // — techniques of the workshop, including two of the three conversion Discoveries —
-  // NOTE `masterworkTools` IS DELIBERATELY ABSENT. It reads as a method, but it is a member of
-  // both AXE_LINE and HOE_LINE — it is a TOOL rung — and the tool lines are exempt without
-  // exception. A rule with one judgement call in it is a rule nobody can apply next round.
-  "clockworkBellows", "resonanceCoils", "celestialCharts", "facetedCuts",
-  // v0.65 PART 2.4 — the weapon line. A weapon rung is a METHOD by this set's own rule (a
-  // technique someone had to work out), and the source charges science on all three. Note this
-  // membership becomes moot at Part 1, which deletes the set and prices every Discovery.
-  "huntersDraw", "latchAndLever", "arclightLance",
-  // v0.65 PART 4 — the fourth mana Discovery. Also moot at Part 1.
-  "leylineLensing"
+// v0.63 note 1 asked "every workshop upgrade costs science in Kittens — confirm and match". That
+// round confirmed the RATE half, never actioned the COVERAGE half, and `docs/gameplay-notes.md`
+// struck the note through on that basis. **The rate has been at parity since v0.62. The coverage
+// never was.**
+//
+// ### The census, both games, from `tools/kittens-upgrade-census.mjs` (the pinned join)
+//
+//                                        Kittens @ c52985b      RR @ v0.64
+//     upgrades with a price list               143                  78
+//     ...carrying the research currency    133 -- 93%           32 -- 41%
+//     per-upgrade ratio (cost / its rung)  IQR 0.73-1.00           0.80
+//
+// **The rate is at parity. The coverage was at 44% of the source's.**
+//
+// ### The four stated exemptions, each checked against `js/workshop.js` and each contradicted
+//
+// The comment that stood here gave four reasons for the 46 Discoveries that paid no knowledge.
+// **All four fail against the source, by name:**
+//
+//   "the AXE and SAW lines are exempt -- the metal IS the cost"
+//        -> `steelAxe` science 20,000 + steel 75; `titaniumAxe` titanium 10 + science 38,000;
+//           `alloyAxe` science 70,000 + alloy 25.
+//   "the STORAGE lines are exempt for the same reason"
+//        -> `stoneBarns` wood 1,000 + minerals 750 + iron 50 + science 500; `reinforcedBarns`
+//           science 800; `titaniumBarns` titanium 25 + science 60,000 + steel 200 + scaffold 250.
+//   "HOUSING and pure-capacity facilities are exempt"
+//        -> the source has no unpriced capacity upgrade at all.
+//   "everything post-Sparks is exempt HERE... A Discovery is not taxed twice for being late"
+//        -> **107 Kittens upgrades carry a scarce crafted or converted component and 101 of them
+//           ALSO carry science -- 94%.** `astrolabe` is titanium 5 + science 25,000 + starchart
+//           75; `unobtainiumReflectors` is unobtainium 75 + science 250,000 + starchart 750.
+//
+// **The source's TEN unpriced upgrades are one coherent category RR has no counterpart for** --
+// `fluxCondensator`, `amBases`, `amReactors`, `amReactorsMK2`, `voidReactors`, `relicStation`,
+// `alicornStable`, `voidAspiration`, `turnSmoothly`, `invisibleBlackHand` -- **every one priced
+// in a POST-RESET PRESTIGE CURRENCY** (antimatter, eludium, time crystals, void, blackcoin).
+// Kittens exempts an upgrade from science when it is bought with a currency that only exists
+// after a reset. It does not exempt tools, storage, housing, or lateness.
+//
+// > **"A Discovery is not taxed twice for being late" is an RR-INVENTED RULE THE SOURCE
+// > CONTRADICTS 94% OF THE TIME.** §2 records two such rules deleted, §14 a third, §33 a fourth
+// > class. This is the fifth, and it is retired here.
+//
+// ### And the comparison the last two rounds made is the WRONG ONE
+//
+// BUILD REPORT v0.64 §3.3 said RR "is at about a SIXTH of the source's share" -- 0.0735 against
+// 0.470. **That compares RR's 35-rung tree against a 64-rung tree whose top six rungs carry
+// 32,000,000 of its 42,226,130 science and hold almost no upgrades at all** (`exogeophysics`
+// 25,000,000 with zero priced upgrades; `blackchain` 5,000,000 with one unpriced). **The
+// source's whole-game ratio is diluted by an endgame RR does not have** -- the same class of
+// conflation §31.2a retracted, a whole against a part.
+//
+// Restricted to the range RR actually occupies, the two trees are nearly the same size:
+//
+//     Kittens, techs priced <= 135,000 science   tech 1,431,130   upgrades 2,723,750   = 1.903
+//     RR, whole tree                             tech 1,442,630   upgrades   106,010   = 0.0735
+//
+// **Like for like, over a tech tree of the same total size, Kittens charges 1.90x the tree in
+// upgrade research and RR charged 0.07x. RR was at 3.9% of the source, not 16%.**
+//
+// **And full coverage does not overshoot**: every eligible Discovery at the existing 0.8 x K
+// gives **2,003,370** against the same tree -- a ratio of **1.389, which is 73% of the source's
+// like-for-like 1.903.** The parity-correct move is available and it still lands UNDER the source.
+//
+// ### What ships, and what deliberately does not
+//
+// * The set is INVERTED: `applyDiscoveryKnowledge()` walks all of `UPGRADES`.
+//   `DISCOVERY_KNOWLEDGE_EXEMPT` is the exemption list and **it is empty**.
+// * **The only Discoveries left unpriced are those whose unlocking tech has no knowledge price
+//   at all** -- a division by zero, not a policy. They are named in the build report.
+// * **Never overwrite an authored figure.** The `if (u.cost.knowledge === undefined)` guard is
+//   what preserves the ten sized in earlier rounds, and it does not move.
+// * **The crystal component is NOT reduced or removed.** Kittens charges both on 101 of 107;
+//   removing one to pay for the other would re-derive the rule this Part retires.
+// * **`DISCOVERY_KNOWLEDGE_DIVISOR` STAYS AT 1.25 AND IS NOT THE RELIEF VALVE.** It is the
+//   parity dial and it is already inside the source's band; the in-band range is 0.73-1.00, so
+//   the whole legal move is -9%. **If this Part overshoots, the relief is the knowledge CEILING
+//   (`libraryRatio`, dated and unactioned since v0.56), never a discovery price below the band.**
+//
+// ### Why this is shippable rather than reckless, and it is one measurement
+//
+// **Knowledge sits at its ceiling 82.8% of a 2,500-year run** -- measured on the shipped v0.64
+// build by this round's own s0 baseline, reproducing the analyzer's figure to the digit -- and
+// `resourceBalance` classifies it **lumpy-sink-only, 72 lumpy sinks, zero continuous consumers**:
+// the player is full and waiting to spend. Its multiplier reaches **x46.18** at end of run.
+// **The settlement is not knowledge-poor. It is knowledge-SATURATED four fifths of the time**,
+// and `sim/simcore.mjs`'s `kPinned` branch is the bot's own acknowledgement of it.
+//
+// **And no new cost can be unbuyable, BY CONSTRUCTION**: every generated figure is `0.8 x K`
+// where K is its own unlocking tech's price, and the ceiling must already clear K for that tech
+// to have been researched at all. `0.8K < K`. **It is asserted anyway** -- §33 is precisely
+// about the term nobody checked.
+var DISCOVERY_KNOWLEDGE_EXEMPT = [
+  // EMPTY, AND DELIBERATELY SO. Kittens exempts an upgrade from science only when it is bought
+  // with a post-reset prestige currency, and RR has no such currency. **If a future round adds
+  // an id here it owes the source citation for the exemption**, because all four of RR's
+  // previous ones were checked and all four failed.
 ];
+var DISCOVERY_KNOWLEDGE_DIVISOR = 1.25;   // v0.62 dev note 1: K/10 -> 0.8 x K, and it does NOT move
+// v0.65 PART 1 — INVERTED. The walk is over `UPGRADES`, not over a named list, so coverage is a
+// PROPERTY of the rule rather than a list somebody has to remember to extend. `test-v65` asserts
+// the coverage by enumerating `UPGRADES`, never by reading this array — a list nobody has read
+// is how the coverage sat at 41% for three rounds while the rate was reported at parity.
+var DISCOVERY_UNPRICED_ZERO_RUNG = [];   // filled at load: the Discoveries whose tech has no rung
 (function applyDiscoveryKnowledge() {
   var techK = {};
   TECHS.forEach(function (t) { techK[t.id] = (t.cost && t.cost.knowledge) || 0; });
-  DISCOVERY_KNOWLEDGE_SET.forEach(function (id) {
-    var u = null;
-    for (var i = 0; i < UPGRADES.length; i++) if (UPGRADES[i].id === id) { u = UPGRADES[i]; break; }
-    // A missing id is a BUG, not a no-op. Silently skipping is how a re-homed Discovery drops
-    // its price and nobody notices for four rounds.
-    if (!u) { console.error("DISCOVERY_KNOWLEDGE_SET names an id that does not exist: " + id); return; }
+  UPGRADES.forEach(function (u) {
+    if (DISCOVERY_KNOWLEDGE_EXEMPT.indexOf(u.id) >= 0) return;
     var K = techK[u.tech] || 0;
-    if (!K) { console.error("DISCOVERY_KNOWLEDGE_SET member " + id + " sits on a tech with no knowledge price: " + u.tech); return; }
+    // A tech with NO knowledge price has no rung to take a fraction of — this is a division by
+    // zero, not a policy, and it is the ONLY reason a Discovery ships unpriced. It is recorded
+    // rather than logged as an error (v0.64's version `console.error`d, which was right when the
+    // set was hand-written and wrong now that the walk is total).
+    if (!K) { DISCOVERY_UNPRICED_ZERO_RUNG.push(u.id); return; }
     // Never overwrite an authored knowledge cost — the ten that already had one were sized
     // deliberately in earlier rounds and re-deriving them would discard that work, exactly as
     // Part 10 leaves its four existing crystal figures alone.
