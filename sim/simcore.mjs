@@ -72,6 +72,26 @@ export async function runSim(page, years, seed = 1) {
       return _origPay(cost);
     };
     const spendSnap = () => Object.assign({}, spendTotal);
+    // ====================================================================================
+    // v0.65 PART 1.5a — KNOWLEDGE SPEND, SPLIT INTO TECHS AND DISCOVERIES.
+    //
+    // Part 1 moves the ratio between these two and nothing else, so the run has to be able to
+    // show that ratio directly rather than have it inferred from a milestone year. `pay()` is
+    // the single choke point (above) but it does not know its CALLER, so the two purchase
+    // entry points are wrapped to set a kind for the duration of the call. Wrapping the
+    // entry points rather than re-deriving prices means a Discovery whose cost is built at
+    // runtime is still counted correctly — the same reason §24's lumpy-sink scan had to read
+    // `recruitCost()` instead of the `CHAMPS` table.
+    let kOnTechs = 0, kOnDiscoveries = 0, _buyKind = null;
+    const _origBuyTech = buyTech, _origBuyUpgrade = buyUpgrade;
+    buyTech = function (id) { _buyKind = "tech"; try { return _origBuyTech(id); } finally { _buyKind = null; } };
+    buyUpgrade = function (id) { _buyKind = "disc"; try { return _origBuyUpgrade(id); } finally { _buyKind = null; } };
+    const _payForSplit = pay;
+    pay = function (cost) {
+      const k = (cost && cost.knowledge) || 0;
+      if (k) { if (_buyKind === "tech") kOnTechs += k; else if (_buyKind === "disc") kOnDiscoveries += k; }
+      return _payForSplit(cost);
+    };
     // 2. Vigor, split by cause. vigorSpent below already counts expeditions; trade is
     //    the other half and Part 6 asks for the split at y50 and y100 explicitly.
     let vigorOnTrade = 0;
@@ -400,6 +420,79 @@ export async function runSim(page, years, seed = 1) {
                 : m.kind === "tech"  ? !!S.techs[m.id] : !!S.upgrades[m.id],
             deliveredFrac: +boostDelivery(m.family, (k[m.family] || {}).raw || 0, m.amt).toFixed(4)
           }));
+          // ================================================================================
+          // v0.65 PART 2.2 — `_sources`: EVERY FAMILY'S RAW Σ DECOMPOSED BY CONTRIBUTOR.
+          //
+          // **`_members` above enumerates `BOOST_MEMBERS` and NOTHING ELSE, so a BUILDING boost
+          // is invisible to the audit that exists.** That is the whole reason this block is
+          // here: dev note 1 is about the Training Ground, the Training Ground is a building,
+          // and the knee audit could not see it. This is v0.64 Part 1's `housing` decomposition
+          // applied to the family Part 2 moves.
+          //
+          // **IT RECONCILES OR IT SAYS SO.** The contributors below are re-derived here, in the
+          // harness, from the same tables `computeRates()` reads — buildings' `boost`,
+          // `BOOST_MEMBERS`, champion passives, the drake terms, and `policyBoost()`. A
+          // re-derivation can drift from the thing it mirrors, so every family carries
+          // `reconciles`: the sum of its named contributors against `_knee[f].raw`, to 1e-9.
+          // **A `false` there means a contributor exists that this block does not name**, which
+          // is the same guarantee the crystal decomposition's "faucet shares sum to 100%" line
+          // gives, and it is the only thing that makes a share figure quotable.
+          out._sources = (() => {
+            const fams = Object.keys(k);
+            const acc = {};
+            fams.forEach(f => acc[f] = []);
+            // **THE SUM IS KEPT UNROUNDED.** The displayed `amt` is rounded to 6 places for
+            // legibility, but summing ROUNDED terms drifts from the unrounded `raw` by more
+            // than the reconciliation tolerance — the first run of this block reported vigor
+            // and crystals as "DOES NOT RECONCILE" by 1.3e-5 and 1.7e-5, which was this
+            // block's own rounding and not an unnamed contributor. **A guard that cries wolf
+            // is a guard the next reader ignores**, so the exact value is carried alongside.
+            const exact = {};
+            const add = (f, label, amt, kind, extra) => {
+              if (!acc[f] || Math.abs(amt) < 1e-12) return;
+              exact[f] = (exact[f] || 0) + amt;
+              acc[f].push({ label, amt: +amt.toFixed(6), kind, ...(extra || {}) });
+            };
+            // 1. BUILDINGS with a `boost` field — the category `_members` cannot see.
+            BUILDINGS.forEach(b => {
+              if (!b.boost) return;
+              const n = count(b.id); if (!n) return;
+              for (const r in b.boost) add(r, b.name, b.boost[r] * n, "BUILDING",
+                { id: b.id, copies: n, perCopy: b.boost[r] });
+            });
+            // 2. BOOST_MEMBERS actually held.
+            BOOST_MEMBERS.forEach(m => {
+              const held = m.kind === "wtech" ? !!(S.wtechs && S.wtechs[m.id])
+                         : m.kind === "tech"  ? !!S.techs[m.id] : !!S.upgrades[m.id];
+              if (held) add(m.family, m.id, m.amt, "upgrade", { id: m.id });
+            });
+            // 3. Champion passives, and Swain's knowledge LEAD, which is a different slot on the
+            //    same champion (v0.64 pass condition 18 — neither grep may find the other).
+            ["knowledge", "mana", "devotion", "culture", "gold", "vigor"].forEach(f =>
+              add(f, "champion passives", champPassive(f) / 100, "champion passive"));
+            if (typeof leaderIs === "function" && leaderIs("swain"))
+              add("knowledge", "Swain's LEAD (knowledge)", SWAIN_KNOWLEDGE_LEAD, "champion lead");
+            // 4. Drakes and champion affinities.
+            add("vigor", "cloud drake", drakeBonus("cloud", DRAKE_CAP.cloud), "drake");
+            add("crystals", "hextech drake", drakeBonus("hextech", DRAKE_CAP.hextech), "drake");
+            add("crystals", "hexwarden affinity", affinityBonus("hexwarden") / 100, "affinity");
+            // 5. Policies.
+            fams.forEach(f => add(f, "policies", policyBoost(f), "policy"));
+            const out2 = {};
+            fams.forEach(f => {
+              const list = acc[f].sort((a, b) => Math.abs(b.amt) - Math.abs(a.amt));
+              const sum = exact[f] || 0;      // UNROUNDED — see `add()` above
+              const raw = (k[f] || {}).raw || 0;
+              out2[f] = {
+                raw: +raw.toFixed(6), namedSum: +sum.toFixed(6),
+                reconciles: Math.abs(sum - raw) < 1e-6,
+                unattributed: +(raw - sum).toFixed(6),
+                // the share of the family each contributor carries — the figure Part 2 quotes
+                terms: list.map(t => ({ ...t, pctOfRaw: raw > 1e-9 ? +(100 * t.amt / raw).toFixed(1) : null }))
+              };
+            });
+            return out2;
+          })();
           return out;
         })(),
         // ---- v0.61 PART 1: the convMult readout, term by term ----
@@ -704,6 +797,65 @@ export async function runSim(page, years, seed = 1) {
             // time-at-cap TO DATE, so the figure is per-milestone rather than one end-of-run
             // number. `capTicks` is the same counter `capOutPct` divides at the end of the run.
             provisionsAtCapPctToDate: +(100 * ((capTicks.provisions || 0) / (tickCount || 1))).toFixed(1)
+          };
+        })(),
+        // ====================================================================================
+        // v0.65 PART 1.5a — THE KNOWLEDGE SUPPLY BLOCK, AND IT LANDS BEFORE THE PRICES MOVE.
+        //
+        // Part 1 levies a research bill 2.2× larger, and the ONLY reason that is shippable
+        // rather than reckless is a measurement: knowledge sits at its ceiling 82.8% of a
+        // 2,500-year run. **That is a single-run cap-out fraction and §24 is explicit that a
+        // cap-out fraction cannot size anything on its own** — it cannot tell a surplus from a
+        // queue. So this block emits the absolutes beside it, at every milestone, on the
+        // baseline AND on the shipped build, which is what lets the round say how much of the
+        // new bill the slack actually absorbed.
+        //
+        // The two cumulative spend totals are the ratio Part 1 moves, made visible in the run.
+        knowledgeSupply: (() => {
+          const caps = computeCaps(), rates = computeRates();
+          const bal = (() => {
+            // knowledge has no continuous consumer — every buyer is lumpy (techs, Discoveries,
+            // crafts). Classify it the way §24 does rather than asserting it.
+            let lumpy = 0;
+            const scan = list => (list || []).forEach(x => { if (x && x.cost && x.cost.knowledge) lumpy++; });
+            scan(BUILDINGS); scan(TECHS); scan(UPGRADES); scan(CRAFTS);
+            const eaters = BUILDINGS.filter(b => b.convert && b.convert.input && b.convert.input.knowledge);
+            return { lumpySinks: lumpy, continuousConsumers: eaters.length,
+                     kind: eaters.length ? "continuous" : (lumpy ? "lumpy-only" : "no-sink") };
+          })();
+          // Discoveries owned, and available-but-unaffordable — the second is the number that
+          // says whether a heavier ladder is a QUEUE rather than a wall.
+          let owned = 0, availableUnaffordable = 0, availableAffordable = 0;
+          UPGRADES.forEach(u => {
+            if (S.upgrades[u.id]) { owned++; return; }
+            if (u.tech && !S.techs[u.tech]) return;
+            if (u.unlock && !u.unlock(S)) return;
+            if (canAfford(discCost(u.cost))) availableAffordable++; else availableUnaffordable++;
+          });
+          // the most expensive knowledge figure on any Discovery whose tech is researched, against
+          // the ceiling — pass condition 4a's property, measured in the run as well as asserted.
+          let dearest = 0, dearestId = null;
+          UPGRADES.forEach(u => {
+            const kc = (u.cost && u.cost.knowledge) || 0;
+            if (!kc || (u.tech && !S.techs[u.tech])) return;
+            if (kc > dearest) { dearest = kc; dearestId = u.id; }
+          });
+          return {
+            gross: +(rates.knowledge || 0).toFixed(4),
+            held: Math.round(S.res.knowledge || 0), cap: Math.round(caps.knowledge || 0),
+            heldOverCap: caps.knowledge > 0 ? +((S.res.knowledge || 0) / caps.knowledge).toFixed(4) : null,
+            timeAtCapPctToDate: +(100 * ((capTicks.knowledge || 0) / (tickCount || 1))).toFixed(1),
+            ...bal,
+            // THE RATIO PART 1 MOVES, as two running totals rather than one inferred figure.
+            spentOnTechs: Math.round(kOnTechs), spentOnDiscoveries: Math.round(kOnDiscoveries),
+            discoveryShareOfSpend: (kOnTechs + kOnDiscoveries) > 0
+              ? +(kOnDiscoveries / (kOnTechs + kOnDiscoveries)).toFixed(4) : null,
+            discoveriesOwned: owned, discoveriesAvailableAffordable: availableAffordable,
+            discoveriesAvailableUnaffordable: availableUnaffordable,
+            dearestReachableDiscovery: dearestId, dearestReachableCost: dearest,
+            // 4a as a live property: no reachable Discovery may cost more than the ceiling holds.
+            dearestFitsUnderCeiling: dearest <= (caps.knowledge || 0),
+            multiplier: +(1 + ((computeRates("knowledge")._boostsRaw || {}).knowledge || 0)).toFixed(4)
           };
         })(),
         steelPerSec: +computeRates().steel.toFixed(4),
@@ -1722,7 +1874,29 @@ export async function runSim(page, years, seed = 1) {
       if (!S.techs.callToArms) return;
       for (const d of CHAMPS) {
         if (S.champs[d.id] && S.champs[d.id].r) continue;
-        if (canAfford(recruitCost(d.id))) { recruitChamp(d.id); mark("firstChampion"); return; }
+        if (canAfford(recruitCost(d.id))) {
+          recruitChamp(d.id); mark("firstChampion");
+          // ============================================================================
+          // v0.65 PART 5 — `firstPZChampion`, THE CONFOUNDER NOBODY HAS EVER MEASURED.
+          //
+          // Three of v0.64's four failing conditions are ONE random variable: Sparks spread
+          // x1.98, first champion x1.85, Chemtech->Hexcore x2.70, all moving together. Sparks
+          // is champion-gated on a 3-of-10 choice (§4, the sanctioned exception), so its year
+          // is dominated by WHEN a Piltover/Zaun champion is drawn and everything downstream
+          // inherits that draw. **"Take more seeds" treats the symptom. This measures the
+          // confounder**, so `sparks - firstPZChampion` — the part of Sparks' timing the
+          // DESIGNER controls — can be reported separately from the part the RNG sets.
+          //
+          // The id list is the gate's own literal condition, not a restatement of it.
+          //
+          // **PRNG-NEUTRAL BY CONSTRUCTION, AND PROVED (§32 rule 2):** `mark()` reads
+          // `milestones` and `yearNow()` and calls no RNG, so this adds no draw to any live
+          // path. The proof is that s4 reproduces s3's seeded figures to the digit; if it does
+          // not, this line is wrong and the rest of the round is a fresh sample.
+          if (["twitch", "caitlyn", "heimerdinger"].some(id => S.champs[id] && S.champs[id].r))
+            mark("firstPZChampion");
+          return;
+        }
       }
       if (!S.leader) {
         const owned = CHAMPS.filter(d => S.champs[d.id] && S.champs[d.id].r);

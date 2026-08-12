@@ -97,9 +97,20 @@ if (seedsWanted > 1 && !IS_CHILD) {
              spread: +(Math.max(...n) / Math.max(Math.min(...n), 1e-9)).toFixed(2),
              missing: vals.length - n.length };
   };
-  const ENSEMBLE_KEYS = ["sparks", "icathia", "era3", "ritesOfTargon", "voidStudies", "firstAscent",
+  // v0.65 PART 5 — `firstPZChampion` and the derived `sparksAfterPZ` join the ensemble figures.
+  // Sparks is champion-gated on a 3-of-10 draw (§4), so its year is the DRAW plus the build-out
+  // after the gate opens. Only the second half is a pacing result, and until this round nothing
+  // in the project had ever separated them.
+  const ENSEMBLE_KEYS = ["sparks", "firstPZChampion", "sparksAfterPZ", "icathia", "era3",
+                         "ritesOfTargon", "voidStudies", "firstAscent",
                          "firstChampion", "pop75", "pop130", "chemtech", "hexcore", "deepWorks",
                          "firstTrade", "tenthChampionYear"];
+  // the derived figure, computed per seed before any statistic is taken over it
+  ok.forEach(x => {
+    const sp = x.machine.sparks, pz = x.machine.firstPZChampion;
+    x.machine.sparksAfterPZ = (typeof sp === "number" && typeof pz === "number")
+      ? +(sp - pz).toFixed(1) : null;
+  });
   console.log(`(${wall}s wall for ${seedsWanted} concurrent seeds)\n`);
   console.log("========================================================================");
   console.log("ENSEMBLE FIGURES — milestone-derived. QUOTE THESE ONLY WITH A SPREAD.");
@@ -121,6 +132,33 @@ if (seedsWanted > 1 && !IS_CHILD) {
   console.log(e3.median === undefined
     ? `\n  Era 3: NOT REACHED on any seed at ${argOf("--years", "150")} game-years — no ensemble figure. MEDIAN SEED = ${medianRun.seed} (by pass-condition order).`
     : `\n  Era 3 median ${e3.median} game-years, spread ${e3.min}-${e3.max} (x${e3.spread}).  MEDIAN SEED = ${medianRun.seed}.`);
+  // ============================================================================================
+  // v0.65 PART 5 — THE DRAW, REPORTED BESIDE THE CONDITIONS IT CONFOUNDS.
+  //
+  // A `[draw]` condition is one whose value is dominated by a random draw the DESIGN does not
+  // set. It prints its median and spread, and the draw's median and spread beside it, and it is
+  // REPORTED RATHER THAN FAILED. Nothing steers on it until the instrument has produced a
+  // distribution — which is the v0.64 spec's own instruction, "report Sparks with its draw, or
+  // do not steer on it", made mechanical.
+  //
+  // **THIS DOES NOT SOFTEN THE SPARKS GATE.** §4 is closed and the exception is sanctioned;
+  // nothing about the gate changes. What changes is that the round stops reading a champion
+  // draw as a pacing result.
+  {
+    const pz = stat("firstPZChampion"), sa = stat("sparksAfterPZ"), sp = stat("sparks");
+    console.log("\n========================================================================");
+    console.log("THE CHAMPION DRAW — v0.65 Part 5. The confounder, measured for the first time.");
+    console.log("========================================================================");
+    if (pz.median === undefined) {
+      console.log("  firstPZChampion: NEVER on any seed — the Piltover/Zaun gate never opened.");
+    } else {
+      console.log(`  firstPZChampion  median ${pz.median}  spread ${pz.min}-${pz.max} (x${pz.spread})   <- THE DRAW; the design does not set this`);
+      console.log(`  sparks           median ${sp.median}  spread ${sp.min}-${sp.max} (x${sp.spread})   = the draw PLUS the build-out after it`);
+      console.log(`  sparksAfterPZ    median ${sa.median}  spread ${sa.min}-${sa.max} (x${sa.spread})   <- THE PART THE DESIGNER CONTROLS`);
+      console.log(`  Read the third line, not the second. If sparksAfterPZ is tight and sparks is wide,`);
+      console.log(`  the spread is the draw and the design is doing its job.`);
+    }
+  }
   console.log("\n========================================================================");
   console.log(`SINGLE-RUN FIGURES — from the MEDIAN SEED (${medianRun.seed}) only.`);
   console.log("These are stable across seeds (v0.56 verified) and are NOT ensemble figures.");
@@ -129,8 +167,9 @@ if (seedsWanted > 1 && !IS_CHILD) {
   console.log("\n========================================================================");
   console.log("PASS CONDITIONS — each evaluated at its DECLARED SHAPE across the ensemble");
   console.log("========================================================================");
-  let ensFail = 0;
+  let ensFail = 0, drawReported = 0;
   const conds = (ok[0].machine.conditions || []).map(c => c.id);
+  const drawConds = (ok[0].machine.conditions || []).filter(c => c.draw).length;
   conds.forEach(id => {
     const per = ok.map(x => (x.machine.conditions || []).find(c => c.id === id)).filter(Boolean);
     if (!per.length) return;
@@ -156,10 +195,20 @@ if (seedsWanted > 1 && !IS_CHILD) {
       verdict = nums.length === per.length && medPer.pass;
       shown = `median ${mv === null ? "NEVER" : mv}  (all: ${vals.map(v => v === null ? "NEVER" : v).join(" / ")})`;
     }
-    if (!verdict) ensFail++;
-    console.log(`  ${verdict ? "PASS" : "FAIL"}  ${c0.label}   [${c0.shape}]  ${shown}`);
+    // v0.65 PART 5 — a `[draw]` condition is REPORTED, NOT FAILED. Its value is dominated by a
+    // random draw the design does not set, so counting it as a failure attributes an RNG
+    // outcome to the round's changes. It still prints its verdict — "would-fail" is
+    // information — but it does not enter `ensFail`, and the draw's own distribution is
+    // printed in THE CHAMPION DRAW block above so the two are never read as one number.
+    const isDraw = !!c0.draw;
+    if (!verdict && !isDraw) ensFail++;
+    if (!verdict && isDraw) drawReported++;
+    console.log(`  ${isDraw ? (verdict ? "pass" : "----") : (verdict ? "PASS" : "FAIL")}  ` +
+      `${isDraw ? "[draw] " : ""}${c0.label}   [${c0.shape}]  ${shown}` +
+      (isDraw && !verdict ? "   <-- REPORTED, NOT FAILED (v0.65 Part 5): dominated by the champion draw" : ""));
   });
-  console.log(`  ${ensFail} of ${conds.length} conditions failing.`);
+  console.log(`  ${ensFail} of ${conds.length - drawConds} steerable conditions failing` +
+    (drawConds ? `, plus ${drawReported} of ${drawConds} [draw] conditions reported off-target.` : "."));
 
   const SINGLE = ["peakPop", "moraleBandPct", "convergenceAtSparks", "renownAtCapPct",
                   "cultureAtCapPct", "crystalsAtCapPct", "provisionsAtCapPct", "tradesTotal"];
@@ -676,6 +725,51 @@ console.log(`peak population: ${peak}  (past-130 target: ${peak >= 130 ? "REACHE
     (Math.abs(sum - 100) < 0.5 ? " — fully attributed" : " — NOT FULLY ATTRIBUTED, a contributor is unlabelled"));
 });
 
+// ---- v0.65 PART 1.5a — THE KNOWLEDGE SUPPLY BLOCK, AT EVERY MILESTONE ----
+// Part 1 levies a research bill 2.2x larger and the ONLY thing that makes it shippable is that
+// knowledge is idle at its ceiling most of the run. §24 says a cap-out fraction cannot size
+// anything on its own, so the absolutes print beside it — and the two cumulative spend totals
+// make the ratio Part 1 moves visible in the run rather than inferred from a milestone year.
+["sparks", "hexcore", "icathia", "final"].forEach(k => {
+  const ks = r.snaps && r.snaps[k] && r.snaps[k].knowledgeSupply;
+  if (!ks) return;
+  console.log(`\nKNOWLEDGE SUPPLY @${k}: ${ks.gross}/s gross · held ${ks.held.toLocaleString()} / cap ` +
+    `${ks.cap.toLocaleString()} (${(100 * (ks.heldOverCap ?? 0)).toFixed(0)}% full) · ` +
+    `TIME AT CAP TO DATE ${ks.timeAtCapPctToDate}% · multiplier x${ks.multiplier}`);
+  console.log(`     classification: ${ks.kind} (${ks.lumpySinks} lumpy sinks, ` +
+    `${ks.continuousConsumers} continuous consumers)` +
+    (ks.kind === "lumpy-only" && (ks.heldOverCap ?? 0) > 0.9
+      ? "  <-- SITTING AT ITS CEILING: the player is full and waiting to spend" : ""));
+  console.log(`     spent on TECHS ${ks.spentOnTechs.toLocaleString()} · on DISCOVERIES ` +
+    `${ks.spentOnDiscoveries.toLocaleString()} · discovery share of knowledge spend ` +
+    `${ks.discoveryShareOfSpend === null ? "—" : (100 * ks.discoveryShareOfSpend).toFixed(1) + "%"}`);
+  console.log(`     Discoveries: ${ks.discoveriesOwned} owned · ${ks.discoveriesAvailableAffordable} ` +
+    `available and affordable · ${ks.discoveriesAvailableUnaffordable} available but UNAFFORDABLE`);
+  console.log(`     dearest reachable Discovery: ${ks.dearestReachableDiscovery ?? "—"} at ` +
+    `${ks.dearestReachableCost.toLocaleString()} against a ceiling of ${ks.cap.toLocaleString()} — ` +
+    `${ks.dearestFitsUnderCeiling ? "FITS" : "DOES NOT FIT (pass condition 4a FAILS)"}`);
+});
+
+// ---- v0.65 PART 2.2 — `knee._sources`: EVERY FAMILY'S Σ, DECOMPOSED BY CONTRIBUTOR ----
+// `_members` enumerates BOOST_MEMBERS and nothing else, so a BUILDING boost was invisible to the
+// audit that exists — which is exactly the term dev note 1 is about. `reconciles` is the guard:
+// the named contributors must sum to `_knee[f].raw`, or a contributor exists that nobody named.
+["sparks", "hexcore", "icathia", "final"].forEach(k => {
+  const src = r.snaps && r.snaps[k] && r.snaps[k].knee && r.snaps[k].knee._sources;
+  if (!src) return;
+  console.log(`\nBOOST Σ SOURCES @${k}`);
+  Object.keys(src).sort((a, b) => src[b].raw - src[a].raw).forEach(f => {
+    const v = src[f];
+    if (!v.terms.length && v.raw < 1e-9) return;
+    console.log(`  ${f.padEnd(11)} raw Σ ${String(v.raw).padStart(9)}` +
+      (v.reconciles ? "" : `   <-- DOES NOT RECONCILE: ${v.unattributed} unattributed, a contributor is UNNAMED`));
+    v.terms.forEach(t => console.log(`     ${String(t.amt).padStart(9)}  ${String(t.pctOfRaw + "%").padStart(7)}  ` +
+      `${t.label}${t.copies ? ` (${t.copies} copies x ${t.perCopy})` : ""}  [${t.kind}]`));
+  });
+  const bad = Object.keys(src).filter(f => !src[f].reconciles);
+  console.log(`  ${bad.length ? "UNRECONCILED FAMILIES: " + bad.join(", ") : "all families reconcile against _knee[f].raw"}`);
+});
+
 // ---- v0.64 PART 1 — THE maxPop DECOMPOSITION, AT EVERY MILESTONE ----
 // HANDOFF v0.63 §6 asked for exactly this by name: "`maxPop()` is emitted but not decomposed.
 // Add a housing/food decomposition to the milestone snapshot FIRST, then size." Every building
@@ -889,21 +983,47 @@ const checks = [
   // rubber stamp, which is the thing the spec is objecting to. If a future round wants y70
   // back, the lever is the bot's loremaster share under the new food policy, and it should say
   // so and measure it.
-  { id: "rites", label: "Rites of Targon before year 75",
-    shape: "median", value: m.ritesOfTargon, test: v => v !== undefined && v < 75,
-    why: "an EARLY-PACE condition, and early pace is a distribution rather than a worst case. " +
-         "v0.57 re-based it to y75 from v0.56's TWO seeds and the three-seed ensemble then read " +
-         "70.3 / 76.7 / 83.3 — it failed on two of three. The median is the honest shape for a " +
-         "figure with a x1.18 spread; the max would be chasing the unluckiest draw." },
+  // ==========================================================================
+  // v0.65 PART 6 — RULED: PER-UPGRADE PARITY IS THE TARGET, NOT RITES-UNDER-75.
+  //
+  // The builder asked the analyzer to decide between them (v0.64 handoff §6 item 5) and the
+  // decision is per-upgrade parity. The condition is RESTATED, NOT DELETED — a reported figure
+  // with a y50-200 band rather than a ceiling at 75. Three reasons, and the first is §27's
+  // precedent almost exactly:
+  //
+  //   1. **"Rites of Targon before y75" is an RR-ORIGINAL target that was never derived.**
+  //      Kittens has no "first religion by year N" anywhere in the source. §27 retired "130
+  //      wanderers before year 600" for exactly this reason after it failed five consecutive
+  //      rounds, and every other number in the game improved when the project stopped
+  //      defending it.
+  //   2. **The per-upgrade ratio IS the source's own invariant** — IQR 0.73-1.00 across 133
+  //      upgrades, median 0.87 — and it is the one quantity the source holds tight while the
+  //      per-rung total ranges 0.30-8.19.
+  //   3. **§16 settles the tie.** The source is the balance authority; a milestone year
+  //      measured off the greedy bot is evidence about the instrument's playthrough.
+  //
+  // **If a future round wants Rites earlier, the move is knowledge SUPPLY — the ceiling line
+  // dated and unactioned since v0.56 — and NEVER a discovery price below the source's band.**
+  // ==========================================================================
+  { id: "rites", label: "Rites of Targon inside the y50-200 band (v0.65 Part 6: replaces the y75 ceiling; per-upgrade parity is the target)",
+    shape: "median", value: m.ritesOfTargon, test: v => v !== undefined && v >= 50 && v <= 200,
+    why: "a BAND, not a ceiling, and the band is the honest shape once per-upgrade parity is " +
+         "the target (v0.65 Part 6). A discovery ladder priced at the source's own 0.8 x rung " +
+         "necessarily makes the early religion tech later; the question a band asks is whether " +
+         "the settlement still gets there in a reasonable spread, not whether it beats an " +
+         "RR-invented year nobody derived. Median because early pace is a distribution." },
   { id: "firstAscent", label: "First Ascent occurs",
     shape: "all-seeds", value: m.firstAscent, test: v => v !== undefined,
     why: "a REACHABILITY condition. If a single seed never ascends, the mechanic is broken on " +
          "that path and a median would hide it. All-seeds is the only defensible shape for " +
          "'does this happen at all'." },
-  { id: "firstChampion", label: "First champion before year 120",
+  // v0.65 PART 5 — `draw: true`. Dominated by the champion draw; REPORTED, NOT FAILED, with the
+  // draw's own median and spread printed beside it. See THE CHAMPION DRAW block above.
+  { id: "firstChampion", label: "First champion before year 120", draw: true,
     shape: "max", value: m.firstChampion, test: v => v !== undefined && v < 120,
-    why: "a CEILING condition — 'no player should still be championless at y120'. A ceiling is " +
-         "about the worst draw by construction, so it asserts the max." },
+    why: "a CEILING condition — 'no player should still be championless at y120'. **v0.65 Part 5 " +
+         "marks it [draw]: its x1.85 spread is the champion recruitment draw, not a pacing " +
+         "result, and nothing steers on it until the instrument has produced a distribution.**" },
   // ==========================================================================
   // v0.58 PART 6 — THE POPULATION RULING. "130 wanderers before year 600" is RETIRED and
   // replaced by a PEAK-POPULATION BAND. This is a ruling, and the reason is recorded here
@@ -939,10 +1059,15 @@ const checks = [
     why: "a STEADY-STATE condition, not a pace condition. Kittens sets population by housing " +
          "capacity and food, so the honest question is where the settlement settles, not when " +
          "it passes a number. Median because the band is about the typical settlement." },
-  { id: "sparks", label: "Sparks before year 500",
+  // v0.65 PART 5 — `draw: true`. Sparks is champion-gated on a 3-of-10 choice (§4, the
+  // sanctioned exception), so its year is the DRAW plus the build-out after the gate opens.
+  // `sparksAfterPZ` is the half the design controls and it is reported separately.
+  { id: "sparks", label: "Sparks before year 500", draw: true,
     shape: "max", value: m.sparks, test: v => v !== undefined && v < 500,
-    why: "a CEILING condition. Era 3 must open for every player, not for the median player, so " +
-         "no seed may exceed y500. The analyzer named this one specifically." },
+    why: "a CEILING condition. **v0.65 Part 5 marks it [draw]**: Sparks requires a recruited " +
+         "Piltover/Zaun champion, so this measures WHEN THAT CHAMPION WAS DRAWN plus the " +
+         "build-out after. Steer on `sparksAfterPZ`, never on this. §4 is untouched — the gate " +
+         "does not change, only how the round reads it." },
   // ==========================================================================
   // v0.53 Part 6 — RETIRED, with its reason recorded. "morale dips below 90 before y50"
   // has read exactly 0% against a `> 0%` target for FOUR consecutive rounds.
@@ -964,7 +1089,9 @@ const checks = [
   { id: "moraleHigh", label: "morale not pinned above 140 after Era 3",
     shape: "single", value: pinnedHigh, test: v => v <= 5,
     why: "as moraleBand — a distribution over ticks within one run, not over seeds." },
-  { id: "chemToHex", label: "Chemtech -> Hexcore gap under 400 years",
+  // v0.65 PART 5 — `draw: true`. Inherits Sparks' draw: a late Piltover/Zaun champion pushes
+  // Sparks late and every Era-3 rung slides with it.
+  { id: "chemToHex", label: "Chemtech -> Hexcore gap under 400 years", draw: true,
     shape: "max", value: chemToHex, test: v => v !== undefined && v < 400,
     why: "a CEILING condition on a GAP: the point is that no player waits 400 years between " +
          "two adjacent Era-3 rungs. A median would let one seed stall unreported." },
@@ -1067,6 +1194,8 @@ if (errors.length) console.log("\nCONSOLE ERRORS:", errors.slice(0, 5));
     // ---- ensemble: milestone-derived, never quote without a spread ----
     voidStudies: m.voidStudies, ritesOfTargon: m.ritesOfTargon, firstAscent: m.firstAscent,
     firstChampion: m.firstChampion, pop75: m.pop75, pop130: m.pop130, sparks: m.sparks,
+    // v0.65 PART 5 — the confounder itself, so the parent can take a distribution over it.
+    firstPZChampion: m.firstPZChampion,
     chemtech: m.chemtech, hexcore: m.hexcore, deepWorks: m.deepWorks, icathia: m.icathia,
     firstTrade: m.firstTrade,
     era3: (m.sparks !== undefined && m.icathia !== undefined) ? +(m.icathia - m.sparks).toFixed(1) : null,
@@ -1083,7 +1212,7 @@ if (errors.length) console.log("\nCONSOLE ERRORS:", errors.slice(0, 5));
     passFail: fail,
     // v0.58 Part 1: the raw value and declared shape of every condition, so the ENSEMBLE parent
     // can evaluate them across seeds. The child does not decide an ensemble condition.
-    conditions: checks.map(c => ({ id: c.id, label: c.label, shape: c.shape,
+    conditions: checks.map(c => ({ id: c.id, label: c.label, shape: c.shape, draw: !!c.draw,
                                    value: c.value === undefined ? null : c.value,
                                    pass: c.test(c.value) }))
   }));
