@@ -260,7 +260,7 @@
 // asserts both — so the two can no longer disagree, and neither can silently disagree
 // with the git tag.
 // ============================================================
-var VERSION = "v0.64";
+var VERSION = "v0.65";
 
 // ============================================================
 // CLOCK: 5 ticks/s · 10 ticks = 1 day · 100 days = 1 season · 4 seasons = 1 year
@@ -890,8 +890,38 @@ var BUILDINGS = [
     // `renown: 60` line is deleted. The Hall of Heroes is the renown store and note 31.1 makes
     // it the ONLY one, which is the point: two buildings quietly sharing a ceiling is how a
     // ceiling stops being legible. Vigor and the vigor boost are untouched.
-    lore: "Wanderers learn the spear, and someone writes down who won.", effect: "Somewhere to hold Vigor, and Vigor accrues faster.",
-    cost: { timber: 120, ore: 150, provisions: 500 }, ratio: 1.15, caps: { vigor: 150 }, boost: { vigor: 0.10 } },   // provisions x10, v0.55 Part 3.3
+    // ========================================================================================
+    // v0.65 PART 2 / DEV NOTE 1 (Jerry): "Training grounds should not increase Vigor generation."
+    //
+    // **`boost: { vigor: 0.10 }` IS DELETED. `caps: { vigor: 150 }` STAYS — and the source draws
+    // exactly that line.** Kittens produces manpower from the hunter JOB and multiplies it in
+    // precisely two places, NEITHER of them an ordinary building:
+    //
+    //   `manpowerJobRatio`  three WEAPON upgrades — compositeBow 0.5, crossbow 0.25, railgun
+    //                       0.25 (`js/workshop.js:672-720`). **Σ 1.00**, additive, applied to
+    //                       village job production at `game.js:3425-3427`.
+    //   `manpowerRatio`     ONE building, the Brewery (`js/buildings.js:1762`, `:1773`) — and its
+    //                       value is `getEffect("breweryPolicyManpowerRatio")`, **0.01, from a
+    //                       POLICY** (`js/science.js:1454`). Zero outside that policy.
+    //
+    // **Every other `manpowerMax` in the source is a CEILING** — `logHouse` 50, `mansion` 50, the
+    // mint and templar lines. **A building may HOLD Vigor and may not MAKE it, which is the note's
+    // own sentence, arrived at from the source rather than from taste.**
+    //
+    // **AND IT IS THE TERM THAT GREW.** RR's vigor family carried a raw Σ of **5.443** at end of
+    // run on v0.64 against the source's Σ 1.00 on the same category, and `knee._sources` (added to
+    // the harness this round precisely because a BUILDING boost was invisible to the audit that
+    // existed) attributes **93.0% of that Σ to this one line** — ~51 copies × 0.10.
+    //
+    // **THE EFFECT IS NOT SIMPLY DELETED — IT IS RE-HOMED, and §2.4 of the spec is the reason.**
+    // Deleting the building term alone takes vigor's Σ to 0.381 → ×1.38, which is BELOW the
+    // source's ×2.00. §16 does not ask for that and no directive does either. The three-rung
+    // weapon line RR never ported lands in `BOOST_MEMBERS` in the same round — see
+    // `VIGOR_WEAPON_LINE`. Vigor ends at Σ ≈1.381 → **×2.381** against the source's ×2.00 plus its
+    // policy-gated Brewery term, and the 19% excess is exactly RR's two RR-original vigor terms,
+    // Poppy 0.15 and the cloud drake 0.231, both already ledgered EASIER.
+    lore: "Wanderers learn the spear, and someone writes down who won.", effect: "Somewhere to hold Vigor. The spear is taught elsewhere.",
+    cost: { timber: 120, ore: 150, provisions: 500 }, ratio: 1.15, caps: { vigor: 150 } },   // provisions x10, v0.55 Part 3.3
   // ---- Era 3: Piltover & Zaun ----
   // Era 3 raws are AUTOPROD, not worker-driven (Kittens' Smelter/Calciner tier).
   // No job feeds them: they consume banked Era 0-2 resources and produce on their own,
@@ -2505,6 +2535,71 @@ var SAW_LINE = [["reinforcedSaw", 0.20], ["steelSaw", 0.20], ["hexsteelSaw", 0.1
 // paying inside the Quarry's own multiplier chain.
 var MINERALS_LINE = { mine: ["zauniteDrills", 0.05] };
 var SUMP_VENTILATION_ORE = 0.05;   // dev note 1 — the same 5%, re-homed from the Quarry to ore
+// ==========================================================================================
+// v0.65 PART 2.4 — THE WEAPON LINE. RR WAS MISSING KITTENS' ENTIRE MANPOWER-PRODUCTION
+// CATEGORY, and this is it, rank for rank, at the source's own shares.
+//
+// **§18 established that RR's five hunt Discoveries map onto the source's ARMOUR and BOLAS
+// upgrades, which feed `hunterRatio` — the HUNT YIELD category, RR's `campYieldMult`.** The
+// weapon upgrades are a DIFFERENT line feeding a DIFFERENT category: `manpowerJobRatio`, the
+// manpower PRODUCTION category (`game.js:3425-3427`, `perTick += resProduction * <res>JobRatio`).
+// **RR ported neither the line nor the category, and instead grew a building term the source
+// does not have** — which is the whole of dev note 1.
+//
+// **THE SOURCE, VERBATIM (`js/workshop.js:672-720` @ `c52985b`):**
+//
+//   compositeBow  manpowerJobRatio 0.50   wood 200 + iron 100 + science 500      <- construction
+//   crossbow      manpowerJobRatio 0.25   iron 1500 + science 12,000             <- machinery
+//   railgun       manpowerJobRatio 0.25   titanium 5000 + science 150,000        <- particlePhysics
+//                                          + blueprint 25
+//   ------------------------------------------------------------------------
+//   Sigma 1.00 -- THE SOURCE'S ENTIRE MANPOWER PRODUCTION MULTIPLIER, additive.
+//
+// **THE RUNGS ARE ASSIGNED BY ROLE, WHICH IS §16's RULE, AND TWO OF THE THREE ARE EXACT:**
+//
+//   tier 1  `carpentry`       1,000  <- the source unlocks compositeBow from `construction`, and
+//                                    v0.52 Part 2.2 established CARPENTRY IS RR'S CONSTRUCTION.
+//                                    Rank-for-rank; the ledger already carries that mapping.
+//   tier 2  `callToArms`     15,000  <- the source unlocks crossbow from `machinery`, science
+//                                    **15,000. RR's callToArms is 15,000 — the rung matches to
+//                                    the digit**, and it is RR's martial tech (Renown, the Hall
+//                                    of Heroes, the champion ladder). Its Part 1 knowledge cost
+//                                    lands at 0.8 x 15,000 = **12,000, which is the source's own
+//                                    crossbow science price exactly.**
+//   tier 3  `atlasGauntlets` 90,000  <- **A ROLE MATCH, NOT A RUNG MATCH, AND THE SPEC IS WRONG
+//                                    ABOUT THIS ONE.** The spec calls railgun "the source's
+//                                    science 12,000-class successor"; it is **science 150,000 on
+//                                    a 185,000 rung** (`particlePhysics`). RR's ladder tops out
+//                                    at `icathia` 135,000, so no rung match exists. Atlas
+//                                    Gauntlets is RR's late equipment tech — it already carries
+//                                    Atlas Axes and the Atlas Gauntlets upgrade — and at 90,000
+//                                    against 185,000 it sits at the same PROPORTION of its own
+//                                    tree that RR's top rung does of the source's. Reported in
+//                                    BUILD REPORT §2 rather than silently substituted.
+//
+// **ADDITIVE, INTO THE EXISTING `boosts.vigor` ACCUMULATOR, AS THREE `BOOST_MEMBERS` ENTRIES.
+// NO NEW CATEGORY** — §31 is an open question and forbids one until Jerry rules.
+//
+// Declared here, ABOVE `BOOST_MEMBERS` and above `UPGRADES`, because both read it while their
+// array literals are being built (operational rule 11, four instances and counting).
+var VIGOR_WEAPON_LINE = [
+  ["huntersDraw",   0.50, "carpentry"],       // compositeBow 0.5
+  ["latchAndLever", 0.25, "callToArms"],      // crossbow 0.25
+  ["arclightLance", 0.25, "atlasGauntlets"]   // railgun 0.25
+];
+function weaponLineSigma() { return VIGOR_WEAPON_LINE.reduce(function (a, u) { return a + u[1]; }, 0); }
+function weaponLineOf(id) {
+  for (var i = 0; i < VIGOR_WEAPON_LINE.length; i++) if (VIGOR_WEAPON_LINE[i][0] === id) return VIGOR_WEAPON_LINE[i][1];
+  return 0;
+}
+// The button text is GENERATED from the table, so the number a player reads and the number the
+// engine adds cannot drift (the anti-drift pattern the axe, saw, storage and conversion lines
+// already use). The DELIVERED figure is appended at render time by `boostDeliveryLine()`, which
+// is §33's requirement: assert and advertise what is delivered, never what is declared.
+function weaponDesc(id) {
+  return "Every wanderer brings back " + Math.round(weaponLineOf(id) * 100) +
+    "% more Vigor from the Wilds. The weapon line adds together rather than compounding.";
+}
 function lineSum(line) {
   var s = 0;
   line.forEach(function (u) { if (S.upgrades[u[0]]) s += u[1]; });
@@ -3028,7 +3123,13 @@ var BOOST_MEMBERS = [
   // v0.64 DEV NOTE 1 — re-homed from `MINERALS_LINE.quarry`. Same 5%, now on the RESOURCE.
   // `ore` is NOT a `BOOST_LIMIT` family, so it is delivered in full — see the note at
   // `MINERALS_LINE` for why the Quarry was the wrong carrier and `boosts.ore` is the right one.
-  { id: "sumpVentilation",     family: "ore",        amt: SUMP_VENTILATION_ORE, kind: "upgrade" }
+  { id: "sumpVentilation",     family: "ore",        amt: SUMP_VENTILATION_ORE, kind: "upgrade" },
+  // v0.65 PART 2.4 — the weapon line, Kittens' `manpowerJobRatio` Σ 1.00 ported rank for rank.
+  // DRIVEN FROM `VIGOR_WEAPON_LINE` so the table, the button text and the accumulator are one
+  // object. See that declaration for the source citations and the rung assignments.
+  { id: VIGOR_WEAPON_LINE[0][0], family: "vigor",    amt: VIGOR_WEAPON_LINE[0][1], kind: "upgrade" },
+  { id: VIGOR_WEAPON_LINE[1][0], family: "vigor",    amt: VIGOR_WEAPON_LINE[1][1], kind: "upgrade" },
+  { id: VIGOR_WEAPON_LINE[2][0], family: "vigor",    amt: VIGOR_WEAPON_LINE[2][1], kind: "upgrade" }
 ];
 function boostMemberOf(id) {
   for (var i = 0; i < BOOST_MEMBERS.length; i++) if (BOOST_MEMBERS[i].id === id) return BOOST_MEMBERS[i];
@@ -3065,8 +3166,14 @@ function boostMemberOf(id) {
 // +5% miner slice it used to pay inside the Petricite Quarry's own chain, on a building the
 // player cannot yet build.** Before: 0% of the game reached (the Quarry is gated on `petricite`,
 // 65,000 knowledge + 65 Morellonomicon, a later rung than the Discovery's own). After: 100%.
+// v0.65 — EDITED AGAIN, WHICH IS THE RULE WORKING. `vigor: 1.00` joins because Part 2.4 ports
+// Kittens' three-rung weapon line into `boosts.vigor`. **The delivered figure, as the rule
+// requires: vigor's raw Σ goes 5.443 -> ~1.381 at end of run** (the Training Ground's ~5.06
+// leaves, the weapon line's 1.00 arrives), **against a knee of 6.00 — so it is DELIVERED IN
+// FULL, 0% discarded, before and after.** What changes is the SIZE of the stack, not the
+// fraction of it a player receives; the rail was never the binding thing here.
 var BOOST_SIGMA_OF_RECORD = { gold: 0.45, provisions: 0.10, mana: 0.75, crystals: 0.50,
-                              devotion: 0.25, knowledge: 0.10, ore: 0.05 };
+                              devotion: 0.25, knowledge: 0.10, ore: 0.05, vigor: 1.00 };
 function boostSigmaLive() {
   var o = {};
   BOOST_MEMBERS.forEach(function (m) { o[m.family] = +(((o[m.family] || 0) + m.amt).toFixed(6)); });
@@ -3427,6 +3534,22 @@ var UPGRADES = [
   { id: "ironShodWheels", name: "Iron-Shod Wheels", cost: { steel: 120, timber: 600 }, tech: "smelting",
     lore: "The road is the same length; the cart argues less.",
     effect: wildsVigorDesc(10, true)},
+  // ==========================================================================================
+  // v0.65 PART 2.4 — THE WEAPON LINE, three rungs, Σ 1.00. See `VIGOR_WEAPON_LINE` for the
+  // source citations (`js/workshop.js:672-720`), the rung assignments and why the third is a
+  // ROLE match rather than a rung match. The materials mirror each source rung's own shape —
+  // two materials at tier 1, a single metal at tier 2, a crafted good at tier 3 — at RR's
+  // magnitudes rather than the source's numerals, which is §16's "port the mechanism and the
+  // rung; assign by role" and the trap v0.58's Chapel fell into by transliterating a price.
+  { id: "huntersDraw", name: "The Hunter's Draw", cost: { timber: 200, ore: 100 }, tech: "carpentry",
+    lore: "Horn, sinew and a winter's patience. It outranges anything that argues.",
+    effect: weaponDesc("huntersDraw")},
+  { id: "latchAndLever", name: "Latch and Lever", cost: { steel: 150 }, tech: "callToArms",
+    lore: "A child can span it. That is precisely the point.",
+    effect: weaponDesc("latchAndLever")},
+  { id: "arclightLance", name: "Arclight Lance", cost: { hexgear: 60, plating: 100 }, tech: "atlasGauntlets",
+    lore: "Piltover insists it is a surveying instrument. Zaun has stopped asking.",
+    effect: weaponDesc("arclightLance")},
   // v0.59.1 NOTE 3 — re-homed from the deleted `kindling` onto `sumpEcology`.
   { id: "bankedCoals", name: "Banked Coals", cost: { steel: 80, stoneSlab: 20 }, tech: "sumpEcology",
     lore: "A fire you never let die is a fire you never rebuild.",
@@ -3584,7 +3707,11 @@ var DISCOVERY_KNOWLEDGE_SET = [
   // NOTE `masterworkTools` IS DELIBERATELY ABSENT. It reads as a method, but it is a member of
   // both AXE_LINE and HOE_LINE — it is a TOOL rung — and the tool lines are exempt without
   // exception. A rule with one judgement call in it is a rule nobody can apply next round.
-  "clockworkBellows", "resonanceCoils", "celestialCharts", "facetedCuts"
+  "clockworkBellows", "resonanceCoils", "celestialCharts", "facetedCuts",
+  // v0.65 PART 2.4 — the weapon line. A weapon rung is a METHOD by this set's own rule (a
+  // technique someone had to work out), and the source charges science on all three. Note this
+  // membership becomes moot at Part 1, which deletes the set and prices every Discovery.
+  "huntersDraw", "latchAndLever", "arclightLance"
 ];
 (function applyDiscoveryKnowledge() {
   var techK = {};
