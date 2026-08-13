@@ -520,6 +520,35 @@ down gets quietly re-proposed by the next spec.
   rung; the generated rule sat at **0.10×**. Raised to **0.8 × K**, the low end of the file's own
   band. At most three knowledge Discoveries sit on any tech, so it is a sink and not a wall.
 
+## v0.65 — Jerry's one dev note, and it turned out to be the largest change in the project's recorded history
+
+- ~~**"Training grounds should not increase Vigor generation."**~~ — **the dev note, actioned
+  exactly as written, and the measurement is the round.** `boost: { vigor: 0.10 }` is deleted from
+  the Training Ground; `caps: { vigor: 150 }` and the cost and ratio are all unmoved, so the
+  building still does what its name says — it houses wanderers, it does not multiply their output.
+  The vigor multiplier it carried is replaced by a **weapon line at the source's own shares**:
+  Kittens' `manpowerJobRatio` upgrades pay 0.50 / 0.25 / 0.25 (`compositeBow`, `crossbow`,
+  `railgun`, `js/workshop.js:672-720`) and RR now ships The Hunter's Draw, Latch and Lever and the
+  Arclight Lance at exactly those figures. **Latch and Lever's rung matches the source TO THE
+  DIGIT** — `callToArms` 15,000 against `machinery` 15,000 — which then makes its generated
+  knowledge cost 12,000, the source's own `crossbow` science price. That agreement only happens
+  when the rung and the rate are both at parity.
+- **AND IT COST FAR MORE THAN THE NOTE OR THE SPEC EXPECTED, WHICH IS A FINDING ABOUT THE GAME AND
+  NOT ABOUT THE NOTE.** `vigorPerSec` at end of run fell **82.16 → 31.4**. Peak population fell
+  **180 → 155** on the median. And the part nobody predicted: **Era-3 raw production fell by
+  roughly five times** — zaunore 587.8 → 126.1/s, hexore 646.6 → 110.3/s, coalgas 403.4 → 78.8/s,
+  mana gross 1,351 → 384/s — **without the round touching a single Era-3 price.** The chain is
+  **vigor → expeditions → the Wilds camps pay timber, ore and furs → the Era-3 apparatus, and
+  housing**; every housing tier at every milestone reads "stock-bound — timber". **Vigor is the
+  settlement's raw-material income, laundered through the Wilds**, and no document in this project
+  said so before this round measured it. Whether that coupling is intended is Jerry's to rule on —
+  §1 of the handoff, and there is more headroom under vigor's rail than any other family has.
+- **A source correction the spec got wrong, recorded because the ledger depends on it.** The spec
+  called `railgun` *"the source's science 12,000-class successor"*. Read from the pinned clone, it
+  is **science 150,000 on a 185,000 rung** (`particlePhysics`). RR's entire ladder tops out at
+  135,000, so **no rung match exists** and the third weapon rung ships on `atlasGauntlets` (90,000)
+  as a **ROLE match**, ledgered **EASIER** rather than PARITY on exactly that basis.
+
 ## v0.64 — Jerry's four dev notes, and the one that found a shipped effect doing nothing
 
 - ~~**"Sump Ventilation improves Quarry, Quarry cannot be built yet. Let's change this to an ore
