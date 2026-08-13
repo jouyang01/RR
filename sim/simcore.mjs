@@ -433,7 +433,8 @@ export async function runSim(page, years, seed = 1) {
           // harness, from the same tables `computeRates()` reads — buildings' `boost`,
           // `BOOST_MEMBERS`, champion passives, the drake terms, and `policyBoost()`. A
           // re-derivation can drift from the thing it mirrors, so every family carries
-          // `reconciles`: the sum of its named contributors against `_knee[f].raw`, to 1e-9.
+          // `reconciles`: the sum of its named contributors against `_knee[f].raw`, compared at
+          // the precision `boostKneeFrom()` actually publishes — see the note at the tolerance.
           // **A `false` there means a contributor exists that this block does not name**, which
           // is the same guarantee the crystal decomposition's "faucet shares sum to 100%" line
           // gives, and it is the only thing that makes a share figure quotable.

@@ -232,12 +232,24 @@ check("2.2/10 — `knee._sources` decomposes EVERY family's Σ by contributor, a
   /BOOST Σ SOURCES @/.test(PACING),
   "`_members` enumerates BOOST_MEMBERS and nothing else, so a BUILDING boost — which is exactly " +
   "what dev note 1 is about — was invisible to the audit that existed");
-check("2.2/10 — ...and it RECONCILES or says so, which is what makes a share figure quotable",
-  /reconciles: Math\.abs\(sum - raw\) < 1e-6/.test(SIMCORE) &&
-  /DOES NOT RECONCILE/.test(PACING) &&
-  /THE SUM IS KEPT UNROUNDED/.test(SIMCORE),
-  "a false 'does not reconcile' is worse than none — the first run of this block cried wolf on " +
-  "its own rounding at 1.3e-5 and the fix is carrying the exact sum alongside the displayed one");
+// RE-POINTED (build report §7, item 7). This site was authored against the tolerance the block
+// SHIPPED WITH — `1e-6` against an unrounded sum — and that form is exactly what cried wolf: the
+// cause was never float drift in the sum, it was that `boostKneeFrom()` PUBLISHES `raw` already
+// rounded to four places, so an exact sum can never equal it at any float tolerance. Commit
+// 723e7cb rounds the sum the same way and sizes the tolerance to the published precision. The
+// assertion now demands the shipped behaviour — compare like for like, and carry BOTH sums —
+// rather than the intermediate form that was wrong. Superseded by: Part 2's own §10 instrument.
+check("2.2/10 — ...and it RECONCILES AT THE PUBLISHED PRECISION or says so, which is what makes a share figure quotable",
+  /const sum = \+sumExact\.toFixed\(4\)/.test(SIMCORE) &&
+  /reconciles: Math\.abs\(sum - raw\) < 1e-4/.test(SIMCORE) &&
+  /namedSum: \+sumExact\.toFixed\(6\)/.test(SIMCORE) &&
+  /COMPARE LIKE FOR LIKE/.test(SIMCORE) &&
+  /THE SUM IS KEPT UNROUNDED/.test(SIMCORE) &&
+  /DOES NOT RECONCILE/.test(PACING),
+  "a false 'does not reconcile' is worse than none — the first two runs of this block cried wolf " +
+  "at 1.3e-5 and 4.9e-5 on families that were perfectly attributed, because a 4-dp published " +
+  "figure was being compared against an exact sum. The exact sum is still carried as `namedSum`; " +
+  "only the COMPARISON is taken at the precision the source figure is published in.");
 
 // ============================================================================
 // PART 3 — THE LONGHOUSE'S PROVISIONS COMPONENT. Conditions 12, 13, 14.
